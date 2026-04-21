@@ -1,4 +1,4 @@
-![SpineLove](2.png)
+![SpineLove](1.png)
 
 # SpineLove
 
