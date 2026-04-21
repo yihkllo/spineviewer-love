@@ -1,0 +1,123 @@
+﻿
+File=文件
+Setting=设置
+Background=背景
+Audio=音频
+Play##Audio=播放##Audio
+Stop##Audio=停止##Audio
+Loop##Audio=循环##Audio
+Vol %.2f=音量 %.2f
+
+Premultiplied alpha=预乘透明度
+Alpha premultiplied=启用预乘透明度
+Blend-mode=混合模式
+Force blend mode=强制普通混合模式
+Scale=缩放
+Speed=速度
+Reset##scale=重置##scale
+Reset##timescale=重置##timescale
+Mix=混合时间
+Reset##mix=重置##mix
+
+Animations=动画列表
+Skin=皮肤
+Mix=混合
+
+Size/Flip=尺寸/翻转
+Size=尺寸
+Mirror##flip=镜像
+Rotate##flip=旋转
+Track Mix=轨道混合
+Slot=插槽
+Export=导出
+
+Window size: (%d, %d)=窗口尺寸: (%d, %d)
+Skeleton size: (%.2f, %.2f)=骨骼尺寸: (%.2f, %.2f)
+Offset: (%.2f, %.2f)=偏移: (%.2f, %.2f)
+
+Track=轨道
+Add##AddTracks2=添加##AddTracks2
+Clear##ClearTracks2=清除##ClearTracks2
+Exclude slot by items=按条目排除插槽
+Clear##ClearExcSlots2=清除##ClearExcSlots2
+Exclude slot by filter=按过滤器排除插槽
+Filter=过滤器
+Apply##FilterSlot2=应用##FilterSlot2
+Mouse slot hover=鼠标插槽悬浮
+Enable##MouseHover=启用##MouseHover
+Hovered slot: %s=悬浮插槽: %s
+Hovered slot: (none)=悬浮插槽: (无)
+Pinned slot: %s=固定插槽: %s
+Clear pin##MH=清除固定##MH
+Draw slot bounding##MH=绘制插槽边界##MH
+Thickness##MH=线宽##MH
+Colour##MH=颜色##MH
+Fit to slot (custom)##MH=自定义适配插槽##MH
+Apply##FitSlot=应用##FitSlot
+Slot bounding=插槽边界
+Slot not found in this animation.=该动画中未找到此插槽。
+Slot bounding: (%.2f, %.2f, %.2f, %.2f)=插槽边界: (%.2f, %.2f, %.2f, %.2f)
+Draw slot bounding=绘制插槽边界
+Thickness=线宽
+Colour=颜色
+Fit to this slot=适配到此插槽
+
+Stop Recording=停止录制
+Snapshot=截图
+Record=录制
+Export GIF=导出 GIF
+Export mp4=导出 mp4
+Export WebM=导出 WebM
+Export PNGs=导出 PNG 序列
+Export JPGs=导出 JPG 序列
+Export FPS=导出帧率
+Image=图片
+Video=视频
+Export method=导出方式
+Export per animation=按动画分别导出
+Alpha ON=透明度 开
+Alpha OFF=透明度 关
+Free recording ON=自由录制 开
+Free recording OFF=自由录制 关
+
+Queue=队列
++Add=+添加
+Play=播放
+Stop=停止
+Clear All=全部清除
+Clear##ClearQueue=清除全部##ClearQueue
+
+Select Folder=选择文件夹
+
+Font=字体
+Language=语言
+Theme=主题
+Close=关闭
+Back=返回
+
+Font Settings=字体设置
+Font Name:=字体名称:
+No fonts=无字体
+Font Size:=字体大小:
+Apply=应用
+
+Title BG=标题背景
+Dark Mode: ON##theme=深色模式: 开##theme
+Dark Mode: OFF##theme=深色模式: 关##theme
+Hue##theme=色相##theme
+Saturation##theme=饱和度##theme
+Brightness##theme=亮度##theme
+Hue %.2f=色相 %.2f
+Saturation %.2f=饱和度 %.2f
+Brightness %.2f=亮度 %.2f
+Reset to Default##theme=恢复默认##theme
+
+Render BG Color=渲染背景色
+Reset to Default##renderbg=恢复默认##renderbg
+
+Requires ffmpeg in PATH to export WebM=需要在 PATH 中安装 ffmpeg 才能导出 WebM
+Pro=Pro
+Pro Features=Pro Features
+To use this feature first, please open yihkllo.com.=To use this feature first, please open yihkllo.com.
+Maybe Later=Maybe Later
+Open yihkllo.com=Open yihkllo.com

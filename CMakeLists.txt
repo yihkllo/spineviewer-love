@@ -1,0 +1,30 @@
+﻿cmake_minimum_required(VERSION 3.20)
+project(spinelove LANGUAGES C CXX)
+
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+
+if(WIN32)
+    if(NOT CMAKE_GENERATOR)
+        set(CMAKE_GENERATOR "Ninja" CACHE INTERNAL "")
+    endif()
+    if(NOT CMAKE_C_COMPILER)
+        set(CMAKE_C_COMPILER "cl.exe" CACHE FILEPATH "")
+    endif()
+    if(NOT CMAKE_CXX_COMPILER)
+        set(CMAKE_CXX_COMPILER "cl.exe" CACHE FILEPATH "")
+    endif()
+    if(NOT CMAKE_BUILD_TYPE)
+        set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Build type: Debug or Release" FORCE)
+    endif()
+endif()
+
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+include(SpineLoveDeps)
+
+slove_prepare_dependencies()
+
+add_subdirectory(main/dxlib)
+add_subdirectory(main)

@@ -1,0 +1,110 @@
+﻿
+File=ファイル
+Setting=設定
+Background=背景
+Audio=音声
+Play##Audio=再生##Audio
+Stop##Audio=停止##Audio
+Loop##Audio=ループ##Audio
+Vol %.2f=音量 %.2f
+
+Premultiplied alpha=プリマルチプライドアルファ
+Alpha premultiplied=アルファ乗算済み
+Blend-mode=ブレンドモード
+Force blend mode=通常ブレンドモードを強制
+Scale=スケール
+Speed=速度
+Reset##scale=リセット##scale
+Reset##timescale=リセット##timescale
+Mix=ミックス時間
+Reset##mix=リセット##mix
+
+Animations=アニメーション一覧
+Skin=スキン
+Mix=ミックス
+
+Size/Flip=サイズ/反転
+Size=サイズ
+Mirror##flip=左右反転
+Rotate##flip=回転
+Track Mix=トラックミックス
+Slot=スロット
+Export=エクスポート
+
+Window size: (%d, %d)=ウィンドウサイズ: (%d, %d)
+Skeleton size: (%.2f, %.2f)=スケルトンサイズ: (%.2f, %.2f)
+Offset: (%.2f, %.2f)=オフセット: (%.2f, %.2f)
+
+Track=トラック
+Add##AddTracks2=追加##AddTracks2
+Clear##ClearTracks2=クリア##ClearTracks2
+Exclude slot by items=項目でスロットを除外
+Clear##ClearExcSlots2=クリア##ClearExcSlots2
+Exclude slot by filter=フィルターでスロットを除外
+Filter=フィルター
+Apply##FilterSlot2=適用##FilterSlot2
+Slot bounding=スロット境界
+Slot not found in this animation.=このアニメーションにスロットが見つかりません。
+Slot bounding: (%.2f, %.2f, %.2f, %.2f)=スロット境界: (%.2f, %.2f, %.2f, %.2f)
+Draw slot bounding=スロット境界を描画
+Thickness=線の太さ
+Colour=カラー
+Fit to this slot=このスロットに合わせる
+
+Stop Recording=録画停止
+Snapshot=スナップショット
+Record=録画
+Export GIF=GIF エクスポート
+Export mp4=mp4 エクスポート
+Export WebM=WebM エクスポート
+Export PNGs=PNG シーケンスエクスポート
+Export JPGs=JPG シーケンスエクスポート
+Export FPS=エクスポート FPS
+Image=画像
+Video=動画
+Export method=エクスポート方式
+Export per animation=アニメーションごとにエクスポート
+Alpha ON=透明度 オン
+Alpha OFF=透明度 オフ
+Free recording ON=フリー録画 オン
+Free recording OFF=フリー録画 オフ
+
+Queue=キュー
++Add=+追加
+Play=再生
+Stop=停止
+Clear All=すべてクリア
+Clear##ClearQueue=すべてクリア##ClearQueue
+
+Select Folder=フォルダを選択
+
+Font=フォント
+Language=言語
+Theme=テーマ
+Close=閉じる
+Back=戻る
+
+Font Settings=フォント設定
+Font Name:=フォント名:
+No fonts=フォントなし
+Font Size:=フォントサイズ:
+Apply=適用
+
+Title BG=タイトル背景
+Dark Mode: ON##theme=ダークモード オン##theme
+Dark Mode: OFF##theme=ダークモード オフ##theme
+Hue##theme=色相##theme
+Saturation##theme=彩度##theme
+Brightness##theme=明度##theme
+Hue %.2f=色相 %.2f
+Saturation %.2f=彩度 %.2f
+Brightness %.2f=明度 %.2f
+Reset to Default##theme=デフォルトに戻す##theme
+
+Render BG Color=描画背景色
+Reset to Default##renderbg=デフォルトに戻す##renderbg
+Pro=Pro
+Pro Features=Pro Features
+To use this feature first, please open yihkllo.com.=To use this feature first, please open yihkllo.com.
+Maybe Later=Maybe Later
+Open yihkllo.com=Open yihkllo.com

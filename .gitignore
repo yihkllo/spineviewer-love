@@ -1,0 +1,51 @@
+﻿# Visual Studio / CMake
+.vs/
+out/
+CMakeUserPresets.json
+CMakeSettings.json.user
+CMakeCache.txt
+cmake_install.cmake
+compile_commands.json
+build.ninja
+.ninja_deps
+.ninja_log
+
+# MSVC build products
+*.obj
+*.o
+*.lo
+*.slo
+*.pch
+*.pdb
+*.idb
+*.ilk
+*.iobj
+*.ipdb
+*.lib
+*.exp
+*.dll
+*.exe
+*.manifest
+*.res
+*.aps
+*.tlog
+*.lastbuildstate
+*.recipe
+
+# Visual Studio user files
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Logs / temp
+*.log
+*.tmp
+*.temp
+*.cache
+
+# Dependency bootstrap output
+outfile/
+
+# Keep source assets tracked
+!app.png

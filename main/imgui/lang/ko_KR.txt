@@ -1,0 +1,110 @@
+﻿
+File=파일
+Setting=설정
+Background=배경
+Audio=오디오
+Play##Audio=재생##Audio
+Stop##Audio=정지##Audio
+Loop##Audio=반복##Audio
+Vol %.2f=음량 %.2f
+
+Premultiplied alpha=프리멀티플라이드 알파
+Alpha premultiplied=알파 프리멀티플라이드
+Blend-mode=블렌드 모드
+Force blend mode=일반 블렌드 모드 강제
+Scale=스케일
+Speed=속도
+Reset##scale=초기화##scale
+Reset##timescale=초기화##timescale
+Mix=전환 시간
+Reset##mix=초기화##mix
+
+Animations=애니메이션 목록
+Skin=스킨
+Mix=믹스
+
+Size/Flip=크기/반전
+Size=크기
+Mirror##flip=좌우 반전
+Rotate##flip=회전
+Track Mix=트랙 믹스
+Slot=슬롯
+Export=내보내기
+
+Window size: (%d, %d)=윈도우 크기: (%d, %d)
+Skeleton size: (%.2f, %.2f)=스켈레톤 크기: (%.2f, %.2f)
+Offset: (%.2f, %.2f)=오프셋: (%.2f, %.2f)
+
+Track=트랙
+Add##AddTracks2=추가##AddTracks2
+Clear##ClearTracks2=초기화##ClearTracks2
+Exclude slot by items=항목으로 슬롯 제외
+Clear##ClearExcSlots2=초기화##ClearExcSlots2
+Exclude slot by filter=필터로 슬롯 제외
+Filter=필터
+Apply##FilterSlot2=적용##FilterSlot2
+Slot bounding=슬롯 경계
+Slot not found in this animation.=이 애니메이션에서 슬롯을 찾을 수 없습니다.
+Slot bounding: (%.2f, %.2f, %.2f, %.2f)=슬롯 경계: (%.2f, %.2f, %.2f, %.2f)
+Draw slot bounding=슬롯 경계 그리기
+Thickness=선 두께
+Colour=색상
+Fit to this slot=이 슬롯에 맞추기
+
+Stop Recording=녹화 중지
+Snapshot=스냅샷
+Record=녹화
+Export GIF=GIF 내보내기
+Export mp4=mp4 내보내기
+Export WebM=WebM 내보내기
+Export PNGs=PNG 시퀀스 내보내기
+Export JPGs=JPG 시퀀스 내보내기
+Export FPS=내보내기 FPS
+Image=이미지
+Video=비디오
+Export method=내보내기 방식
+Export per animation=애니메이션별 내보내기
+Alpha ON=투명도 켜짐
+Alpha OFF=투명도 꺼짐
+Free recording ON=자유 녹화 켜짐
+Free recording OFF=자유 녹화 꺼짐
+
+Queue=큐
++Add=+추가
+Play=재생
+Stop=정지
+Clear All=전체 초기화
+Clear##ClearQueue=전체 초기화##ClearQueue
+
+Select Folder=폴더 선택
+
+Font=폰트
+Language=언어
+Theme=테마
+Close=닫기
+Back=뒤로
+
+Font Settings=폰트 설정
+Font Name:=폰트 이름:
+No fonts=폰트 없음
+Font Size:=폰트 크기:
+Apply=적용
+
+Title BG=타이틀 배경
+Dark Mode: ON##theme=다크 모드: 켜짐##theme
+Dark Mode: OFF##theme=다크 모드: 꺼짐##theme
+Hue##theme=색조##theme
+Saturation##theme=채도##theme
+Brightness##theme=밝기##theme
+Hue %.2f=색조 %.2f
+Saturation %.2f=채도 %.2f
+Brightness %.2f=밝기 %.2f
+Reset to Default##theme=기본값으로 초기화##theme
+
+Render BG Color=렌더 배경색
+Reset to Default##renderbg=기본값으로 초기화##renderbg
+Pro=Pro
+Pro Features=Pro Features
+To use this feature first, please open yihkllo.com.=To use this feature first, please open yihkllo.com.
+Maybe Later=Maybe Later
+Open yihkllo.com=Open yihkllo.com
