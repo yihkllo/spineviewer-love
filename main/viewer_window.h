@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 #include <future>
+#include <functional>
 
 #include "spine_runtime_registry.h"
 #include "shell_dialog_service.h"
@@ -96,10 +97,35 @@ private:
 	LONG m_preFullscreenStyle = 0;
 	LONG m_preFullscreenStyleEx = 0;
 
+	enum class EWheelAction
+	{
+		None,
+		TimeScale,
+		BackgroundZoom,
+		SkeletonZoom,
+	};
+
 	bool m_isZoomDirectionReversed = false;
+	int m_mouseWheelDeltaRemainder = 0;
+	EWheelAction m_lastWheelAction = EWheelAction::None;
 
 	std::vector<std::wstring> m_folders;
 	size_t m_nFolderIndex = 0;
+	std::wstring m_favoriteCachePath;
+	std::vector<std::wstring> m_favoriteSkelFiles;
+	struct SLoadedSpineEntry
+	{
+		std::wstring skelPath;
+		std::wstring atlasPath;
+		std::string displayName;
+	};
+	std::vector<SLoadedSpineEntry> m_loadedSpineEntries;
+	std::vector<bool> m_loadedSpineVisibility;
+	bool m_showLoadedSpinePanel = false;
+	size_t m_selectedLoadedSpine = 0;
+	bool m_showFavoriteSkelFiles = false;
+	bool m_bypassLoadedSpineReplaceConfirm = false;
+	std::function<void()> m_pendingLoadedSpineReplaceAction;
 
 	bool m_hasProcessedWmPaint = false;
 	bool m_hasDragDropEnabled = false;
@@ -112,7 +138,24 @@ private:
 	void MenuOnOpenFiles();
 	void MenuOnOpenFolder();
 	void LoadFilesFromPaths(const std::vector<std::wstring>& skelFilePaths);
+	bool ConfirmExitLoadedSpineMode();
+	bool IsLoadedSpineReplaceConfirmationNeeded() const;
+	bool QueueLoadedSpineReplaceAction(std::function<void()> action);
+	void ConfirmLoadedSpineReplaceAction();
+	void CancelLoadedSpineReplaceAction();
+	bool AddSpineFromPath(const std::wstring& skelFilePath);
+	bool ResolveAtlasPathForSkeleton(const std::wstring& skelFilePath, std::wstring& atlasPath, bool& isBinarySkel);
+	void ResetLoadedSpineEntries(const std::vector<std::wstring>& skelFilePaths);
+	void SyncLoadedSpineDatum();
+	void SelectLoadedSpine(size_t index);
+	void ToggleLoadedSpineVisibility(size_t index);
+	void MoveLoadedSpineUp(size_t index);
+	void MoveLoadedSpineDown(size_t index);
 	void ScanFolderIntoList(const std::wstring& folderPath);
+	void FavoriteLoadCache();
+	void FavoriteSaveCache() const;
+	void FavoriteSyncDatum();
+	void FavoriteToggleFile(const std::wstring& path);
 	void MenuOnExtensionSetting();
 
 	void MenuOnShowToolDialogue();

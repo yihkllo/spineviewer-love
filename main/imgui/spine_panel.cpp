@@ -389,6 +389,7 @@ void spine_panel::Display(SSpineToolDatum& spineToolDatum, bool* pIsOpen)
 	if (pIsOpen == nullptr)return;
 
 	ImGuiIO& io = ImGui::GetIO();
+	static std::string s_pendingLanguageId;
 
 	static float s_currentFontSize = 0.f;
 	if (s_currentFontSize <= 0.f)
@@ -399,6 +400,69 @@ void spine_panel::Display(SSpineToolDatum& spineToolDatum, bool* pIsOpen)
 		float initScale = physW > 0 ? physW / 1920.0f : 1.0f;
 		if (initScale < 0.5f) initScale = 0.5f;
 		s_currentFontSize = 16.0f * initScale;
+	}
+	if (!s_pendingLanguageId.empty())
+	{
+		const std::string applyLangId = s_pendingLanguageId;
+		s_pendingLanguageId.clear();
+		i18n::load(i18n::detail::exeDir(), applyLangId);
+#ifdef _WIN32
+		{
+			const std::string fontsDir = GetWindowsFontsDir();
+			ImGuiIO& io2 = ImGui::GetIO();
+			const auto& fontAtlas = io2.Fonts;
+			float curFontSize = s_currentFontSize;
+
+			const std::wstring bundledFontPath = path_util::GetBundledFontPath();
+			const bool hasBundledFont = !bundledFontPath.empty();
+			const char* mainFontName = nullptr;
+			if (applyLangId == "ko_KR")
+				mainFontName = "malgun.ttf";
+			else
+				mainFontName = hasBundledFont ? nullptr : "malgun.ttf";
+			std::string mainFontPath = (mainFontName != nullptr)
+				? (fontsDir + mainFontName)
+				: win_text::NarrowUtf8(bundledFontPath);
+
+			fontAtlas->Clear();
+			const ImWchar* glyphCJK = fontAtlas->GetGlyphRangesChineseFull();
+			const ImWchar* glyphKR = fontAtlas->GetGlyphRangesKorean();
+			if (applyLangId == "ko_KR")
+			{
+				fontAtlas->AddFontFromFileTTF(mainFontPath.c_str(), curFontSize, nullptr, glyphKR);
+				ImFontConfig cfgMerge;
+				cfgMerge.MergeMode = true;
+				const std::string cjkMergePath = hasBundledFont
+					? win_text::NarrowUtf8(bundledFontPath)
+					: (fontsDir + "malgun.ttf");
+				fontAtlas->AddFontFromFileTTF(cjkMergePath.c_str(), curFontSize, &cfgMerge, glyphCJK);
+			}
+			else
+			{
+				fontAtlas->AddFontFromFileTTF(mainFontPath.c_str(), curFontSize, nullptr, glyphCJK);
+				ImFontConfig cfgMerge;
+				cfgMerge.MergeMode = true;
+				fontAtlas->AddFontFromFileTTF((fontsDir + "malgun.ttf").c_str(), curFontSize, &cfgMerge, glyphKR);
+			}
+
+			ImFont* titleBarFont = fontAtlas->AddFontFromFileTTF(
+				(fontsDir + "segoesc.ttf").c_str(), 40.0f * custom_titlebar::GetScale());
+			spineToolDatum.titleBar.customFont = titleBarFont;
+			const std::string subTitleFontPath = bundledFontPath.empty()
+				? (fontsDir + "malgun.ttf")
+				: win_text::NarrowUtf8(bundledFontPath);
+			ImFont* subTitleFont = fontAtlas->AddFontFromFileTTF(
+				subTitleFontPath.c_str(), 26.7f * custom_titlebar::GetScale(), nullptr, glyphCJK);
+			spineToolDatum.titleBar.subTitleFont = subTitleFont;
+
+			ImGuiStyle& style = ImGui::GetStyle();
+			style._NextFrameFontSizeBase = curFontSize;
+			s_currentFontSize = curFontSize;
+
+			ImGui_ImplDX11_InvalidateDeviceObjects();
+			ImGui_ImplDX11_CreateDeviceObjects();
+		}
+#endif
 	}
 	static bool s_panelsHidden = false;
 	static bool s_exportPanelOpen   = false;
@@ -1235,6 +1299,15 @@ void spine_panel::Display(SSpineToolDatum& spineToolDatum, bool* pIsOpen)
 
 		ImGui::Separator();
 		ImGui::SetWindowFontScale(1.5f);
+		bool favViewOpen = spineToolDatum.showFavoriteSkelFiles;
+		if (favViewOpen)
+			ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_TabSelected));
+		if (ImGui::Button(TR("Favorites"), ImVec2(rightBtnWidth, S(30.0f))))
+		{
+			if (spineToolDatum.onToggleFavoriteView) spineToolDatum.onToggleFavoriteView();
+		}
+		if (favViewOpen)
+			ImGui::PopStyleColor();
 		if (ImGui::Button(TR("Select Folder"), ImVec2(rightBtnWidth, S(30.0f))))
 			if (spineToolDatum.onPickFolder) spineToolDatum.onPickFolder();
 		ImGui::Separator();
@@ -1243,7 +1316,7 @@ void spine_panel::Display(SSpineToolDatum& spineToolDatum, bool* pIsOpen)
 		float fileListHeight = remainingHeight > minHeight ? remainingHeight : minHeight;
 		ImGui::BeginChild("FileList", ImVec2(-S(13.3333f), fileListHeight), false,
 			ImGuiWindowFlags_NoNav);
-			const auto& fileList = spineToolDatum.skelFileList;
+			const auto& fileList = spineToolDatum.showFavoriteSkelFiles ? spineToolDatum.favoriteSkelFileList : spineToolDatum.skelFileList;
 			static std::wstring s_lastScrolledFile;
 		for (size_t fi = 0; fi < fileList.size(); fi++)
 		{
@@ -1253,9 +1326,94 @@ void spine_panel::Display(SSpineToolDatum& spineToolDatum, bool* pIsOpen)
 			std::string name = win_text::NarrowUtf8(wname);
 
 			bool isCurrent = (wpath == spineToolDatum.currentSkelFile);
+			bool isLoaded = std::find(spineToolDatum.loadedSpineFileList.begin(),
+				spineToolDatum.loadedSpineFileList.end(), wpath) != spineToolDatum.loadedSpineFileList.end();
+			bool isFavorite = std::find(spineToolDatum.favoriteSkelFileList.begin(),
+				spineToolDatum.favoriteSkelFileList.end(), wpath) != spineToolDatum.favoriteSkelFileList.end();
 			std::string label = name + "##f" + std::to_string(fi);
-			if (ImGui::Selectable(label.c_str(), isCurrent))
+			std::string popupId = "##filePopup" + std::to_string(fi);
+			bool popupOpen = ImGui::IsPopupOpen(popupId.c_str());
+			const bool showLoadedHighlight = isLoaded && !isCurrent;
+			if (showLoadedHighlight)
+			{
+				ImGui::PushStyleColor(ImGuiCol_Header, ImGui::GetStyleColorVec4(ImGuiCol_TabSelected));
+				ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImGui::GetStyleColorVec4(ImGuiCol_HeaderHovered));
+				ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImGui::GetStyleColorVec4(ImGuiCol_TabSelected));
+			}
+			if (ImGui::Selectable(label.c_str(), isCurrent || popupOpen || showLoadedHighlight))
 				if (spineToolDatum.onPlayFile) spineToolDatum.onPlayFile(wpath);
+			if (showLoadedHighlight)
+				ImGui::PopStyleColor(3);
+
+			if (ImGui::BeginPopupContextItem(popupId.c_str()))
+			{
+				ImGui::SetWindowFontScale(1.5f);
+				ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.0f);
+				ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0.0f);
+				ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, S(4.0f)));
+
+				auto drawPopupButton = [&](const char* id, const char* text, bool drawHeart) -> bool
+				{
+					const float btnW = S(240.0f);
+					const float btnH = S(34.0f);
+					bool clicked = ImGui::Selectable(id, false, 0, ImVec2(btnW, btnH));
+
+					ImDrawList* dl = ImGui::GetWindowDrawList();
+					ImVec2 min = ImGui::GetItemRectMin();
+					ImVec2 max = ImGui::GetItemRectMax();
+					ImU32 borderCol = ImGui::GetColorU32(ImGuiCol_Border);
+					dl->AddRect(min, max, borderCol, 0.0f, 0, 1.0f);
+
+					const ImVec2 textSize = ImGui::CalcTextSize(text);
+					const float textX = min.x + S(10.0f);
+					const float textY = min.y + (btnH - textSize.y) * 0.5f;
+					dl->AddText(ImVec2(textX, textY), ImGui::GetColorU32(ImGuiCol_Text), text);
+
+					if (drawHeart)
+					{
+						const char* heart = u8"♥";
+						const ImVec2 heartSize = ImGui::CalcTextSize(heart);
+						const float heartX = max.x - heartSize.x - S(10.0f);
+						const float heartY = min.y + (btnH - heartSize.y) * 0.5f;
+						dl->AddText(ImVec2(heartX, heartY), IM_COL32(220, 40, 40, 255), heart);
+					}
+
+					return clicked;
+				};
+
+				const char* favAction = isFavorite ? TR("Unfavorite") : TR("Favorite");
+				if (drawPopupButton("##favoriteAction", favAction, false))
+				{
+					if (spineToolDatum.onToggleFavoriteFile) spineToolDatum.onToggleFavoriteFile(wpath);
+					ImGui::CloseCurrentPopup();
+				}
+				{
+					ImDrawList* dl = ImGui::GetWindowDrawList();
+					ImVec2 min = ImGui::GetItemRectMin();
+					ImVec2 max = ImGui::GetItemRectMax();
+					const char* heart = isFavorite ? u8"♥" : u8"♡";
+					const float heartFontSize = ImGui::GetFontSize() * 1.25f;
+					const ImVec2 heartSizeBase = ImGui::CalcTextSize(heart);
+					const ImVec2 heartSize(heartSizeBase.x * 1.25f, heartSizeBase.y * 1.25f);
+					const float heartX = max.x - heartSize.x - S(10.0f);
+					const float heartY = min.y + (S(34.0f) - heartSize.y) * 0.5f;
+					const ImU32 heartColor = isFavorite ? IM_COL32(220, 40, 40, 255) : IM_COL32(210, 210, 210, 255);
+					dl->AddText(ImGui::GetFont(), heartFontSize, ImVec2(heartX, heartY), heartColor, heart);
+				}
+				if (drawPopupButton("##openContainingFolder", TR("Open Containing Folder"), false))
+				{
+					if (spineToolDatum.onOpenFileFolder) spineToolDatum.onOpenFileFolder(wpath);
+					ImGui::CloseCurrentPopup();
+				}
+				if (drawPopupButton("##addSpine", TR("Add Spine"), false))
+				{
+					if (spineToolDatum.onAddSpineFromFile) spineToolDatum.onAddSpineFromFile(wpath);
+					ImGui::CloseCurrentPopup();
+				}
+
+				ImGui::PopStyleVar(3);
+				ImGui::EndPopup();
+			}
 
 
 			if (isCurrent && s_lastScrolledFile != wpath)
@@ -1295,12 +1453,154 @@ void spine_panel::Display(SSpineToolDatum& spineToolDatum, bool* pIsOpen)
 	ImGui::PopStyleVar();
 	ImGui::PopStyleVar();
 
+	if (spineToolDatum.showLoadedSpinePanel && !spineToolDatum.loadedSpineNames.empty())
+	{
+		static bool s_loadedSpinesOverlayInit = false;
+		static ImVec2 s_loadedSpinesOverlayPos;
+		const float sceneWindowW = exportPanelWidth + S(56.0f);
+		const float itemHeight = S(32.0f);
+		const float itemSpacingY = ImGui::GetStyle().ItemSpacing.y;
+		const size_t visibleCount = (std::min)(size_t(8), spineToolDatum.loadedSpineNames.size());
+		const float listHeight =
+			static_cast<float>(visibleCount) * itemHeight +
+			(static_cast<float>(visibleCount > 0 ? visibleCount - 1 : 0) * itemSpacingY);
+		const float sceneWindowH = S(66.0f) + listHeight;
+
+		if (!s_loadedSpinesOverlayInit)
+		{
+			s_loadedSpinesOverlayPos = ImVec2(io.DisplaySize.x - sceneWindowW - S(10.0f), tbH + S(10.0f));
+			s_loadedSpinesOverlayInit = true;
+		}
+
+		ImGui::SetNextWindowPos(s_loadedSpinesOverlayPos, ImGuiCond_Once);
+		ImGui::SetNextWindowSize(ImVec2(sceneWindowW, sceneWindowH), ImGuiCond_Always);
+		ImGui::SetNextWindowBgAlpha(0.95f);
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10, 10));
+		if (ImGui::Begin("##LoadedSpinesOverlay", nullptr,
+			ImGuiWindowFlags_NoTitleBar |
+			ImGuiWindowFlags_NoResize |
+			ImGuiWindowFlags_NoCollapse |
+			ImGuiWindowFlags_NoSavedSettings))
+		{
+			s_loadedSpinesOverlayPos = ImGui::GetWindowPos();
+			ImGui::SetWindowFontScale(1.5f);
+
+			ImVec4 headerColor = ImGui::GetStyleColorVec4(ImGuiCol_Header);
+			ImVec4 headerHovered = ImGui::GetStyleColorVec4(ImGuiCol_HeaderHovered);
+			ImVec4 headerActive = ImGui::GetStyleColorVec4(ImGuiCol_HeaderActive);
+			ImGui::PushStyleColor(ImGuiCol_Button, headerColor);
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, headerHovered);
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive, headerActive);
+
+			ImGui::SeparatorText("Spines");
+			ImGui::BeginChild("##LoadedSpinesOverlayList", ImVec2(0.f, listHeight), false, ImGuiWindowFlags_AlwaysVerticalScrollbar);
+			for (size_t i = 0; i < spineToolDatum.loadedSpineNames.size(); ++i)
+			{
+				const bool selected = static_cast<int>(i) == spineToolDatum.selectedLoadedSpine;
+				const bool isVisible = i < spineToolDatum.loadedSpineVisibility.size() ? spineToolDatum.loadedSpineVisibility[i] : true;
+				const float layerWidth = S(46.0f);
+				const float toggleWidth = S(32.0f);
+				const float selectWidth = ImGui::GetContentRegionAvail().x - layerWidth - toggleWidth - S(12.0f);
+				const float arrowWidth = S(20.0f);
+				const float arrowHeight = itemHeight;
+				const float arrowFontSize = ImGui::GetFontSize() * 1.2f;
+				const float rowStartY = ImGui::GetCursorPosY();
+				ImGui::BeginGroup();
+				ImGui::BeginDisabled(i == 0);
+				if (ImGui::Button(("##loaded_spine_up_" + std::to_string(i)).c_str(), ImVec2(arrowWidth, arrowHeight)))
+				{
+					if (spineToolDatum.onMoveLoadedSpineUp)
+						spineToolDatum.onMoveLoadedSpineUp(i);
+				}
+				{
+					ImDrawList* dl = ImGui::GetWindowDrawList();
+					ImVec2 min = ImGui::GetItemRectMin();
+					ImVec2 max = ImGui::GetItemRectMax();
+					const char* arrow = u8"↑";
+					const ImVec2 textSize = ImGui::CalcTextSize(arrow);
+					const float textX = min.x + (max.x - min.x - textSize.x * 1.2f) * 0.5f;
+					const float textY = min.y + (max.y - min.y - textSize.y * 1.2f) * 0.5f;
+					dl->AddText(ImGui::GetFont(), arrowFontSize, ImVec2(textX, textY), ImGui::GetColorU32(ImGuiCol_Text), arrow);
+				}
+				ImGui::EndDisabled();
+				ImGui::SameLine(0.0f, S(2.0f));
+				ImGui::BeginDisabled(i + 1 >= spineToolDatum.loadedSpineNames.size());
+				if (ImGui::Button(("##loaded_spine_down_" + std::to_string(i)).c_str(), ImVec2(arrowWidth, arrowHeight)))
+				{
+					if (spineToolDatum.onMoveLoadedSpineDown)
+						spineToolDatum.onMoveLoadedSpineDown(i);
+				}
+				{
+					ImDrawList* dl = ImGui::GetWindowDrawList();
+					ImVec2 min = ImGui::GetItemRectMin();
+					ImVec2 max = ImGui::GetItemRectMax();
+					const char* arrow = u8"↓";
+					const ImVec2 textSize = ImGui::CalcTextSize(arrow);
+					const float textX = min.x + (max.x - min.x - textSize.x * 1.2f) * 0.5f;
+					const float textY = min.y + (max.y - min.y - textSize.y * 1.2f) * 0.5f;
+					dl->AddText(ImGui::GetFont(), arrowFontSize, ImVec2(textX, textY), ImGui::GetColorU32(ImGuiCol_Text), arrow);
+				}
+				ImGui::EndDisabled();
+				ImGui::EndGroup();
+				ImGui::SameLine(0.0f, S(6.0f));
+				ImGui::SetCursorPosY(rowStartY);
+				if (selected)
+				{
+					ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
+					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
+					ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
+				}
+				if (!isVisible)
+					ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 0.55f);
+
+				const std::string loadedSpineButtonId = "##loaded_spine_" + std::to_string(i);
+				if (ImGui::Button(loadedSpineButtonId.c_str(), ImVec2(selectWidth, itemHeight)))
+				{
+					if (spineToolDatum.onSelectLoadedSpine)
+						spineToolDatum.onSelectLoadedSpine(i);
+				}
+				{
+					ImDrawList* dl = ImGui::GetWindowDrawList();
+					const ImVec2 btnMin = ImGui::GetItemRectMin();
+					const ImVec2 btnMax = ImGui::GetItemRectMax();
+					const float nameFontSize = ImGui::GetFontSize() * 1.15f;
+					const char* label = spineToolDatum.loadedSpineNames[i].c_str();
+					const ImVec2 textSize = ImGui::CalcTextSize(label);
+					const float textX = btnMin.x + (selectWidth - textSize.x) * 0.5f;
+					const float textY = btnMin.y + (itemHeight - nameFontSize) * 0.5f;
+					dl->PushClipRect(btnMin, btnMax, true);
+					dl->AddText(ImGui::GetFont(), nameFontSize, ImVec2(textX, textY), ImGui::GetColorU32(ImGuiCol_Text), label);
+					dl->PopClipRect();
+				}
+				if (!isVisible)
+					ImGui::PopStyleVar();
+
+				if (selected)
+					ImGui::PopStyleColor(3);
+
+				ImGui::SameLine(0.0f, S(6.0f));
+				bool visibleState = isVisible;
+				ImGui::SetCursorPosY(rowStartY + (itemHeight - ImGui::GetFrameHeight()) * 0.5f);
+				if (ImGui::Checkbox(("##loaded_spine_toggle_" + std::to_string(i)).c_str(), &visibleState))
+				{
+					if (spineToolDatum.onToggleLoadedSpineVisibility)
+						spineToolDatum.onToggleLoadedSpineVisibility(i);
+				}
+			}
+			ImGui::EndChild();
+
+			ImGui::PopStyleColor(3);
+		}
+		ImGui::End();
+		ImGui::PopStyleVar();
+	}
+
 
 	if (!s_panelsHidden)
 	{
 		static bool s_splitterDragging = false;
 		const float splitterW = S(10.0f);
-		const float tbH2 = custom_titlebar::TitleBarHeight();
+		const float tbH2 = spineToolDatum.isFullscreen ? 0.f : custom_titlebar::TitleBarHeight();
 
 		const float splX = leftPanelWidth + rightPanelWidth + S(5.3f);
 		const ImVec2 mp = io.MousePos;
@@ -1585,6 +1885,10 @@ void spine_panel::Display(SSpineToolDatum& spineToolDatum, bool* pIsOpen)
 		showSettingWindow = false;
 		settingPage = 0;
 	}
+	static bool showLoadedSpineReplaceConfirmPrev = false;
+	if (spineToolDatum.showLoadedSpineReplaceConfirm && !showLoadedSpineReplaceConfirmPrev)
+		ImGui::OpenPopup((std::string(TR("Warning")) + "##LoadedSpineReplaceConfirm").c_str());
+	showLoadedSpineReplaceConfirmPrev = spineToolDatum.showLoadedSpineReplaceConfirm;
 
 	if (showProWindow)
 	{
@@ -1661,7 +1965,7 @@ void spine_panel::Display(SSpineToolDatum& spineToolDatum, bool* pIsOpen)
 		else if (settingPage == 2)
 		{
 
-			ImGui::Text("Language Settings");
+			ImGui::Text("%s", TR("Language Settings"));
 			ImGui::Separator();
 			ImGui::Spacing();
 
@@ -1691,76 +1995,9 @@ void spine_panel::Display(SSpineToolDatum& spineToolDatum, bool* pIsOpen)
 					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
 				}
 			if (ImGui::Button(i18n::displayName(id), ImVec2(btnW, S(53.3f))))
-				{
-			i18n::load(i18n::detail::exeDir(), id);
-#ifdef _WIN32
-
-					{
-						const std::string fontsDir = GetWindowsFontsDir();
-						ImGuiIO& io = ImGui::GetIO();
-						const auto& fontAtlas = io.Fonts;
-						float curFontSize = s_currentFontSize;
-
-						const std::wstring bundledFontPath = path_util::GetBundledFontPath();
-						const bool hasBundledFont = !bundledFontPath.empty();
-						const char* mainFontName = nullptr;
-						if (id == "ko_KR")
-						{
-
-							mainFontName = "malgun.ttf";
-						}
-						else
-						{
-
-							mainFontName = hasBundledFont ? nullptr : "malgun.ttf";
-						}
-						std::string mainFontPath = (mainFontName != nullptr)
-							? (fontsDir + mainFontName)
-							: win_text::NarrowUtf8(bundledFontPath);
-
-						fontAtlas->Clear();
-						const ImWchar* glyphCJK = fontAtlas->GetGlyphRangesChineseFull();
-						const ImWchar* glyphKR = fontAtlas->GetGlyphRangesKorean();
-						if (id == "ko_KR")
-						{
-							fontAtlas->AddFontFromFileTTF(mainFontPath.c_str(), curFontSize, nullptr, glyphKR);
-
-							ImFontConfig cfgMerge;
-							cfgMerge.MergeMode = true;
-							const std::string cjkMergePath = hasBundledFont
-								? win_text::NarrowUtf8(bundledFontPath)
-								: (fontsDir + "malgun.ttf");
-							fontAtlas->AddFontFromFileTTF(cjkMergePath.c_str(), curFontSize, &cfgMerge, glyphCJK);
-						}
-						else
-						{
-							fontAtlas->AddFontFromFileTTF(mainFontPath.c_str(), curFontSize, nullptr, glyphCJK);
-
-							ImFontConfig cfgMerge;
-							cfgMerge.MergeMode = true;
-							fontAtlas->AddFontFromFileTTF((fontsDir + "malgun.ttf").c_str(), curFontSize, &cfgMerge, glyphKR);
-						}
-
-
-						ImFont* titleBarFont = fontAtlas->AddFontFromFileTTF(
-							(fontsDir + "segoesc.ttf").c_str(), 40.0f * custom_titlebar::GetScale());
-						spineToolDatum.titleBar.customFont = titleBarFont;
-						const std::string subTitleFontPath = bundledFontPath.empty()
-							? (fontsDir + "malgun.ttf")
-							: win_text::NarrowUtf8(bundledFontPath);
-						ImFont* subTitleFont = fontAtlas->AddFontFromFileTTF(
-							subTitleFontPath.c_str(), 26.7f * custom_titlebar::GetScale(), nullptr, glyphCJK);
-						spineToolDatum.titleBar.subTitleFont = subTitleFont;
-
-						ImGuiStyle& style = ImGui::GetStyle();
-						style._NextFrameFontSizeBase = curFontSize;
-						s_currentFontSize = curFontSize;
-
-						ImGui_ImplDX11_InvalidateDeviceObjects();
-						ImGui_ImplDX11_CreateDeviceObjects();
-					}
-#endif
-				}
+			{
+				s_pendingLanguageId = id;
+			}
 				if (isCurrent) ImGui::PopStyleColor(2);
 				ImGui::Spacing();
 			}
@@ -1901,7 +2138,6 @@ void spine_panel::Display(SSpineToolDatum& spineToolDatum, bool* pIsOpen)
 			if (changed)
 				applyTheme(s_hue, s_sat, s_val, s_darkMode);
 
-			// Font size slider + Apply
 			{
 				static float s_fontSizeSlider = 0.f;
 				if (s_fontSizeSlider <= 0.f)
@@ -2063,6 +2299,33 @@ void spine_panel::Display(SSpineToolDatum& spineToolDatum, bool* pIsOpen)
 	else
 	{
 		spineToolDatum.isSettingWindowOpen = false;
+	}
+
+	ImGui::SetNextWindowPos(center, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+	ImGui::SetNextWindowSize(ImVec2(S(760.f), S(250.f)));
+	if (ImGui::BeginPopupModal((std::string(TR("Warning")) + "##LoadedSpineReplaceConfirm").c_str(), nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollWithMouse))
+	{
+		ImGui::SetWindowFontScale(1.5f);
+		ImGui::Dummy(ImVec2(0, S(10.f)));
+		ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x);
+		if (!spineToolDatum.loadedSpineReplaceConfirmMessage.empty())
+			ImGui::TextUnformatted(TR(spineToolDatum.loadedSpineReplaceConfirmMessage.c_str()));
+		ImGui::PopTextWrapPos();
+
+		const float buttonW = (ImGui::GetContentRegionAvail().x - S(12.f)) * 0.5f;
+		ImGui::SetCursorPosY(ImGui::GetWindowHeight() - S(68.f));
+		if (ImGui::Button(TR("Cancel"), ImVec2(buttonW, S(46.f))))
+		{
+			if (spineToolDatum.onCancelLoadedSpineReplace) spineToolDatum.onCancelLoadedSpineReplace();
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::SameLine(0, S(12.f));
+		if (ImGui::Button(TR("Continue"), ImVec2(buttonW, S(46.f))))
+		{
+			if (spineToolDatum.onConfirmLoadedSpineReplace) spineToolDatum.onConfirmLoadedSpineReplace();
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::EndPopup();
 	}
 
 

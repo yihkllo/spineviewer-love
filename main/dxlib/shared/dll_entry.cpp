@@ -44,8 +44,13 @@ public:
 	bool loadSpineFromFile(const std::vector<std::string>& atlasPaths, const std::vector<std::string>& skelPaths, bool isBinarySkel) override;
 	bool loadSpineFromMemory(const std::vector<std::string>& atlasData, const std::vector<std::string>& textureDirectories, const std::vector<std::string>& skelData, bool isBinarySkel) override;
 	bool addSpineFromFile(const char* szAtlasPath, const char* szSkelPath, bool isBinarySkel) override;
-
 	size_t getNumberOfSpines() const noexcept override;
+	size_t getSelectedSpineIndex() const noexcept override;
+	bool setSelectedSpineIndex(size_t index) noexcept override;
+	bool isSpineVisible(size_t index) const noexcept override;
+	bool setSpineVisible(size_t index, bool visible) noexcept override;
+	bool moveSpineUp(size_t index) noexcept override;
+	bool moveSpineDown(size_t index) noexcept override;
 	bool hasSpineBeenLoaded() const noexcept override;
 
 	void update(float fDelta) override;
@@ -80,6 +85,7 @@ public:
 
 	std::string getCurrentAnimationName() override;
 	std::string getCurrentSkinName() override;
+	std::string getLastError() const override;
 	void getCurrentAnimationTime(float* fTrack, float* fLast, float* fStart, float* fEnd) override;
 	float getAnimationDuration(const char* animationName) override;
 
@@ -104,6 +110,8 @@ public:
 
 	float getSkeletonScale() const noexcept override;
 	void setSkeletonScale(float fScale) override;
+	float getSkeletonScaleAt(size_t index) const noexcept override;
+	bool setSkeletonScaleAt(size_t index, float fScale) noexcept override;
 
 	float getCanvasScale() const noexcept override;
 	void setCanvasScale(float fScale) override;
@@ -165,6 +173,36 @@ bool SPCLASS::addSpineFromFile(const char* szAtlasPath, const char* szSkelPath, 
 size_t SPCLASS::getNumberOfSpines() const noexcept
 {
 	return m_dxLibSpinePlayer.getNumberOfSpines();
+}
+
+size_t SPCLASS::getSelectedSpineIndex() const noexcept
+{
+	return m_dxLibSpinePlayer.getSelectedSpineIndex();
+}
+
+bool SPCLASS::setSelectedSpineIndex(size_t index) noexcept
+{
+	return m_dxLibSpinePlayer.setSelectedSpineIndex(index);
+}
+
+bool SPCLASS::isSpineVisible(size_t index) const noexcept
+{
+	return m_dxLibSpinePlayer.isSpineVisible(index);
+}
+
+bool SPCLASS::setSpineVisible(size_t index, bool visible) noexcept
+{
+	return m_dxLibSpinePlayer.setSpineVisible(index, visible);
+}
+
+bool SPCLASS::moveSpineUp(size_t index) noexcept
+{
+	return m_dxLibSpinePlayer.moveSpineUp(index);
+}
+
+bool SPCLASS::moveSpineDown(size_t index) noexcept
+{
+	return m_dxLibSpinePlayer.moveSpineDown(index);
 }
 
 bool SPCLASS::hasSpineBeenLoaded() const noexcept
@@ -287,6 +325,11 @@ std::string SPCLASS::getCurrentSkinName()
 	return m_dxLibSpinePlayer.getCurrentSkinName();
 }
 
+std::string SPCLASS::getLastError() const
+{
+	return m_dxLibSpinePlayer.getLastError();
+}
+
 float SPCLASS::getAnimationDuration(const char* animationName)
 {
 	return m_dxLibSpinePlayer.getAnimationDuration(animationName);
@@ -376,6 +419,16 @@ float SPCLASS::getSkeletonScale() const noexcept
 void SPCLASS::setSkeletonScale(float fScale)
 {
 	m_dxLibSpinePlayer.setSkeletonScale(fScale);
+}
+
+float SPCLASS::getSkeletonScaleAt(size_t index) const noexcept
+{
+	return m_dxLibSpinePlayer.getSkeletonScaleAt(index);
+}
+
+bool SPCLASS::setSkeletonScaleAt(size_t index, float fScale) noexcept
+{
+	return m_dxLibSpinePlayer.setSkeletonScaleAt(index, fScale);
 }
 
 float SPCLASS::getCanvasScale() const noexcept

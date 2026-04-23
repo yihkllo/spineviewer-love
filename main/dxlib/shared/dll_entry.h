@@ -1,5 +1,5 @@
-﻿#ifndef SPINELOVE_DXLIB_SHARED_DLL_ENTRY_H_
-#define SPINELOVE_DXLIB_SHARED_DLL_ENTRY_H_
+﻿#ifndef SPINE_PLAYER_DLL_H_
+#define SPINE_PLAYER_DLL_H_
 
 #include <string>
 #include <vector>
@@ -28,10 +28,15 @@ public:
 
 	virtual bool loadSpineFromFile(const std::vector<std::string>& atlasPaths, const std::vector<std::string>& skelPaths, bool isBinarySkel) = 0;
 	virtual bool loadSpineFromMemory(const std::vector<std::string>& atlasData, const std::vector<std::string>& textureDirectories, const std::vector<std::string>& skelData, bool isBinarySkel) = 0;
-
 	virtual bool addSpineFromFile(const char* szAtlasPath, const char* szSkelPath, bool isBinarySkel) = 0;
 
 	virtual size_t getNumberOfSpines() const noexcept = 0;
+	virtual size_t getSelectedSpineIndex() const noexcept = 0;
+	virtual bool setSelectedSpineIndex(size_t index) noexcept = 0;
+	virtual bool isSpineVisible(size_t index) const noexcept = 0;
+	virtual bool setSpineVisible(size_t index, bool visible) noexcept = 0;
+	virtual bool moveSpineUp(size_t index) noexcept = 0;
+	virtual bool moveSpineDown(size_t index) noexcept = 0;
 	virtual bool hasSpineBeenLoaded() const noexcept = 0;
 
 	virtual void update(float fDelta) = 0;
@@ -53,10 +58,8 @@ public:
 	virtual void setSkinByName(const char* szSkinName) = 0;
 	virtual void setupSkin() = 0;
 
-
 	virtual void togglePma() = 0;
 	virtual void toggleBlendModeAdoption() = 0;
-
 
 	virtual bool isAlphaPremultiplied(size_t nDrawableIndex = 0) = 0;
 	virtual bool isBlendModeNormalForced(size_t nDrawableIndex = 0) = 0;
@@ -68,6 +71,7 @@ public:
 
 	virtual std::string getCurrentAnimationName() = 0;
 	virtual std::string getCurrentSkinName() = 0;
+	virtual std::string getLastError() const = 0;
 	virtual void getCurrentAnimationTime(float* fTrack, float* fLast, float* fStart, float* fEnd) = 0;
 	virtual float getAnimationDuration(const char* animationName) = 0;
 
@@ -80,10 +84,8 @@ public:
 	virtual void addAnimationTracks(const std::vector<std::string>& animationNames, bool loop = false) = 0;
 	virtual void setSlotExcludeCallback(bool (*pFunc)(const char*, size_t)) = 0;
 
-
 	virtual std::unordered_map<std::string, std::vector<std::string>> getSlotNamesWithTheirAttachments() = 0;
 	virtual bool replaceAttachment(const char* szSlotName, const char* szAttachmentName) = 0;
-
 
 	virtual DxLib::FLOAT2 getBaseSize() const noexcept = 0;
 	virtual void setBaseSize(float fWidth, float fHeight) = 0;
@@ -94,6 +96,8 @@ public:
 
 	virtual float getSkeletonScale() const noexcept = 0;
 	virtual void setSkeletonScale(float fScale) = 0;
+	virtual float getSkeletonScaleAt(size_t index) const noexcept = 0;
+	virtual bool setSkeletonScaleAt(size_t index, float fScale) noexcept = 0;
 
 	virtual float getCanvasScale() const noexcept = 0;
 	virtual void setCanvasScale(float fScale) = 0;
@@ -140,5 +144,4 @@ extern "C" SPINE_EXTERN void DestroySpinePlayer40(ISpinePlayer* pSpinePlayer);
 extern "C" SPINE_EXTERN void DestroySpinePlayer41(ISpinePlayer* pSpinePlayer);
 extern "C" SPINE_EXTERN void DestroySpinePlayer42(ISpinePlayer* pSpinePlayer);
 
-#endif
-
+#endif // !SPINE_PLAYER_DLL_H_

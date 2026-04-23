@@ -32,6 +32,7 @@ namespace spine_panel
 		std::function<void()> onExtensionSetting;
 		std::function<void()> onShowTool;
 		std::function<void()> onFontSetting;
+		std::function<void(const std::wstring&)> onAddSpineFromFile;
 		std::function<void()> onWindowSettings;
 		std::function<void()> onAllowDragResize;
 		std::function<void()> onReverseZoom;
@@ -61,10 +62,29 @@ namespace spine_panel
 
 
 		std::vector<std::wstring> skelFileList;
+		std::vector<std::wstring> favoriteSkelFileList;
+		std::vector<std::wstring> loadedSpineFileList;
+		std::vector<std::string> loadedSpineNames;
+		std::vector<bool> loadedSpineVisibility;
+		bool showLoadedSpinePanel = false;
+		int selectedLoadedSpine = 0;
+		bool showLoadedSpineReplaceConfirm = false;
+		std::string loadedSpineReplaceConfirmTitle = "Warning";
+		std::string loadedSpineReplaceConfirmMessage;
+		bool showFavoriteSkelFiles = false;
 		std::wstring currentSkelFile;
 		std::string currentFileName;
 		std::function<void()> onPickFolder;
+		std::function<void()> onToggleFavoriteView;
+		std::function<void(const std::wstring&)> onToggleFavoriteFile;
+		std::function<void(const std::wstring&)> onOpenFileFolder;
 		std::function<void(const std::wstring&)> onPlayFile;
+		std::function<void(size_t)> onSelectLoadedSpine;
+		std::function<void(size_t)> onToggleLoadedSpineVisibility;
+		std::function<void(size_t)> onMoveLoadedSpineUp;
+		std::function<void(size_t)> onMoveLoadedSpineDown;
+		std::function<void()> onConfirmLoadedSpineReplace;
+		std::function<void()> onCancelLoadedSpineReplace;
 
 
 		std::function<void()> onSnapPng;

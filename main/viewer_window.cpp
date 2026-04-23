@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <future>
 #include <chrono>
+#include <cstdio>
 
 #include "viewer_window.h"
 
@@ -54,6 +55,21 @@ struct SDxLibRenderTarget
 
 namespace
 {
+	std::wstring GetExecutableDirectory()
+	{
+		wchar_t exePath[MAX_PATH] = {};
+		::GetModuleFileNameW(nullptr, exePath, MAX_PATH);
+		wchar_t* pSlash = ::wcsrchr(exePath, L'\\');
+		if (pSlash) *pSlash = L'\0';
+		return exePath;
+	}
+
+	bool FileExistsW(const std::wstring& path)
+	{
+		DWORD attr = ::GetFileAttributesW(path.c_str());
+		return attr != INVALID_FILE_ATTRIBUTES && (attr & FILE_ATTRIBUTE_DIRECTORY) == 0;
+	}
+
 	struct SPlaybackSnapshot
 	{
 		bool hadLoaded = false;
@@ -333,6 +349,11 @@ LRESULT CMainWindow::OnCreate(HWND hWnd)
 	m_spineToolDatum.onFitToManualSize = [this]() { MenuOnFiToManualSize(); };
 	m_spineToolDatum.onFitToDefaultSize = [this]() { MenuOnFitToDefaultSize(); };
 	m_spineToolDatum.onPickFolder = [this]() {
+		if (m_showFavoriteSkelFiles)
+		{
+			m_showFavoriteSkelFiles = false;
+			FavoriteSyncDatum();
+		}
 		SModalGuard guard(m_isModalOpen);
 		::LockWindowUpdate(m_hWnd);
 		std::wstring folder = m_fileDialogs.PickFolder(m_hWnd);
@@ -342,12 +363,51 @@ LRESULT CMainWindow::OnCreate(HWND hWnd)
 		ScanFolderIntoList(folder);
 	};
 	m_spineToolDatum.onPlayFile = [this](const std::wstring& path) {
+		auto action = [this, path]() {
 		m_spineToolDatum.currentSkelFile = path;
 
 		std::string stem = ExtractStemUtf8(path);
 		m_spineToolDatum.currentFileName = stem;
 		m_spineToolDatum.titleBar.subTitle = stem;
 		LoadFilesFromPaths({ path });
+		};
+		if (QueueLoadedSpineReplaceAction(action)) return;
+		action();
+	};
+	m_spineToolDatum.onAddSpineFromFile = [this](const std::wstring& path) {
+		AddSpineFromPath(path);
+	};
+	m_spineToolDatum.onSelectLoadedSpine = [this](size_t index) {
+		SelectLoadedSpine(index);
+	};
+	m_spineToolDatum.onToggleLoadedSpineVisibility = [this](size_t index) {
+		ToggleLoadedSpineVisibility(index);
+	};
+	m_spineToolDatum.onMoveLoadedSpineUp = [this](size_t index) {
+		MoveLoadedSpineUp(index);
+	};
+	m_spineToolDatum.onMoveLoadedSpineDown = [this](size_t index) {
+		MoveLoadedSpineDown(index);
+	};
+	m_spineToolDatum.onConfirmLoadedSpineReplace = [this]() {
+		ConfirmLoadedSpineReplaceAction();
+	};
+	m_spineToolDatum.onCancelLoadedSpineReplace = [this]() {
+		CancelLoadedSpineReplaceAction();
+	};
+	m_spineToolDatum.onToggleFavoriteView = [this]() {
+		m_showFavoriteSkelFiles = !m_showFavoriteSkelFiles;
+		FavoriteSyncDatum();
+	};
+	m_spineToolDatum.onToggleFavoriteFile = [this](const std::wstring& path) {
+		FavoriteToggleFile(path);
+	};
+	m_spineToolDatum.onOpenFileFolder = [this](const std::wstring& path) {
+		size_t slash = path.find_last_of(L"\\/");
+		if (slash == std::wstring::npos) return;
+		std::wstring folderPath = path.substr(0, slash);
+		if (folderPath.empty()) return;
+		::ShellExecuteW(m_hWnd, L"open", folderPath.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
 	};
 	m_spineToolDatum.onSnapPng = [this]() { MenuOnSaveAsPng(); };
 	m_spineToolDatum.onSnapJpg = [this]() { MenuOnSaveAsJpg(); };
@@ -391,6 +451,10 @@ LRESULT CMainWindow::OnCreate(HWND hWnd)
 	m_spineToolDatum.onAudioPrev = [this]() { MenuOnAudioPrev(); };
 	m_spineToolDatum.onAudioNext = [this]() { MenuOnAudioNext(); };
 	m_spineToolDatum.onToggleAudioAuto = [this]() { MenuOnToggleAudioAuto(); };
+
+	m_favoriteCachePath = GetExecutableDirectory() + L"\\spine_favorites.txt";
+	FavoriteLoadCache();
+	FavoriteSyncDatum();
 	m_spineToolDatum.onSetAudioVolume = [this](float vol) {
 		if (m_pAudioPlayer) m_pAudioPlayer->SetCurrentVolume(static_cast<double>(vol));
 	};
@@ -698,20 +762,42 @@ LRESULT CMainWindow::OnMouseWheel(WPARAM wParam, LPARAM lParam)
 {
 	if (m_spineToolDatum.isSettingWindowOpen) return 0;
 
-
 	POINT pt{};
 	::GetCursorPos(&pt);
 	::ScreenToClient(m_hWnd, &pt);
 	if (pt.x < 650) return 0;
 
-	short scroll = -static_cast<short>(HIWORD(wParam)) / WHEEL_DELTA;
 	WORD usKey = LOWORD(wParam);
+	const short wheelDelta = GET_WHEEL_DELTA_WPARAM(wParam);
+	EWheelAction wheelAction = EWheelAction::None;
+
+	if ((usKey & MK_LBUTTON) && !(usKey & MK_CONTROL))
+		wheelAction = EWheelAction::TimeScale;
+	else if (::GetKeyState(VK_CONTROL) & 0x8000)
+		wheelAction = EWheelAction::BackgroundZoom;
+	else if (m_dxLibSpinePlayer.ActiveRuntime()->hasSpineBeenLoaded())
+		wheelAction = EWheelAction::SkeletonZoom;
+	else
+		return 0;
+
+	if (m_lastWheelAction != wheelAction)
+	{
+		m_mouseWheelDeltaRemainder = 0;
+		m_lastWheelAction = wheelAction;
+	}
+
+	m_mouseWheelDeltaRemainder += wheelDelta;
+	const int wheelSteps = m_mouseWheelDeltaRemainder / WHEEL_DELTA;
+	m_mouseWheelDeltaRemainder %= WHEEL_DELTA;
+	if (wheelSteps == 0) return 0;
+
 	if ((usKey & MK_LBUTTON) && !(usKey & MK_CONTROL))
 	{
 		static constexpr float kTimeScaleDelta = 0.05f;
-		const float scrollSign = scroll > 0 ? 1.f : -1.f;
+		const float scrollSign = wheelSteps > 0 ? -1.f : 1.f;
 
-		float timeScale = m_dxLibSpinePlayer.ActiveRuntime()->getTimeScale() + kTimeScaleDelta * scrollSign;
+		float timeScale = m_dxLibSpinePlayer.ActiveRuntime()->getTimeScale()
+			+ kTimeScaleDelta * static_cast<float>(std::abs(wheelSteps)) * scrollSign;
 		timeScale = (std::max)(0.f, (std::min)(5.f, timeScale));
 		m_dxLibSpinePlayer.ActiveRuntime()->setTimeScale(timeScale);
 
@@ -724,7 +810,7 @@ LRESULT CMainWindow::OnMouseWheel(WPARAM wParam, LPARAM lParam)
 
 			if (!m_bgTexture.Empty())
 			{
-				const float scrollSign = scroll < 0 ? 1.f : -1.f;
+				const float scrollSign = wheelSteps > 0 ? 1.f : -1.f;
 
 				int bgW = 0, bgH = 0;
 				DxLib::GetGraphSize(m_bgTexture.Get(), &bgW, &bgH);
@@ -733,7 +819,9 @@ LRESULT CMainWindow::OnMouseWheel(WPARAM wParam, LPARAM lParam)
 				float centerX = m_bgOffsetX + bgW * m_bgScale * 0.5f;
 				float centerY = m_bgOffsetY + bgH * m_bgScale * 0.5f;
 
-				float newScale = (std::max)(0.05f, m_bgScale * (1.f + 0.05f * scrollSign));
+				float newScale = m_bgScale;
+				for (int i = 0; i < std::abs(wheelSteps); ++i)
+					newScale = (std::max)(0.05f, newScale * (1.f + 0.05f * scrollSign));
 
 
 				m_bgOffsetX = centerX - bgW * newScale * 0.5f;
@@ -744,11 +832,35 @@ LRESULT CMainWindow::OnMouseWheel(WPARAM wParam, LPARAM lParam)
 		else if (m_dxLibSpinePlayer.ActiveRuntime()->hasSpineBeenLoaded())
 		{
 			static constexpr float kMinScale = 0.1f;
-			const float scrollSign = (scroll < 0) ^ m_isZoomDirectionReversed ? 1.f : -1.f;
+			static constexpr float kMaxScale = 5.f;
+			const bool zoomIn = (wheelSteps > 0) ^ m_isZoomDirectionReversed;
+			const float scrollSign = zoomIn ? 1.f : -1.f;
+			const bool scaleAllSpines = (::GetKeyState(VK_SHIFT) & 0x8000) != 0;
 
-			float skeletonScale = m_dxLibSpinePlayer.ActiveRuntime()->getSkeletonScale() * (1.f + 0.05f * scrollSign);
-			skeletonScale = (std::max)(kMinScale, (std::min)(5.f, skeletonScale));
-			m_dxLibSpinePlayer.ActiveRuntime()->setSkeletonScale(skeletonScale);
+			const float currentSkeletonScale = m_dxLibSpinePlayer.ActiveRuntime()->getSkeletonScale();
+			float skeletonScale = currentSkeletonScale;
+			for (int i = 0; i < std::abs(wheelSteps); ++i)
+				skeletonScale *= (1.f + 0.05f * scrollSign);
+			skeletonScale = (std::max)(kMinScale, (std::min)(kMaxScale, skeletonScale));
+			if (scaleAllSpines)
+			{
+				const float scaleFactor = currentSkeletonScale > 0.f ? (skeletonScale / currentSkeletonScale) : 1.f;
+				const size_t spineCount = m_dxLibSpinePlayer.ActiveRuntime()->getNumberOfSpines();
+				for (size_t i = 0; i < spineCount; ++i)
+				{
+					if (!m_dxLibSpinePlayer.ActiveRuntime()->isSpineVisible(i))
+						continue;
+					float spineScale = m_dxLibSpinePlayer.ActiveRuntime()->getSkeletonScaleAt(i);
+					spineScale *= scaleFactor;
+					spineScale = (std::max)(kMinScale, (std::min)(kMaxScale, spineScale));
+					m_dxLibSpinePlayer.ActiveRuntime()->setSkeletonScaleAt(i, spineScale);
+				}
+				m_winclock.Restart();
+			}
+			else
+			{
+				m_dxLibSpinePlayer.ActiveRuntime()->setSkeletonScale(skeletonScale);
+			}
 		}
 	}
 
@@ -1019,14 +1131,14 @@ void CMainWindow::Tick()
 
 		if (m_dxLibSpinePlayer.ActiveRuntime()->hasSpineBeenLoaded())
 		{
-			float fDelta = m_winclock.GetElapsedTime();
 			if (recorderState == CDxLibRecorder::EState::UnderRecording)
-			{
-				fDelta = m_dxLibRecorder.HasFrames() ? 1.f / m_dxLibRecorder.GetFps() : 0.f;
-			}
-			m_dxLibSpinePlayer.ActiveRuntime()->update(fDelta);
+				StepRecording();
 
-			StepRecording();
+			float fDelta = m_winclock.GetElapsedTime();
+			if (m_dxLibRecorder.GetState() == CDxLibRecorder::EState::UnderRecording)
+				fDelta = 1.f / m_dxLibRecorder.GetFps();
+
+			m_dxLibSpinePlayer.ActiveRuntime()->update(fDelta);
 			StepQueuePlay();
 			m_winclock.Restart();
 		}
@@ -1085,11 +1197,13 @@ void CMainWindow::MenuOnOpenFiles()
 void CMainWindow::LoadFilesFromPaths(const std::vector<std::wstring>& skelFilePaths)
 {
 	if (skelFilePaths.empty())return;
+	if (QueueLoadedSpineReplaceAction([this, skelFilePaths]() { LoadFilesFromPaths(skelFilePaths); })) return;
 
 	ClearFolderPathList();
 
 	std::vector<std::wstring> atlasFilePaths;
 	std::vector<std::string> atlasData;
+	std::vector<std::string> textureDirectories;
 	std::vector<std::string> skelData;
 
 	for (const auto& skelPath : skelFilePaths)
@@ -1113,6 +1227,7 @@ void CMainWindow::LoadFilesFromPaths(const std::vector<std::wstring>& skelFilePa
 
 		atlasFilePaths.push_back(atlasPath);
 		atlasData.emplace_back(path_util::LoadFileAsString(atlasPath.c_str()));
+		textureDirectories.push_back(win_text::NarrowUtf8(dir));
 		skelData.emplace_back(path_util::LoadFileAsString(skelPath.c_str()));
 	}
 
@@ -1124,11 +1239,49 @@ void CMainWindow::LoadFilesFromPaths(const std::vector<std::wstring>& skelFilePa
 	size_t nPos2 = selectedAtlasPath.find(L".", nPos1);
 	if (nPos2 == std::wstring::npos)nPos2 = selectedAtlasPath.size();
 
-	std::string textureDirectory = win_text::NarrowUtf8(&selectedAtlasPath[0], nPos1);
-	std::vector<std::string> textureDirectories(atlasData.size(), textureDirectory);
-
 	std::wstring windowName = selectedAtlasPath.substr(nPos1, nPos2 - nPos1);
 	LoadSpinesFromMemory(atlasData, textureDirectories, skelData, windowName.c_str());
+	ResetLoadedSpineEntries(skelFilePaths);
+	SelectLoadedSpine(0);
+}
+
+bool CMainWindow::ConfirmExitLoadedSpineMode()
+{
+	return !IsLoadedSpineReplaceConfirmationNeeded();
+}
+
+bool CMainWindow::IsLoadedSpineReplaceConfirmationNeeded() const
+{
+	if (m_bypassLoadedSpineReplaceConfirm) return false;
+	if (!m_showLoadedSpinePanel) return false;
+	return m_loadedSpineEntries.size() > 1;
+}
+
+bool CMainWindow::QueueLoadedSpineReplaceAction(std::function<void()> action)
+{
+	if (!IsLoadedSpineReplaceConfirmationNeeded()) return false;
+	m_pendingLoadedSpineReplaceAction = std::move(action);
+	m_spineToolDatum.loadedSpineReplaceConfirmMessage =
+		"Loading in this way will exit multi-spine mode and replace the currently loaded spines.";
+	m_spineToolDatum.showLoadedSpineReplaceConfirm = true;
+	return true;
+}
+
+void CMainWindow::ConfirmLoadedSpineReplaceAction()
+{
+	m_spineToolDatum.showLoadedSpineReplaceConfirm = false;
+	if (!m_pendingLoadedSpineReplaceAction) return;
+	auto action = std::move(m_pendingLoadedSpineReplaceAction);
+	m_pendingLoadedSpineReplaceAction = {};
+	m_bypassLoadedSpineReplaceConfirm = true;
+	action();
+	m_bypassLoadedSpineReplaceConfirm = false;
+}
+
+void CMainWindow::CancelLoadedSpineReplaceAction()
+{
+	m_spineToolDatum.showLoadedSpineReplaceConfirm = false;
+	m_pendingLoadedSpineReplaceAction = {};
 }
 
 void CMainWindow::ScanFolderIntoList(const std::wstring& folderPath)
@@ -1136,6 +1289,253 @@ void CMainWindow::ScanFolderIntoList(const std::wstring& folderPath)
 	m_spineToolDatum.skelFileList.clear();
 	path_util::ScanSkeletonFilesRecursive(folderPath, m_spineToolDatum.skelFileList);
 	std::sort(m_spineToolDatum.skelFileList.begin(), m_spineToolDatum.skelFileList.end());
+}
+
+void CMainWindow::FavoriteLoadCache()
+{
+	m_favoriteSkelFiles.clear();
+	if (m_favoriteCachePath.empty() || !FileExistsW(m_favoriteCachePath)) return;
+
+	FILE* fp = nullptr;
+	if (_wfopen_s(&fp, m_favoriteCachePath.c_str(), L"rt, ccs=UTF-8") != 0 || !fp) return;
+
+	wchar_t line[4096] = {};
+	while (fgetws(line, _countof(line), fp))
+	{
+		std::wstring path = line;
+		while (!path.empty() && (path.back() == L'\r' || path.back() == L'\n'))
+			path.pop_back();
+		if (path.empty() || !FileExistsW(path)) continue;
+		if (std::find(m_favoriteSkelFiles.begin(), m_favoriteSkelFiles.end(), path) == m_favoriteSkelFiles.end())
+			m_favoriteSkelFiles.push_back(path);
+	}
+	fclose(fp);
+	std::sort(m_favoriteSkelFiles.begin(), m_favoriteSkelFiles.end());
+}
+
+void CMainWindow::FavoriteSaveCache() const
+{
+	if (m_favoriteCachePath.empty()) return;
+
+	FILE* fp = nullptr;
+	if (_wfopen_s(&fp, m_favoriteCachePath.c_str(), L"wt, ccs=UTF-8") != 0 || !fp) return;
+	for (const std::wstring& path : m_favoriteSkelFiles)
+	{
+		if (!FileExistsW(path)) continue;
+		fwprintf(fp, L"%s\n", path.c_str());
+	}
+	fclose(fp);
+}
+
+void CMainWindow::FavoriteSyncDatum()
+{
+	m_spineToolDatum.favoriteSkelFileList.clear();
+	for (const std::wstring& path : m_favoriteSkelFiles)
+	{
+		if (FileExistsW(path))
+			m_spineToolDatum.favoriteSkelFileList.push_back(path);
+	}
+	m_spineToolDatum.showFavoriteSkelFiles = m_showFavoriteSkelFiles;
+}
+
+void CMainWindow::FavoriteToggleFile(const std::wstring& path)
+{
+	auto it = std::find(m_favoriteSkelFiles.begin(), m_favoriteSkelFiles.end(), path);
+	if (it == m_favoriteSkelFiles.end())
+	{
+		m_favoriteSkelFiles.push_back(path);
+		std::sort(m_favoriteSkelFiles.begin(), m_favoriteSkelFiles.end());
+	}
+	else
+	{
+		m_favoriteSkelFiles.erase(it);
+	}
+	FavoriteSaveCache();
+	FavoriteSyncDatum();
+}
+
+bool CMainWindow::ResolveAtlasPathForSkeleton(const std::wstring& skelFilePath, std::wstring& atlasPath, bool& isBinarySkel)
+{
+	size_t lastSlash = skelFilePath.find_last_of(L"\\/");
+	size_t lastDot = skelFilePath.find_last_of(L'.');
+	std::wstring dir = (lastSlash != std::wstring::npos) ? skelFilePath.substr(0, lastSlash + 1) : L"";
+	std::wstring baseName = skelFilePath.substr(lastSlash + 1, lastDot - lastSlash - 1);
+
+	atlasPath = dir + baseName + L".atlas";
+	if (!PathFileExistsW(atlasPath.c_str()))
+	{
+		atlasPath = dir + baseName + L".atlas.txt";
+		if (!PathFileExistsW(atlasPath.c_str()))
+		{
+			m_fileDialogs.ShowOwnerError((L"Atlas file not found for: " + baseName).c_str(), m_hWnd);
+			return false;
+		}
+	}
+
+	std::string skeletonFileDatum = path_util::LoadFileAsString(skelFilePath.c_str());
+	using namespace spine_file_verifier;
+	SkeletonMetadata skeletonMetaData = VerifySkeletonFileData(reinterpret_cast<const unsigned char*>(skeletonFileDatum.data()), skeletonFileDatum.size());
+	if (skeletonMetaData.skeletonFormat == SkeletonFormat::Neither)
+	{
+		m_fileDialogs.ShowOwnerError(L"This seems not to be valid Spine skeleton file.", m_hWnd);
+		return false;
+	}
+	isBinarySkel = skeletonMetaData.skeletonFormat == SkeletonFormat::Binary;
+
+	if (ISpinePlayer* runtime = m_dxLibSpinePlayer.ActiveRuntime())
+	{
+		if (runtime->hasSpineBeenLoaded())
+		{
+			const auto versionIndex = m_dxLibSpinePlayer.ResolveVersion(reinterpret_cast<const char*>(skeletonMetaData.version));
+			if (versionIndex != m_dxLibSpinePlayer.ActiveRuntimeSlot())
+			{
+				m_fileDialogs.ShowOwnerError(L"The file to be added should have the same Spine version as that of being loaded.", m_hWnd);
+				return false;
+			}
+		}
+	}
+
+	return true;
+}
+
+bool CMainWindow::AddSpineFromPath(const std::wstring& skelFilePath)
+{
+	if (m_dxLibRecorder.GetState() != CDxLibRecorder::EState::Idle) return false;
+
+	for (size_t i = 0; i < m_loadedSpineEntries.size(); ++i)
+	{
+		if (m_loadedSpineEntries[i].skelPath == skelFilePath)
+		{
+			m_showLoadedSpinePanel = true;
+			SelectLoadedSpine(i);
+			return true;
+		}
+	}
+
+	ISpinePlayer* runtime = m_dxLibSpinePlayer.ActiveRuntime();
+	if (runtime == nullptr || !runtime->hasSpineBeenLoaded())
+	{
+		LoadFilesFromPaths({ skelFilePath });
+		m_showLoadedSpinePanel = !m_loadedSpineEntries.empty();
+		SyncLoadedSpineDatum();
+		return !m_loadedSpineEntries.empty();
+	}
+
+	std::wstring atlasPath;
+	bool isBinarySkel = false;
+	if (!ResolveAtlasPathForSkeleton(skelFilePath, atlasPath, isBinarySkel))
+		return false;
+
+	const std::string atlasUtf8 = win_text::NarrowUtf8(atlasPath);
+	const std::string skelUtf8 = win_text::NarrowUtf8(skelFilePath);
+	if (!runtime->addSpineFromFile(atlasUtf8.c_str(), skelUtf8.c_str(), isBinarySkel))
+		return false;
+
+	m_loadedSpineEntries.push_back({ skelFilePath, atlasPath, ExtractStemUtf8(skelFilePath) });
+	m_loadedSpineVisibility.push_back(true);
+	std::rotate(m_loadedSpineEntries.begin(), m_loadedSpineEntries.end() - 1, m_loadedSpineEntries.end());
+	std::rotate(m_loadedSpineVisibility.begin(), m_loadedSpineVisibility.end() - 1, m_loadedSpineVisibility.end());
+	m_showLoadedSpinePanel = true;
+	SelectLoadedSpine(0);
+	return true;
+}
+
+void CMainWindow::ResetLoadedSpineEntries(const std::vector<std::wstring>& skelFilePaths)
+{
+	m_loadedSpineEntries.clear();
+	m_loadedSpineVisibility.clear();
+	m_showLoadedSpinePanel = false;
+	for (const auto& path : skelFilePaths)
+	{
+		std::wstring atlasPath;
+		bool isBinarySkel = false;
+		if (!ResolveAtlasPathForSkeleton(path, atlasPath, isBinarySkel))
+			continue;
+		m_loadedSpineEntries.push_back({ path, atlasPath, ExtractStemUtf8(path) });
+		m_loadedSpineVisibility.push_back(true);
+	}
+	m_selectedLoadedSpine = 0;
+	SyncLoadedSpineDatum();
+}
+
+void CMainWindow::SyncLoadedSpineDatum()
+{
+	m_spineToolDatum.loadedSpineFileList.clear();
+	m_spineToolDatum.loadedSpineNames.clear();
+	for (const auto& entry : m_loadedSpineEntries)
+	{
+		m_spineToolDatum.loadedSpineFileList.push_back(entry.skelPath);
+		m_spineToolDatum.loadedSpineNames.push_back(entry.displayName);
+	}
+	m_spineToolDatum.loadedSpineVisibility = m_loadedSpineVisibility;
+	m_spineToolDatum.showLoadedSpinePanel = m_showLoadedSpinePanel;
+	m_spineToolDatum.selectedLoadedSpine = static_cast<int>(m_selectedLoadedSpine);
+}
+
+void CMainWindow::SelectLoadedSpine(size_t index)
+{
+	if (index >= m_loadedSpineEntries.size()) return;
+
+	ISpinePlayer* runtime = m_dxLibSpinePlayer.ActiveRuntime();
+	if (runtime == nullptr) return;
+
+	m_selectedLoadedSpine = index;
+	runtime->setSelectedSpineIndex(index);
+	m_spineToolDatum.currentSkelFile = m_loadedSpineEntries[index].skelPath;
+	m_spineToolDatum.currentFileName = m_loadedSpineEntries[index].displayName;
+	m_spineToolDatum.titleBar.subTitle = m_loadedSpineEntries[index].displayName;
+	SyncLoadedSpineDatum();
+}
+
+void CMainWindow::ToggleLoadedSpineVisibility(size_t index)
+{
+	if (index >= m_loadedSpineVisibility.size()) return;
+
+	ISpinePlayer* runtime = m_dxLibSpinePlayer.ActiveRuntime();
+	if (runtime == nullptr) return;
+
+	const bool newVisible = !m_loadedSpineVisibility[index];
+	if (!runtime->setSpineVisible(index, newVisible))
+		return;
+
+	m_loadedSpineVisibility[index] = newVisible;
+	SyncLoadedSpineDatum();
+}
+
+void CMainWindow::MoveLoadedSpineUp(size_t index)
+{
+	if (index == 0 || index >= m_loadedSpineEntries.size()) return;
+
+	ISpinePlayer* runtime = m_dxLibSpinePlayer.ActiveRuntime();
+	if (runtime == nullptr) return;
+	if (!runtime->moveSpineUp(index)) return;
+
+	const size_t target = index - 1;
+	std::swap(m_loadedSpineEntries[index], m_loadedSpineEntries[target]);
+	std::swap(m_loadedSpineVisibility[index], m_loadedSpineVisibility[target]);
+	if (m_selectedLoadedSpine == index)
+		m_selectedLoadedSpine = target;
+	else if (m_selectedLoadedSpine == target)
+		m_selectedLoadedSpine = index;
+	SyncLoadedSpineDatum();
+}
+
+void CMainWindow::MoveLoadedSpineDown(size_t index)
+{
+	if (index + 1 >= m_loadedSpineEntries.size()) return;
+
+	ISpinePlayer* runtime = m_dxLibSpinePlayer.ActiveRuntime();
+	if (runtime == nullptr) return;
+	if (!runtime->moveSpineDown(index)) return;
+
+	const size_t target = index + 1;
+	std::swap(m_loadedSpineEntries[index], m_loadedSpineEntries[target]);
+	std::swap(m_loadedSpineVisibility[index], m_loadedSpineVisibility[target]);
+	if (m_selectedLoadedSpine == index)
+		m_selectedLoadedSpine = target;
+	else if (m_selectedLoadedSpine == target)
+		m_selectedLoadedSpine = index;
+	SyncLoadedSpineDatum();
 }
 
 
@@ -1698,6 +2098,8 @@ void CMainWindow::UpdateMenuItemState()
 
 bool CMainWindow::LoadSpineFilesInFolder(const std::wstring& folderPath)
 {
+	if (QueueLoadedSpineReplaceAction([this, folderPath]() { LoadSpineFilesInFolder(folderPath); })) return false;
+
 	std::vector<std::string> atlasData;
 	std::vector<std::string> skelData;
 
@@ -1945,9 +2347,10 @@ void CMainWindow::StepRecording()
 
 		if (m_spineToolDatum.toExportPerAnim && !m_isQueueRecording)
 		{
-			if (::isgreater(fTrack, fEnd))
+			if (m_dxLibRecorder.HasFrames() && fEnd > 0.f && !::isless(fTrack, fEnd))
 			{
 				MenuOnEndRecording();
+				return;
 			}
 		}
 
@@ -1990,8 +2393,11 @@ void CMainWindow::ImGuiSpineParameterDialogue()
 	{
 		DxLib::GetGraphSize(m_spineRenderTexture.Get(), &m_spineToolDatum.iTextureWidth, &m_spineToolDatum.iTextureHeight);
 
-		m_spineToolDatum.iTextureHeight -= static_cast<int>(custom_titlebar::TitleBarHeight());
-		if (m_spineToolDatum.iTextureHeight < 0) m_spineToolDatum.iTextureHeight = 0;
+		if (!m_spineToolDatum.isFullscreen)
+		{
+			m_spineToolDatum.iTextureHeight -= static_cast<int>(custom_titlebar::TitleBarHeight());
+			if (m_spineToolDatum.iTextureHeight < 0) m_spineToolDatum.iTextureHeight = 0;
+		}
 	}
 
 	spine_panel::Display(m_spineToolDatum, &m_toShowSpineParameter);

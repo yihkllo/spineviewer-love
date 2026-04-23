@@ -13,14 +13,16 @@ public:
 	void draw();
 
 	DxLib::MATRIX calculateTransformMatrix() const noexcept;
+	DxLib::MATRIX calculateTransformMatrix(size_t index) const noexcept;
 	DxLib::FLOAT4 getCurrentBoundingOfSlot(const std::string& slotName) const;
 	bool getSlotMeshData(const std::string& slotName, SlotMeshData& outData) const;
 	void setRenderScreenSize(int width, int height) noexcept;
 private:
 	void workOutDefaultScale() override;
 	void workOutDefaultOffset() override;
+	void drawSelectedOutline() const;
 
 	int m_renderScreenWidth = 0;
 	int m_renderScreenHeight = 0;
 };
-#endif
+#endif // !DXLIB_SPINE_PLAYER_C_H_

@@ -17,29 +17,37 @@ void CDxLibSpinePlayerC::draw()
 {
 	if (!m_drawables.empty())
 	{
-		DxLib::MATRIX matrix = calculateTransformMatrix();
-		DxLib::SetTransformTo2D(&matrix);
+		auto drawAtIndex = [&](size_t index)
+		{
+			if (index >= m_drawableStates.size() || !m_drawableStates[index].visible)
+				return;
+			DxLib::MATRIX matrix = calculateTransformMatrix(index);
+			DxLib::SetTransformTo2D(&matrix);
+			m_drawables[index]->draw();
+			DxLib::ResetTransformTo2D();
+		};
 
 		if (!m_isDrawOrderReversed)
 		{
-			for (size_t i = 0; i < m_drawables.size(); ++i)
-			{
-				m_drawables[i]->draw();
-			}
+			for (long long i = static_cast<long long>(m_drawables.size()) - 1; i >= 0; --i)
+				drawAtIndex(static_cast<size_t>(i));
 		}
 		else
 		{
-			for (long long i = m_drawables.size() - 1; i >= 0; --i)
-			{
-				m_drawables[i]->draw();
-			}
+			for (size_t i = 0; i < m_drawables.size(); ++i)
+				drawAtIndex(i);
 		}
 
-		DxLib::ResetTransformTo2D();
+		drawSelectedOutline();
 	}
 }
 
 DxLib::MATRIX CDxLibSpinePlayerC::calculateTransformMatrix() const noexcept
+{
+	return calculateTransformMatrix(m_selectedDrawableIndex);
+}
+
+DxLib::MATRIX CDxLibSpinePlayerC::calculateTransformMatrix(size_t index) const noexcept
 {
 	int iScreenWidth = 0;
 	int iScreenHeight = 0;
@@ -58,11 +66,20 @@ DxLib::MATRIX CDxLibSpinePlayerC::calculateTransformMatrix() const noexcept
 
 	DxLib::MATRIX toOrigin = DxLib::MGetTranslate(DxLib::VGet(-fCenterX, -fCenterY, 0.f));
 
-	float fScaleX = m_bFlipX ? -m_fSkeletonScale : m_fSkeletonScale;
-	DxLib::MATRIX scaleMatrix = DxLib::MGetScale(DxLib::VGet(fScaleX, m_fSkeletonScale, 1.f));
+	float skeletonScale = m_fSkeletonScale;
+	bool flipX = m_bFlipX;
+	int rotationSteps = m_iRotationSteps;
+	if (index < m_drawableStates.size())
+	{
+		skeletonScale = m_drawableStates[index].skeletonScale;
+		flipX = m_drawableStates[index].flipX;
+		rotationSteps = m_drawableStates[index].rotationSteps;
+	}
+	float fScaleX = flipX ? -skeletonScale : skeletonScale;
+	DxLib::MATRIX scaleMatrix = DxLib::MGetScale(DxLib::VGet(fScaleX, skeletonScale, 1.f));
 
 	static constexpr float kHalfPi = 1.5707963267948966f;
-	DxLib::MATRIX rotMatrix = DxLib::MGetRotZ(kHalfPi * m_iRotationSteps);
+	DxLib::MATRIX rotMatrix = DxLib::MGetRotZ(kHalfPi * rotationSteps);
 
 	DxLib::MATRIX toScreen = DxLib::MGetTranslate(DxLib::VGet(iScreenWidth / 2.f, iScreenHeight / 2.f, 0.f));
 
@@ -73,27 +90,25 @@ DxLib::MATRIX CDxLibSpinePlayerC::calculateTransformMatrix() const noexcept
 	return m;
 }
 
+void CDxLibSpinePlayerC::drawSelectedOutline() const
+{
+}
+
 DxLib::FLOAT4 CDxLibSpinePlayerC::getCurrentBoundingOfSlot(const std::string& slotName) const
 {
+	if (m_selectedDrawableIndex >= m_drawables.size()) return {};
+
 	bool found = false;
-	for (const auto& drawable : m_drawables)
-	{
-		const auto rect = drawable->getBoundingBoxOfSlot(slotName.c_str(), slotName.size(), &found);
-		if (found)
-		{
-			return rect;
-		}
-	}
+	const auto rect = m_drawables[m_selectedDrawableIndex]->getBoundingBoxOfSlot(slotName.c_str(), slotName.size(), &found);
+	if (found)
+		return rect;
 	return {};
 }
 
 bool CDxLibSpinePlayerC::getSlotMeshData(const std::string& slotName, SlotMeshData& outData) const
 {
-	for (const auto& drawable : m_drawables)
-	{
-		if (drawable->getSlotMeshData(slotName.c_str(), slotName.size(), outData))
-			return true;
-	}
+	if (m_selectedDrawableIndex < m_drawables.size())
+		return m_drawables[m_selectedDrawableIndex]->getSlotMeshData(slotName.c_str(), slotName.size(), outData);
 	return false;
 }
 

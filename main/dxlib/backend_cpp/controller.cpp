@@ -1,72 +1,6 @@
-#include <Windows.h>
-#include <string>
-#include <vector>
+﻿
 #include "controller.h"
 #include "loader.h"
-
-namespace
-{
-	std::wstring WidenUtf8Path(const std::string& path)
-	{
-		if (path.empty()) return {};
-		int len = ::MultiByteToWideChar(CP_UTF8, 0, path.c_str(), static_cast<int>(path.size()), nullptr, 0);
-		if (len <= 0) return {};
-		std::wstring wide(static_cast<size_t>(len), L'\0');
-		::MultiByteToWideChar(CP_UTF8, 0, path.c_str(), static_cast<int>(path.size()), &wide[0], len);
-		return wide;
-	}
-
-	std::string ReadFileAsUtf8PathBytes(const std::string& path)
-	{
-		std::wstring widePath = WidenUtf8Path(path);
-		if (widePath.empty()) return {};
-
-		HANDLE hFile = ::CreateFileW(widePath.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
-		if (hFile == INVALID_HANDLE_VALUE) return {};
-
-		LARGE_INTEGER size{};
-		if (!::GetFileSizeEx(hFile, &size) || size.QuadPart <= 0)
-		{
-			::CloseHandle(hFile);
-			return {};
-		}
-
-		std::string bytes(static_cast<size_t>(size.QuadPart), '\0');
-		DWORD read = 0;
-		BOOL ok = ::ReadFile(hFile, bytes.empty() ? nullptr : &bytes[0], static_cast<DWORD>(size.QuadPart), &read, nullptr);
-		::CloseHandle(hFile);
-		if (!ok || read == 0) return {};
-		bytes.resize(read);
-		return bytes;
-	}
-
-	void StripUtf8Bom(std::string& bytes)
-	{
-		if (bytes.size() >= 3 &&
-			static_cast<unsigned char>(bytes[0]) == 0xEF &&
-			static_cast<unsigned char>(bytes[1]) == 0xBB &&
-			static_cast<unsigned char>(bytes[2]) == 0xBF)
-		{
-			bytes.erase(0, 3);
-		}
-	}
-
-	std::string GetParentDirUtf8(const std::string& path)
-	{
-		std::wstring widePath = WidenUtf8Path(path);
-		if (widePath.empty()) return {};
-
-		size_t pos = widePath.find_last_of(L"\\/");
-		if (pos == std::wstring::npos) return {};
-
-		std::wstring wideDir = widePath.substr(0, pos + 1);
-		int len = ::WideCharToMultiByte(CP_UTF8, 0, wideDir.c_str(), static_cast<int>(wideDir.size()), nullptr, 0, nullptr, nullptr);
-		if (len <= 0) return {};
-		std::string utf8Dir(static_cast<size_t>(len), '\0');
-		::WideCharToMultiByte(CP_UTF8, 0, wideDir.c_str(), static_cast<int>(wideDir.size()), &utf8Dir[0], len, nullptr, nullptr);
-		return utf8Dir;
-	}
-}
 
 CSpinePlayer::CSpinePlayer()
 {
@@ -79,9 +13,9 @@ CSpinePlayer::~CSpinePlayer()
 	m_dynamicSkins.clear();
 }
 
-
 bool CSpinePlayer::loadSpineFromFile(const std::vector<std::string>& atlasPaths, const std::vector<std::string>& skelPaths, bool isBinarySkel)
 {
+	m_lastError.clear();
 	if (atlasPaths.size() != skelPaths.size())return false;
 	clearDrawables();
 
@@ -89,22 +23,22 @@ bool CSpinePlayer::loadSpineFromFile(const std::vector<std::string>& atlasPaths,
 	{
 		const std::string& strAtlasPath = atlasPaths[i];
 		const std::string& strSkeletonPath = skelPaths[i];
-		std::string atlasBytes = ReadFileAsUtf8PathBytes(strAtlasPath);
-		if (atlasBytes.empty()) continue;
-		StripUtf8Bom(atlasBytes);
-		std::string atlasDir = GetParentDirUtf8(strAtlasPath);
 
-		std::unique_ptr<spine::Atlas> atlas = std::make_unique<spine::Atlas>(atlasBytes.c_str(), static_cast<int>(atlasBytes.size()), atlasDir.c_str(), &m_textureLoader);
-		if (atlas.get() == nullptr)continue;
-
-		std::string skeletonBytes = ReadFileAsUtf8PathBytes(strSkeletonPath);
-		if (skeletonBytes.empty()) continue;
-		if (!isBinarySkel) StripUtf8Bom(skeletonBytes);
+		std::unique_ptr<spine::Atlas> atlas = std::make_unique<spine::Atlas>(strAtlasPath.c_str(), &m_textureLoader);
+		if (atlas.get() == nullptr)
+		{
+			m_lastError = "Failed to create atlas from file: " + strAtlasPath;
+			continue;
+		}
 
 		std::shared_ptr<spine::SkeletonData> skeletonData = isBinarySkel ?
-			spine_loader::ReadBinarySkeletonFromMemory(reinterpret_cast<const unsigned char*>(skeletonBytes.data()), static_cast<int>(skeletonBytes.size()), atlas.get(), 1.f) :
-			spine_loader::ReadTextSkeletonFromMemory(skeletonBytes.c_str(), atlas.get(), 1.f);
-		if (skeletonData.get() == nullptr)return false;
+			spine_loader::ReadBinarySkeletonFromFile(strSkeletonPath.c_str(), atlas.get(), 1.f) :
+			spine_loader::ReadTextSkeletonFromFile(strSkeletonPath.c_str(), atlas.get(), 1.f);
+		if (skeletonData.get() == nullptr)
+		{
+			m_lastError = "Failed to parse skeleton: " + strSkeletonPath;
+			return false;
+		}
 
 		m_atlases.push_back(std::move(atlas));
 		m_skeletonData.push_back(std::move(skeletonData));
@@ -114,9 +48,9 @@ bool CSpinePlayer::loadSpineFromFile(const std::vector<std::string>& atlasPaths,
 
 	return setupDrawables();
 }
-
 bool CSpinePlayer::loadSpineFromMemory(const std::vector<std::string>& atlasData, const std::vector<std::string>& atlasPaths, const std::vector<std::string>& skelData, bool isBinarySkel)
 {
+	m_lastError.clear();
 	if (atlasData.size() != skelData.size() || atlasData.size() != atlasPaths.size())return false;
 	clearDrawables();
 
@@ -127,12 +61,20 @@ bool CSpinePlayer::loadSpineFromMemory(const std::vector<std::string>& atlasData
 		const std::string& strSkeletonData = skelData[i];
 
 		std::unique_ptr<spine::Atlas> atlas = std::make_unique<spine::Atlas>(strAtlasDatum.c_str(), static_cast<int>(strAtlasDatum.size()), strAtlasPath.c_str(), &m_textureLoader);
-		if (atlas.get() == nullptr)continue;
+		if (atlas.get() == nullptr)
+		{
+			m_lastError = "Failed to create atlas from memory: " + strAtlasPath;
+			continue;
+		}
 
 		std::shared_ptr<spine::SkeletonData> skeletonData = isBinarySkel ?
 			spine_loader::ReadBinarySkeletonFromMemory(reinterpret_cast<const unsigned char*>(strSkeletonData.data()), static_cast<int>(strSkeletonData.size()), atlas.get(), 1.f) :
 			spine_loader::ReadTextSkeletonFromMemory(strSkeletonData.data(), atlas.get(), 1.f);
-		if (skeletonData.get() == nullptr)return false;
+		if (skeletonData.get() == nullptr)
+		{
+			m_lastError = "Failed to parse skeleton from memory: " + strAtlasPath;
+			return false;
+		}
 
 		m_atlases.push_back(std::move(atlas));
 		m_skeletonData.push_back(std::move(skeletonData));
@@ -147,36 +89,60 @@ bool CSpinePlayer::addSpineFromFile(const char* szAtlasPath, const char* szSkelP
 {
 	if (m_drawables.empty() || szAtlasPath == nullptr || szSkelPath == nullptr)return false;
 
-	std::string atlasBytes = ReadFileAsUtf8PathBytes(szAtlasPath);
-	if (atlasBytes.empty()) return false;
-	StripUtf8Bom(atlasBytes);
-	std::string atlasDir = GetParentDirUtf8(szAtlasPath);
-
-	std::unique_ptr<spine::Atlas> atlas = std::make_unique<spine::Atlas>(atlasBytes.c_str(), static_cast<int>(atlasBytes.size()), atlasDir.c_str(), &m_textureLoader);
+	std::unique_ptr<spine::Atlas> atlas = std::make_unique<spine::Atlas>(szAtlasPath, &m_textureLoader);
 	if (atlas.get() == nullptr)return false;
 
-	std::string skeletonBytes = ReadFileAsUtf8PathBytes(szSkelPath);
-	if (skeletonBytes.empty()) return false;
-	if (!isBinarySkel) StripUtf8Bom(skeletonBytes);
-
 	std::shared_ptr<spine::SkeletonData> skeletonData = isBinarySkel ?
-		spine_loader::ReadBinarySkeletonFromMemory(reinterpret_cast<const unsigned char*>(skeletonBytes.data()), static_cast<int>(skeletonBytes.size()), atlas.get(), 1.f) :
-		spine_loader::ReadTextSkeletonFromMemory(skeletonBytes.c_str(), atlas.get(), 1.f);
+		spine_loader::ReadBinarySkeletonFromFile(szSkelPath, atlas.get(), 1.f) :
+		spine_loader::ReadTextSkeletonFromFile(szSkelPath, atlas.get(), 1.f);
 	if (skeletonData.get() == nullptr)return false;
 
-	bool bRet = addDrawable(skeletonData.get());
-	if (!bRet)return false;
+	const size_t newIndex = m_drawables.size();
+	if (!addDrawable(skeletonData.get()))return false;
 
 	m_atlases.push_back(std::move(atlas));
 	m_skeletonData.push_back(std::move(skeletonData));
-	if (m_isDrawOrderReversed)
-	{
-		std::rotate(m_drawables.rbegin(), m_drawables.rbegin() + 1, m_drawables.rend());
-	}
 
+	const auto& addedSkeletonData = m_skeletonData.back();
+	std::vector<std::string> animationNames;
+	auto& animations = addedSkeletonData->getAnimations();
+	for (size_t i = 0; i < animations.size(); ++i)
+	{
+		const char* szAnimationName = animations[i]->getName().buffer();
+		if (szAnimationName == nullptr)continue;
+		const auto& iter = std::find(animationNames.begin(), animationNames.end(), szAnimationName);
+		if (iter == animationNames.cend())animationNames.push_back(szAnimationName);
+	}
+	m_drawableAnimationNames.push_back(std::move(animationNames));
+
+	std::vector<std::string> skinNames;
+	auto& skins = addedSkeletonData->getSkins();
+	for (size_t i = 0; i < skins.size(); ++i)
+	{
+		const char* szSkinName = skins[i]->getName().buffer();
+		if (szSkinName == nullptr)continue;
+		const auto& iter = std::find(skinNames.begin(), skinNames.end(), szSkinName);
+		if (iter == skinNames.cend())skinNames.push_back(szSkinName);
+	}
+	m_drawableSkinNames.push_back(std::move(skinNames));
+
+	std::vector<std::string> slotNames;
+	auto& slots = addedSkeletonData->getSlots();
+	for (size_t i = 0; i < slots.size(); ++i)
+	{
+		const char* szSlotName = slots[i]->getName().buffer();
+		if (szSlotName == nullptr)continue;
+		const auto& iter = std::find(slotNames.begin(), slotNames.end(), szSlotName);
+		if (iter == slotNames.cend())slotNames.push_back(szSlotName);
+	}
+	m_drawableSlotNames.push_back(std::move(slotNames));
+
+	m_selectedDrawableIndex = newIndex;
+	for (size_t i = newIndex; i > 0; --i)
+		moveSpineUp(i);
+	refreshSelectedResourceLists();
 	restartAnimation();
 	resetScale();
-
 	return true;
 }
 
@@ -185,11 +151,83 @@ size_t CSpinePlayer::getNumberOfSpines() const noexcept
 	return m_drawables.size();
 }
 
+size_t CSpinePlayer::getSelectedSpineIndex() const noexcept
+{
+	return m_selectedDrawableIndex;
+}
+
+bool CSpinePlayer::setSelectedSpineIndex(size_t index) noexcept
+{
+	if (index >= m_drawables.size()) return false;
+	m_selectedDrawableIndex = index;
+	try
+	{
+		refreshSelectedResourceLists();
+	}
+	catch (...)
+	{
+		return false;
+	}
+	if (const SDrawableState* state = getSelectedDrawableState())
+	{
+		m_fOffset = state->offset;
+		m_fSkeletonScale = state->skeletonScale;
+		m_bFlipX = state->flipX;
+		m_iRotationSteps = state->rotationSteps;
+	}
+	syncSelectionIndices();
+	return true;
+}
+
+bool CSpinePlayer::isSpineVisible(size_t index) const noexcept
+{
+	return index < m_drawableStates.size() ? m_drawableStates[index].visible : false;
+}
+
+bool CSpinePlayer::setSpineVisible(size_t index, bool visible) noexcept
+{
+	if (index >= m_drawableStates.size()) return false;
+	m_drawableStates[index].visible = visible;
+	return true;
+}
+
+bool CSpinePlayer::moveSpineUp(size_t index) noexcept
+{
+	if (index == 0 || index >= m_drawables.size()) return false;
+	const size_t target = index - 1;
+	std::swap(m_drawables[index], m_drawables[target]);
+	std::swap(m_drawableStates[index], m_drawableStates[target]);
+	std::swap(m_drawableAnimationNames[index], m_drawableAnimationNames[target]);
+	std::swap(m_drawableSkinNames[index], m_drawableSkinNames[target]);
+	std::swap(m_drawableSlotNames[index], m_drawableSlotNames[target]);
+	std::swap(m_atlases[index], m_atlases[target]);
+	std::swap(m_skeletonData[index], m_skeletonData[target]);
+	if (m_selectedDrawableIndex == index)
+		m_selectedDrawableIndex = target;
+	else if (m_selectedDrawableIndex == target)
+		m_selectedDrawableIndex = index;
+	refreshSelectedResourceLists();
+	if (const SDrawableState* state = getSelectedDrawableState())
+	{
+		m_fOffset = state->offset;
+		m_fSkeletonScale = state->skeletonScale;
+		m_bFlipX = state->flipX;
+		m_iRotationSteps = state->rotationSteps;
+	}
+	syncSelectionIndices();
+	return true;
+}
+
+bool CSpinePlayer::moveSpineDown(size_t index) noexcept
+{
+	if (index + 1 >= m_drawables.size()) return false;
+	return moveSpineUp(index + 1);
+}
+
 bool CSpinePlayer::hasSpineBeenLoaded() const noexcept
 {
 	return !m_drawables.empty();
 }
-
 void CSpinePlayer::update(float fDelta)
 {
 	for (const auto& drawable : m_drawables)
@@ -197,7 +235,6 @@ void CSpinePlayer::update(float fDelta)
 		drawable->update(fDelta * m_fTimeScale);
 	}
 }
-
 void CSpinePlayer::resetScale()
 {
 	m_fTimeScale = 1.0f;
@@ -205,36 +242,48 @@ void CSpinePlayer::resetScale()
 	m_fSkeletonScale = m_fDefaultScale;
 	m_fCanvasScale = m_fDefaultScale;
 	m_fOffset = m_fDefaultOffset;
+	if (SDrawableState* state = getSelectedDrawableState())
+	{
+		state->skeletonScale = m_fSkeletonScale;
+		state->offset = m_fOffset;
+	}
 
 	updatePosition();
 }
-
 void CSpinePlayer::addOffset(int iX, int iY)
 {
-
 	float dx, dy;
-	switch (m_iRotationSteps)
+	SDrawableState* state = getSelectedDrawableState();
+	const int rotationSteps = state ? state->rotationSteps : m_iRotationSteps;
+	const bool flipX = state ? state->flipX : m_bFlipX;
+	const float skeletonScale = state ? state->skeletonScale : m_fSkeletonScale;
+	FPoint2& offset = state ? state->offset : m_fOffset;
+
+	switch (rotationSteps)
 	{
 	case 1:  dx =  iY; dy = -iX; break;
 	case 2:  dx = -iX; dy = -iY; break;
 	case 3:  dx = -iY; dy =  iX; break;
 	default: dx =  iX; dy =  iY; break;
 	}
-	if (m_bFlipX) dx = -dx;
-	m_fOffset.x += dx / m_fSkeletonScale;
-	m_fOffset.y += dy / m_fSkeletonScale;
+	if (flipX) dx = -dx;
+	offset.x += dx / skeletonScale;
+	offset.y += dy / skeletonScale;
+	if (state)
+	{
+		m_fOffset = state->offset;
+	}
 	updatePosition();
 }
-
 void CSpinePlayer::shiftAnimation()
 {
+	syncSelectionIndices();
 	++m_nAnimationIndex;
 	if (m_nAnimationIndex >= m_animationNames.size())m_nAnimationIndex = 0;
 
 	clearAnimationTracks();
 	restartAnimation();
 }
-
 void CSpinePlayer::shiftAnimationBack()
 {
 	if (m_animationNames.empty()) return;
@@ -246,11 +295,11 @@ void CSpinePlayer::shiftAnimationBack()
 	clearAnimationTracks();
 	restartAnimation();
 }
-
 void CSpinePlayer::shiftSkin()
 {
 	if (m_skinNames.empty())return;
 
+	syncSelectionIndices();
 	++m_nSkinIndex;
 	if (m_nSkinIndex >= m_skinNames.size())m_nSkinIndex = 0;
 
@@ -280,18 +329,18 @@ void CSpinePlayer::setAnimationByName(const char* szAnimationName)
 		}
 	}
 }
-
 void CSpinePlayer::restartAnimation(bool loop)
 {
 	if (m_nAnimationIndex >= m_animationNames.size())return;
 	const char* szAnimationName = m_animationNames[m_nAnimationIndex].c_str();
-
-	for (const auto& pDrawable : m_drawables)
+	CSpineDrawable* pDrawable = getSelectedDrawable();
+	if (pDrawable != nullptr)
 	{
 		spine::Animation* pAnimation = pDrawable->skeleton()->getData()->findAnimation(szAnimationName);
 		if (pAnimation != nullptr)
 		{
 			pDrawable->animationState()->setAnimation(0, pAnimation->getName(), loop);
+			pDrawable->update(0.f);
 		}
 	}
 }
@@ -320,23 +369,19 @@ void CSpinePlayer::setSkinByName(const char* szSkinName)
 
 void CSpinePlayer::setupSkin()
 {
-
 	for (spine::Skin* s : m_dynamicSkins) delete s;
 	m_dynamicSkins.clear();
 
 	if (m_nSkinIndex >= m_skinNames.size())return;
 	const char* szSkinName = m_skinNames[m_nSkinIndex].c_str();
-
-	for (const auto& pDrawable : m_drawables)
+	CSpineDrawable* pDrawable = getSelectedDrawable();
+	if (pDrawable != nullptr)
 	{
 		spine::Skin* skin = pDrawable->skeleton()->getData()->findSkin(szSkinName);
 		if (skin != nullptr)
 		{
 			pDrawable->skeleton()->setSkin(skin);
 			pDrawable->skeleton()->setSlotsToSetupPose();
-
-			
-
 
 			if (pDrawable->animationState() != nullptr)
 			{
@@ -350,68 +395,17 @@ void CSpinePlayer::setupSkin()
 		}
 	}
 }
-
 void CSpinePlayer::togglePma()
 {
-	
-	bool bNewPma = false;
-	if (!m_drawables.empty())
-	{
-		bNewPma = !m_drawables.front()->isAlphaPremultiplied();
-	}
-	for (const auto& pDrawable : m_drawables)
-	{
-		pDrawable->premultiplyAlpha(bNewPma);
-	}
-
-	
-	
-	
-	m_textureLoader.setPremultiplyOnLoad(!bNewPma);
-
-	
-	
-	for (const auto& pAtlas : m_atlases)
-	{
-		if (pAtlas.get() == nullptr) continue;
-		spine::Vector<spine::AtlasPage*>& pages = pAtlas->getPages();
-		for (size_t i = 0; i < pages.size(); ++i)
-		{
-			spine::AtlasPage* pPage = pages[i];
-			if (pPage == nullptr) continue;
-
-#if defined (SPINE_41) || defined (SPINE_42)
-			void* pOldTexture = pPage->texture;
-#else
-			void* pOldTexture = pPage->getRendererObject();
-#endif
-			if (pOldTexture != nullptr)
-			{
-				m_textureLoader.unload(pOldTexture);
-#if defined (SPINE_41) || defined (SPINE_42)
-				pPage->texture = nullptr;
-#else
-				pPage->setRendererObject(nullptr);
-#endif
-			}
-
-			
-			if (pPage->texturePath.length() > 0)
-			{
-				m_textureLoader.load(*pPage, pPage->texturePath);
-			}
-		}
-	}
+	if (m_selectedDrawableIndex >= m_drawables.size()) return;
+	const bool bNewPma = !m_drawables[m_selectedDrawableIndex]->isAlphaPremultiplied();
+	m_drawables[m_selectedDrawableIndex]->premultiplyAlpha(bNewPma);
 }
-
 void CSpinePlayer::toggleBlendModeAdoption()
 {
-	for (const auto& pDrawable : m_drawables)
-	{
-		pDrawable->forceBlendModeNormal(!pDrawable->isBlendModeNormalForced());
-	}
+	if (m_selectedDrawableIndex < m_drawables.size())
+		m_drawables[m_selectedDrawableIndex]->forceBlendModeNormal(!m_drawables[m_selectedDrawableIndex]->isBlendModeNormalForced());
 }
-
 bool CSpinePlayer::isAlphaPremultiplied(size_t nDrawableIndex)
 {
 	if (nDrawableIndex < m_drawables.size())
@@ -421,7 +415,6 @@ bool CSpinePlayer::isAlphaPremultiplied(size_t nDrawableIndex)
 
 	return false;
 }
-
 bool CSpinePlayer::isBlendModeNormalForced(size_t nDrawableIndex)
 {
 	if (nDrawableIndex < m_drawables.size())
@@ -463,10 +456,10 @@ void CSpinePlayer::setDrawOrder(bool reversed)
 {
 	m_isDrawOrderReversed = reversed;
 }
-
 std::string CSpinePlayer::getCurrentAnimationName()
 {
-	for (const auto& pDrawable : m_drawables)
+	CSpineDrawable* pDrawable = getSelectedDrawable();
+	if (pDrawable != nullptr)
 	{
 		auto& tracks = pDrawable->animationState()->getTracks();
 		for (size_t i = 0; i < tracks.size(); ++i)
@@ -484,14 +477,21 @@ std::string CSpinePlayer::getCurrentAnimationName()
 
 std::string CSpinePlayer::getCurrentSkinName()
 {
-	if (m_nSkinIndex < m_skinNames.size())
-		return m_skinNames[m_nSkinIndex];
+	CSpineDrawable* pDrawable = getSelectedDrawable();
+	if (pDrawable != nullptr && pDrawable->skeleton()->getSkin() != nullptr)
+		return pDrawable->skeleton()->getSkin()->getName().buffer();
 	return std::string();
+}
+
+std::string CSpinePlayer::getLastError() const
+{
+	return m_lastError;
 }
 
 void CSpinePlayer::getCurrentAnimationTime(float* fTrack, float* fLast, float* fStart, float* fEnd)
 {
-	for (const auto& pDrawable : m_drawables)
+	CSpineDrawable* pDrawable = getSelectedDrawable();
+	if (pDrawable != nullptr)
 	{
 		auto& tracks = pDrawable->animationState()->getTracks();
 		for (size_t i = 0; i < tracks.size(); ++i)
@@ -512,7 +512,7 @@ void CSpinePlayer::getCurrentAnimationTime(float* fTrack, float* fLast, float* f
 
 float CSpinePlayer::getAnimationDuration(const char* animationName)
 {
-	for (const auto& pDrawable : m_drawables)
+	if (const CSpineDrawable* pDrawable = getSelectedDrawable())
 	{
 		spine::Animation* pAnimation = pDrawable->skeleton()->getData()->findAnimation(animationName);
 		if (pAnimation != nullptr)
@@ -524,22 +524,18 @@ float CSpinePlayer::getAnimationDuration(const char* animationName)
 	return 0.f;
 }
 
-
 const std::vector<std::string>& CSpinePlayer::getSlotNames() const noexcept
 {
 	return m_slotNames;
 }
-
 const std::vector<std::string>& CSpinePlayer::getSkinNames() const noexcept
 {
 	return m_skinNames;
 }
-
 const std::vector<std::string>& CSpinePlayer::getAnimationNames() const noexcept
 {
 	return m_animationNames;
 }
-
 void CSpinePlayer::setSlotsToExclude(const std::vector<std::string>& slotNames)
 {
 	spine::Vector<spine::String> leaveOutList;
@@ -548,21 +544,17 @@ void CSpinePlayer::setSlotsToExclude(const std::vector<std::string>& slotNames)
 		leaveOutList.add(slotName.c_str());
 	}
 
-	for (const auto& pDrawable : m_drawables)
-	{
+	if (CSpineDrawable* pDrawable = getSelectedDrawable())
 		pDrawable->setLeaveOutList(leaveOutList);
-	}
 }
-
 void CSpinePlayer::mixSkins(const std::vector<std::string>& skinNames)
 {
-
-	for (const auto& pDrawable : m_drawables)
+	if (CSpineDrawable* pDrawable = getSelectedDrawable())
 		pDrawable->skeleton()->setSkin(nullptr);
 	for (spine::Skin* s : m_dynamicSkins) delete s;
 	m_dynamicSkins.clear();
 
-	for (const auto& pDrawable : m_drawables)
+	if (CSpineDrawable* pDrawable = getSelectedDrawable())
 	{
 		spine::Skin* dynamicSkin = new spine::Skin("__dynamic__");
 		for (const auto& skinName : skinNames)
@@ -585,7 +577,6 @@ void CSpinePlayer::mixSkins(const std::vector<std::string>& skinNames)
 		}
 	}
 }
-
 void CSpinePlayer::addAnimationTracks(const std::vector<std::string>& animationNames, bool loop)
 {
 	clearAnimationTracks();
@@ -599,10 +590,10 @@ void CSpinePlayer::addAnimationTracks(const std::vector<std::string>& animationN
 		m_nAnimationIndex = std::distance(m_animationNames.begin(), currentIter);
 	}
 
-	for (const auto& pDrawable : m_drawables)
+	if (CSpineDrawable* pDrawable = getSelectedDrawable())
 	{
 		spine::Animation* firstAnimation = pDrawable->skeleton()->getData()->findAnimation(firstAnimationName.c_str());
-		if (firstAnimation == nullptr)continue;
+		if (firstAnimation == nullptr)return;
 
 		pDrawable->animationState()->setAnimation(0, firstAnimation->getName(), loop);
 
@@ -625,19 +616,17 @@ void CSpinePlayer::addAnimationTracks(const std::vector<std::string>& animationN
 
 void CSpinePlayer::setSlotExcludeCallback(bool(*pFunc)(const char*, size_t))
 {
-	for (const auto& pDrawable : m_drawables)
-	{
+	if (CSpineDrawable* pDrawable = getSelectedDrawable())
 		pDrawable->setLeaveOutCallback(pFunc);
-	}
 }
 
 std::unordered_map<std::string, std::vector<std::string>> CSpinePlayer::getSlotNamesWithTheirAttachments()
 {
 	std::unordered_map<std::string, std::vector<std::string>> slotAttachmentMap;
 
-
-	for (const auto& skeletonDatum : m_skeletonData)
+	if (m_selectedDrawableIndex < m_skeletonData.size())
 	{
+		const auto& skeletonDatum = m_skeletonData[m_selectedDrawableIndex];
 		spine::Skin* pSkin = skeletonDatum->getDefaultSkin();
 
 		auto& slots = skeletonDatum->getSlots();
@@ -697,20 +686,19 @@ bool CSpinePlayer::replaceAttachment(const char* szSlotName, const char* szAttac
 			return nullptr;
 		};
 
-	for (const auto& pDrawable : m_drawables)
+	if (CSpineDrawable* pDrawable = getSelectedDrawable())
 	{
 		spine::Slot* pSlot = FindSlot(pDrawable->skeleton());
-		if (pSlot == nullptr)continue;
+		if (pSlot == nullptr)return false;
 
 		spine::Attachment* pAttachment = FindAttachment(pDrawable->skeleton()->getData());
-		if (pAttachment == nullptr)continue;
-
+		if (pAttachment == nullptr)return false;
 
 		if (pSlot->getAttachment() != nullptr)
 		{
 			const char* animationName = m_animationNames[m_nAnimationIndex].c_str();
 			spine::Animation* pAnimation = pDrawable->skeleton()->getData()->findAnimation(animationName);
-			if (pAnimation == nullptr)continue;
+			if (pAnimation == nullptr)return false;
 
 			spine::Vector<spine::Timeline*>& timelines = pAnimation->getTimelines();
 			for (size_t i = 0; i < timelines.size(); ++i)
@@ -739,7 +727,6 @@ bool CSpinePlayer::replaceAttachment(const char* szSlotName, const char* szAttac
 
 	return true;
 }
-
 FPoint2 CSpinePlayer::getBaseSize() const noexcept
 {
 	return m_fBaseSize;
@@ -774,24 +761,51 @@ void CSpinePlayer::resetBaseSize()
 
 FPoint2 CSpinePlayer::getOffset() const noexcept
 {
+	if (const SDrawableState* state = getSelectedDrawableState())
+		return state->offset;
 	return m_fOffset;
 }
 
 void CSpinePlayer::setOffset(float fX, float fY) noexcept
 {
-	 m_fOffset.x = fX;
-	 m_fOffset.y = fY;
-	 updatePosition();
+	if (SDrawableState* state = getSelectedDrawableState())
+	{
+		state->offset = { fX, fY };
+		m_fOffset = state->offset;
+	}
+	updatePosition();
 }
 
 float CSpinePlayer::getSkeletonScale() const noexcept
 {
+	if (const SDrawableState* state = getSelectedDrawableState())
+		return state->skeletonScale;
 	return m_fSkeletonScale;
 }
 
 void CSpinePlayer::setSkeletonScale(float fScale)
 {
-	m_fSkeletonScale = fScale;
+	if (SDrawableState* state = getSelectedDrawableState())
+	{
+		state->skeletonScale = fScale;
+		m_fSkeletonScale = state->skeletonScale;
+	}
+}
+
+float CSpinePlayer::getSkeletonScaleAt(size_t index) const noexcept
+{
+	if (index < m_drawableStates.size())
+		return m_drawableStates[index].skeletonScale;
+	return m_fSkeletonScale;
+}
+
+bool CSpinePlayer::setSkeletonScaleAt(size_t index, float fScale) noexcept
+{
+	if (index >= m_drawableStates.size()) return false;
+	m_drawableStates[index].skeletonScale = fScale;
+	if (index == m_selectedDrawableIndex)
+		m_fSkeletonScale = m_drawableStates[index].skeletonScale;
+	return true;
 }
 
 float CSpinePlayer::getCanvasScale() const noexcept
@@ -815,30 +829,40 @@ void CSpinePlayer::setTimeScale(float fTimeScale) noexcept
 
 void CSpinePlayer::setDefaultMix(float mixTime)
 {
-	for (const auto& pDrawable : m_drawables)
-	{
+	if (CSpineDrawable* pDrawable = getSelectedDrawable())
 		pDrawable->animationState()->getData()->setDefaultMix(mixTime);
-	}
 }
 
 bool CSpinePlayer::isFlipX() const noexcept
 {
+	if (const SDrawableState* state = getSelectedDrawableState())
+		return state->flipX;
 	return m_bFlipX;
 }
 
 void CSpinePlayer::toggleFlipX() noexcept
 {
-	m_bFlipX = !m_bFlipX;
+	if (SDrawableState* state = getSelectedDrawableState())
+	{
+		state->flipX = !state->flipX;
+		m_bFlipX = state->flipX;
+	}
 }
 
 int CSpinePlayer::getRotationSteps() const noexcept
 {
+	if (const SDrawableState* state = getSelectedDrawableState())
+		return state->rotationSteps;
 	return m_iRotationSteps;
 }
 
 void CSpinePlayer::rotate90() noexcept
 {
-	m_iRotationSteps = (m_iRotationSteps + 1) % 4;
+	if (SDrawableState* state = getSelectedDrawableState())
+	{
+		state->rotationSteps = (state->rotationSteps + 1) % 4;
+		m_iRotationSteps = state->rotationSteps;
+	}
 }
 
 bool CSpinePlayer::isResetOffsetOnLoad() const noexcept
@@ -851,10 +875,14 @@ void CSpinePlayer::setResetOffsetOnLoad(bool bReset) noexcept
 	m_bResetOffsetOnLoad = bReset;
 }
 
-
 void CSpinePlayer::clearDrawables()
 {
 	m_drawables.clear();
+	m_drawableStates.clear();
+	m_drawableAnimationNames.clear();
+	m_drawableSkinNames.clear();
+	m_drawableSlotNames.clear();
+	m_selectedDrawableIndex = 0;
 	m_atlases.clear();
 	m_skeletonData.clear();
 
@@ -879,6 +907,7 @@ bool CSpinePlayer::addDrawable(spine::SkeletonData* pSkeletonData)
 	pDrawable->update(0.f);
 
 	m_drawables.push_back(std::move(pDrawable));
+	m_drawableStates.push_back({});
 
 	return true;
 }
@@ -893,39 +922,53 @@ bool CSpinePlayer::setupDrawables()
 		bool bRet = addDrawable(pSkeletonDatum.get());
 		if (!bRet)continue;
 
+		std::vector<std::string> animationNames;
 		auto& animations = pSkeletonDatum->getAnimations();
 		for (size_t i = 0; i < animations.size(); ++i)
 		{
 			const char* szAnimationName = animations[i]->getName().buffer();
 			if (szAnimationName == nullptr)continue;
 
-			const auto& iter = std::find(m_animationNames.begin(), m_animationNames.end(), szAnimationName);
-			if (iter == m_animationNames.cend())m_animationNames.push_back(szAnimationName);
+			const auto& iter = std::find(animationNames.begin(), animationNames.end(), szAnimationName);
+			if (iter == animationNames.cend())animationNames.push_back(szAnimationName);
 		}
+		m_drawableAnimationNames.push_back(std::move(animationNames));
 
+		std::vector<std::string> skinNames;
 		auto& skins = pSkeletonDatum->getSkins();
 		for (size_t i = 0; i < skins.size(); ++i)
 		{
 			const char* szSkinName = skins[i]->getName().buffer();
 			if (szSkinName == nullptr)continue;
 
-			const auto& iter = std::find(m_skinNames.begin(), m_skinNames.end(), szSkinName);
-			if (iter == m_skinNames.cend())m_skinNames.push_back(szSkinName);
+			const auto& iter = std::find(skinNames.begin(), skinNames.end(), szSkinName);
+			if (iter == skinNames.cend())skinNames.push_back(szSkinName);
 		}
+		m_drawableSkinNames.push_back(std::move(skinNames));
 
+		std::vector<std::string> slotNames;
 		auto& slots = pSkeletonDatum->getSlots();
 		for (size_t ii = 0; ii < slots.size(); ++ii)
 		{
 			const char* szName = slots[ii]->getName().buffer();
-			const auto& iter = std::find(m_slotNames.begin(), m_slotNames.end(), szName);
-			if (iter == m_slotNames.cend())m_slotNames.push_back(szName);
+			if (szName == nullptr)continue;
+			const auto& iter = std::find(slotNames.begin(), slotNames.end(), szName);
+			if (iter == slotNames.cend())slotNames.push_back(szName);
 		}
+		m_drawableSlotNames.push_back(std::move(slotNames));
 	}
 
 	workOutDefaultOffset();
-
+	for (auto& state : m_drawableStates)
+	{
+		state.offset = m_fDefaultOffset;
+		state.skeletonScale = m_fDefaultScale;
+		state.flipX = false;
+		state.rotationSteps = 0;
+	}
+	m_selectedDrawableIndex = 0;
+	refreshSelectedResourceLists();
 	restartAnimation();
-
 	resetScale();
 
 	for (const auto& pDrawable : m_drawables)
@@ -933,9 +976,8 @@ bool CSpinePlayer::setupDrawables()
 		pDrawable->update(0.f);
 	}
 
-	return m_animationNames.size() > 0;
+	return !m_animationNames.empty();
 }
-
 void CSpinePlayer::workOutDefaultSize()
 {
 	if (m_skeletonData.empty())return;
@@ -966,6 +1008,10 @@ void CSpinePlayer::workOutDefaultSize()
 			const auto FindDefaultSkinAttachment = [&pSkeletonData]()
 				-> spine::Attachment*
 				{
+					if (pSkeletonData.get()->getDefaultSkin() == nullptr)
+					{
+						return nullptr;
+					}
 					spine::Skin::AttachmentMap::Entries attachmentMapEntries = pSkeletonData.get()->getDefaultSkin()->getAttachments();
 					for (; attachmentMapEntries.hasNext();)
 					{
@@ -1001,18 +1047,14 @@ void CSpinePlayer::workOutDefaultSize()
 	}
 }
 
-
 void CSpinePlayer::updatePosition()
 {
-	for (const auto& pDrawable : m_drawables)
-	{
-		pDrawable->skeleton()->setPosition(m_fBaseSize.x / 2 - m_fOffset.x, m_fBaseSize.y / 2 - m_fOffset.y);
-	}
+	for (size_t i = 0; i < m_drawables.size(); ++i)
+		applyDrawablePosition(i);
 }
-
 void CSpinePlayer::clearAnimationTracks()
 {
-	for (const auto& pDrawable : m_drawables)
+	if (CSpineDrawable* pDrawable = getSelectedDrawable())
 	{
 		const auto& trackEntry = pDrawable->animationState()->getTracks();
 		for (size_t iTrack = 1; iTrack < trackEntry.size(); ++iTrack)
@@ -1022,6 +1064,68 @@ void CSpinePlayer::clearAnimationTracks()
 	}
 }
 
+CSpinePlayer::SDrawableState* CSpinePlayer::getSelectedDrawableState() noexcept
+{
+	if (m_selectedDrawableIndex < m_drawableStates.size())
+		return &m_drawableStates[m_selectedDrawableIndex];
+	return nullptr;
+}
 
+const CSpinePlayer::SDrawableState* CSpinePlayer::getSelectedDrawableState() const noexcept
+{
+	if (m_selectedDrawableIndex < m_drawableStates.size())
+		return &m_drawableStates[m_selectedDrawableIndex];
+	return nullptr;
+}
 
+CSpineDrawable* CSpinePlayer::getSelectedDrawable() const noexcept
+{
+	if (m_selectedDrawableIndex < m_drawables.size())
+		return m_drawables[m_selectedDrawableIndex].get();
+	return nullptr;
+}
 
+void CSpinePlayer::syncSelectionIndices()
+{
+	const std::string currentAnimation = getCurrentAnimationName();
+	auto animIt = std::find(m_animationNames.begin(), m_animationNames.end(), currentAnimation);
+	if (animIt != m_animationNames.end())
+		m_nAnimationIndex = static_cast<size_t>(std::distance(m_animationNames.begin(), animIt));
+	else
+		m_nAnimationIndex = 0;
+
+	const std::string currentSkin = getCurrentSkinName();
+	auto skinIt = std::find(m_skinNames.begin(), m_skinNames.end(), currentSkin);
+	if (skinIt != m_skinNames.end())
+		m_nSkinIndex = static_cast<size_t>(std::distance(m_skinNames.begin(), skinIt));
+	else
+		m_nSkinIndex = 0;
+}
+
+void CSpinePlayer::refreshSelectedResourceLists()
+{
+	m_animationNames.clear();
+	m_skinNames.clear();
+	m_slotNames.clear();
+
+	if (m_selectedDrawableIndex < m_drawableAnimationNames.size())
+		m_animationNames = m_drawableAnimationNames[m_selectedDrawableIndex];
+	if (m_selectedDrawableIndex < m_drawableSkinNames.size())
+		m_skinNames = m_drawableSkinNames[m_selectedDrawableIndex];
+	if (m_selectedDrawableIndex < m_drawableSlotNames.size())
+		m_slotNames = m_drawableSlotNames[m_selectedDrawableIndex];
+
+	if (m_nAnimationIndex >= m_animationNames.size())
+		m_nAnimationIndex = 0;
+	if (m_nSkinIndex >= m_skinNames.size())
+		m_nSkinIndex = 0;
+}
+
+void CSpinePlayer::applyDrawablePosition(size_t index)
+{
+	if (index >= m_drawables.size()) return;
+	FPoint2 offset = m_fDefaultOffset;
+	if (index < m_drawableStates.size())
+		offset = m_drawableStates[index].offset;
+	m_drawables[index]->skeleton()->setPosition(m_fBaseSize.x / 2 - offset.x, m_fBaseSize.y / 2 - offset.y);
+}
