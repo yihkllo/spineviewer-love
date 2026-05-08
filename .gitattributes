@@ -1,0 +1,21 @@
+*.cpp linguist-language=C++
+*.cc linguist-language=C++
+*.cxx linguist-language=C++
+*.hpp linguist-language=C++
+*.hh linguist-language=C++
+*.hxx linguist-language=C++
+*.h linguist-language=C++
+
+*.sln linguist-vendored
+*.vcxproj linguist-vendored
+*.props linguist-vendored
+*.filters linguist-vendored
+*.rc linguist-vendored
+*.manifest linguist-vendored
+*.hlsl linguist-vendored
+
+*.md linguist-documentation
+*.txt linguist-documentation
+*.png linguist-vendored
+*.ico linguist-vendored
+*.ttf linguist-vendored

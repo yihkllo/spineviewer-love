@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="common.props" />
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{6C033050-FEAA-4481-9692-834CA7DF67ED}</ProjectGuid>
+    <RootNamespace>spinelove_spine_cpp_38</RootNamespace>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalIncludeDirectories>..\main\spine\cpp-3.8\include;..\main\runtime_v2;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>spine=sl_spine38;indexOf=sl_spine38_atlasIndexOf;SL_SPINE_NAMESPACE=sl_spine38;SL_RUNTIME_FACTORY_NAME=CreateCpp38Runtime;SL_RUNTIME_DISPLAY_VERSION="3.8";SL_SPINE_SKELETON_HAS_UPDATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <DisableSpecificWarnings>4251;4275;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="..\main\spine\cpp-3.8\src\spine\*.cpp" />
+    <ClCompile Include="..\main\runtime_v2\cpp_adapter\cpp_runtime_adapter.cpp" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>

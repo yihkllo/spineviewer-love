@@ -1,0 +1,112 @@
+﻿
+File=ファイル
+Setting=設定
+Background=背景
+
+Premultiplied alpha=プリマルチプライドアルファ
+Alpha premultiplied=アルファ乗算済み
+Blend-mode=ブレンドモード
+Force blend mode=通常ブレンドモードを強制
+Scale=スケール
+Speed=速度
+Reset##scale=リセット##scale
+Reset##timescale=リセット##timescale
+Mix=ミックス時間
+Reset##mix=リセット##mix
+
+Animations=アニメーション一覧
+Skin=スキン
+Mix=ミックス
+
+Size/Flip=サイズ/反転
+Size=サイズ
+Mirror##flip=左右反転
+Rotate##flip=回転
+Track Mix=トラックミックス
+Slot=スロット
+
+Window size: (%d, %d)=ウィンドウサイズ: (%d, %d)
+Skeleton size: (%.2f, %.2f)=スケルトンサイズ: (%.2f, %.2f)
+Offset: (%.2f, %.2f)=オフセット: (%.2f, %.2f)
+
+Track=トラック
+Add##AddTracks2=追加##AddTracks2
+Clear##ClearTracks2=クリア##ClearTracks2
+Exclude slot by items=項目でスロットを除外
+Clear##ClearExcSlots2=クリア##ClearExcSlots2
+Exclude slot by filter=フィルターでスロットを除外
+Filter=フィルター
+Apply##FilterSlot2=適用##FilterSlot2
+Mouse slot hover=マウススロットホバー
+Enable##MouseHover=有効##MouseHover
+Hovered slot: %s=ホバー中スロット: %s
+Hovered slot: (none)=ホバー中スロット: (なし)
+Pinned slot: %s=固定スロット: %s
+Clear pin##MH=固定解除##MH
+Draw slot bounding##MH=スロット境界を描画##MH
+Thickness##MH=線の太さ##MH
+Colour##MH=カラー##MH
+Fit to slot (custom)##MH=スロットへ合わせる(指定)##MH
+Apply##FitSlot=適用##FitSlot
+Slot bounding=スロット境界
+Slot not found in this animation.=このアニメーションにスロットが見つかりません。
+Slot bounding: (%.2f, %.2f, %.2f, %.2f)=スロット境界: (%.2f, %.2f, %.2f, %.2f)
+Draw slot bounding=スロット境界を描画
+Thickness=線の太さ
+Colour=カラー
+Fit to this slot=このスロットに合わせる
+
+Queue=キュー
++Add=+追加
+Play=再生
+Stop=停止
+Clear All=すべてクリア
+Clear##ClearQueue=すべてクリア##ClearQueue
+Spines=複数Spine
+Snapshot=スナップショット
+Queue ON=キュー ON
+Queue OFF=キュー OFF
+Export FPS=書き出しFPS
+Image=画像
+Video=動画
+Frames=フレーム
+Export=書き出し
+
+Select Folder=フォルダを選択
+
+Language=言語
+Theme=テーマ
+Close=閉じる
+Back=戻る
+
+Font Size:=フォントサイズ:
+Apply=適用
+
+Title BG=タイトル背景
+Dark Mode: ON##theme=ダークモード オン##theme
+Dark Mode: OFF##theme=ダークモード オフ##theme
+Hue##theme=色相##theme
+Saturation##theme=彩度##theme
+Brightness##theme=明度##theme
+Hue %.2f=色相 %.2f
+Saturation %.2f=彩度 %.2f
+Brightness %.2f=明度 %.2f
+Reset to Default##theme=デフォルトに戻す##theme
+
+Render BG Color=描画背景色
+Reset to Default##renderbg=デフォルトに戻す##renderbg
+Pro=Pro
+Pro Features=Pro Features
+To use this feature first, please open yihkllo.com.=To use this feature first, please open yihkllo.com.
+Maybe Later=Maybe Later
+Open yihkllo.com=Open yihkllo.com
+Warning=警告
+Cancel=キャンセル
+Continue=続行
+Favorite=お気に入り
+Favorites=お気に入り
+Unfavorite=お気に入り解除
+Open Containing Folder=保存先フォルダを開く
+Add Spine=Spineを追加
+Loading in this way will exit multi-spine mode and replace the currently loaded spines.=この方法で読み込むと複数Spineモードを終了し、現在読み込まれているSpineを置き換えます。
+Language Settings=言語設定

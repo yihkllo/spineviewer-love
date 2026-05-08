@@ -1,0 +1,43 @@
+# Visual Studio
+.vs/
+out/
+compile_commands.json
+
+# MSVC build products
+*.obj
+*.o
+*.lo
+*.slo
+*.pch
+*.pdb
+*.idb
+*.ilk
+*.iobj
+*.ipdb
+*.lib
+*.exp
+*.dll
+*.exe
+*.manifest
+*.res
+*.aps
+*.tlog
+*.lastbuildstate
+*.recipe
+
+# Visual Studio user files
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Logs / temp
+*.log
+*.tmp
+*.temp
+*.cache
+crash_dumps/
+
+# Keep source assets tracked
+!app.png
+!main/sl_hires_display.manifest

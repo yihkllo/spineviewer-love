@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="common.props" />
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{5D1B8D07-B32A-44D7-B462-13A3A1975C56}</ProjectGuid>
+    <RootNamespace>spinelove_runtime_v2</RootNamespace>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalIncludeDirectories>..\main\runtime_v2;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="..\main\runtime_v2\cpp_runtime_manager.cpp" />
+    <ClCompile Include="..\main\runtime_v2\spine21_cpp\spine21_runtime.cpp" />
+    <ClCompile Include="..\main\runtime_v2\spine34_cpp\spine34_runtime.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\main\runtime_v2\cpp_runtime_manager.h" />
+    <ClInclude Include="..\main\runtime_v2\runtime_api.h" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>

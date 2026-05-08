@@ -1,0 +1,85 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SpineLove", "vs\SpineLove.vcxproj", "{D6D355E2-9DF0-4E53-A9EF-D08CDE080F42}"
+	ProjectSection(ProjectDependencies) = postProject
+		{5D1B8D07-B32A-44D7-B462-13A3A1975C56} = {5D1B8D07-B32A-44D7-B462-13A3A1975C56}
+		{2F1FE83A-35C4-4F3A-9A5A-4C6191CC3535} = {2F1FE83A-35C4-4F3A-9A5A-4C6191CC3535}
+		{7F6E29DD-644F-4931-94E2-4C6191CC3636} = {7F6E29DD-644F-4931-94E2-4C6191CC3636}
+		{4CEBC2A7-5F8C-43EE-930B-4C6191CC3737} = {4CEBC2A7-5F8C-43EE-930B-4C6191CC3737}
+		{6C033050-FEAA-4481-9692-834CA7DF67ED} = {6C033050-FEAA-4481-9692-834CA7DF67ED}
+		{03DE5A89-428D-46DA-86F9-5856679A0A08} = {03DE5A89-428D-46DA-86F9-5856679A0A08}
+		{3BA35D6F-5BAF-4B05-81F0-E18D65801674} = {3BA35D6F-5BAF-4B05-81F0-E18D65801674}
+		{D4909D75-B0AE-4283-9C60-10803A823874} = {D4909D75-B0AE-4283-9C60-10803A823874}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "spinelove_runtime_v2", "vs\spinelove_runtime_v2.vcxproj", "{5D1B8D07-B32A-44D7-B462-13A3A1975C56}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "spinelove_spine_cpp_35", "vs\spinelove_spine_cpp_35.vcxproj", "{2F1FE83A-35C4-4F3A-9A5A-4C6191CC3535}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "spinelove_spine_cpp_36", "vs\spinelove_spine_cpp_36.vcxproj", "{7F6E29DD-644F-4931-94E2-4C6191CC3636}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "spinelove_spine_cpp_37", "vs\spinelove_spine_cpp_37.vcxproj", "{4CEBC2A7-5F8C-43EE-930B-4C6191CC3737}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "spinelove_spine_cpp_38", "vs\spinelove_spine_cpp_38.vcxproj", "{6C033050-FEAA-4481-9692-834CA7DF67ED}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "spinelove_spine_cpp_40", "vs\spinelove_spine_cpp_40.vcxproj", "{03DE5A89-428D-46DA-86F9-5856679A0A08}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "spinelove_spine_cpp_41", "vs\spinelove_spine_cpp_41.vcxproj", "{3BA35D6F-5BAF-4B05-81F0-E18D65801674}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "spinelove_spine_cpp_42", "vs\spinelove_spine_cpp_42.vcxproj", "{D4909D75-B0AE-4283-9C60-10803A823874}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SpineRuntimeV2Smoke", "vs\SpineRuntimeV2Smoke.vcxproj", "{2AB51FE8-4B0A-489C-9D62-18780CC93A94}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{D6D355E2-9DF0-4E53-A9EF-D08CDE080F42}.Debug|x64.ActiveCfg = Debug|x64
+		{D6D355E2-9DF0-4E53-A9EF-D08CDE080F42}.Debug|x64.Build.0 = Debug|x64
+		{D6D355E2-9DF0-4E53-A9EF-D08CDE080F42}.Release|x64.ActiveCfg = Release|x64
+		{D6D355E2-9DF0-4E53-A9EF-D08CDE080F42}.Release|x64.Build.0 = Release|x64
+		{5D1B8D07-B32A-44D7-B462-13A3A1975C56}.Debug|x64.ActiveCfg = Debug|x64
+		{5D1B8D07-B32A-44D7-B462-13A3A1975C56}.Debug|x64.Build.0 = Debug|x64
+		{5D1B8D07-B32A-44D7-B462-13A3A1975C56}.Release|x64.ActiveCfg = Release|x64
+		{5D1B8D07-B32A-44D7-B462-13A3A1975C56}.Release|x64.Build.0 = Release|x64
+		{2F1FE83A-35C4-4F3A-9A5A-4C6191CC3535}.Debug|x64.ActiveCfg = Debug|x64
+		{2F1FE83A-35C4-4F3A-9A5A-4C6191CC3535}.Debug|x64.Build.0 = Debug|x64
+		{2F1FE83A-35C4-4F3A-9A5A-4C6191CC3535}.Release|x64.ActiveCfg = Release|x64
+		{2F1FE83A-35C4-4F3A-9A5A-4C6191CC3535}.Release|x64.Build.0 = Release|x64
+		{7F6E29DD-644F-4931-94E2-4C6191CC3636}.Debug|x64.ActiveCfg = Debug|x64
+		{7F6E29DD-644F-4931-94E2-4C6191CC3636}.Debug|x64.Build.0 = Debug|x64
+		{7F6E29DD-644F-4931-94E2-4C6191CC3636}.Release|x64.ActiveCfg = Release|x64
+		{7F6E29DD-644F-4931-94E2-4C6191CC3636}.Release|x64.Build.0 = Release|x64
+		{4CEBC2A7-5F8C-43EE-930B-4C6191CC3737}.Debug|x64.ActiveCfg = Debug|x64
+		{4CEBC2A7-5F8C-43EE-930B-4C6191CC3737}.Debug|x64.Build.0 = Debug|x64
+		{4CEBC2A7-5F8C-43EE-930B-4C6191CC3737}.Release|x64.ActiveCfg = Release|x64
+		{4CEBC2A7-5F8C-43EE-930B-4C6191CC3737}.Release|x64.Build.0 = Release|x64
+		{6C033050-FEAA-4481-9692-834CA7DF67ED}.Debug|x64.ActiveCfg = Debug|x64
+		{6C033050-FEAA-4481-9692-834CA7DF67ED}.Debug|x64.Build.0 = Debug|x64
+		{6C033050-FEAA-4481-9692-834CA7DF67ED}.Release|x64.ActiveCfg = Release|x64
+		{6C033050-FEAA-4481-9692-834CA7DF67ED}.Release|x64.Build.0 = Release|x64
+		{03DE5A89-428D-46DA-86F9-5856679A0A08}.Debug|x64.ActiveCfg = Debug|x64
+		{03DE5A89-428D-46DA-86F9-5856679A0A08}.Debug|x64.Build.0 = Debug|x64
+		{03DE5A89-428D-46DA-86F9-5856679A0A08}.Release|x64.ActiveCfg = Release|x64
+		{03DE5A89-428D-46DA-86F9-5856679A0A08}.Release|x64.Build.0 = Release|x64
+		{3BA35D6F-5BAF-4B05-81F0-E18D65801674}.Debug|x64.ActiveCfg = Debug|x64
+		{3BA35D6F-5BAF-4B05-81F0-E18D65801674}.Debug|x64.Build.0 = Debug|x64
+		{3BA35D6F-5BAF-4B05-81F0-E18D65801674}.Release|x64.ActiveCfg = Release|x64
+		{3BA35D6F-5BAF-4B05-81F0-E18D65801674}.Release|x64.Build.0 = Release|x64
+		{D4909D75-B0AE-4283-9C60-10803A823874}.Debug|x64.ActiveCfg = Debug|x64
+		{D4909D75-B0AE-4283-9C60-10803A823874}.Debug|x64.Build.0 = Debug|x64
+		{D4909D75-B0AE-4283-9C60-10803A823874}.Release|x64.ActiveCfg = Release|x64
+		{D4909D75-B0AE-4283-9C60-10803A823874}.Release|x64.Build.0 = Release|x64
+		{2AB51FE8-4B0A-489C-9D62-18780CC93A94}.Debug|x64.ActiveCfg = Debug|x64
+		{2AB51FE8-4B0A-489C-9D62-18780CC93A94}.Debug|x64.Build.0 = Debug|x64
+		{2AB51FE8-4B0A-489C-9D62-18780CC93A94}.Release|x64.ActiveCfg = Release|x64
+		{2AB51FE8-4B0A-489C-9D62-18780CC93A94}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
