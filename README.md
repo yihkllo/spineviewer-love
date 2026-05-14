@@ -13,7 +13,7 @@
 
 <br/>
 
-<img src="app.png" alt="SpineLove screenshot" width="860"/>
+<img src="screenshot_main.png" alt="SpineLove main window" width="860"/>
 
 </div>
 
@@ -173,6 +173,10 @@ Toggle **`Queue ON`** to export the animation queue instead of just the current 
 | `ko_KR` | 한국어 |
 
 Switch from **Setting → Language**. The choice is saved for the next launch.
+
+<div align="center">
+<img src="screenshot_language.png" alt="Language settings window" width="780"/>
+</div>
 
 ---
 

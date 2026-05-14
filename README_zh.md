@@ -13,7 +13,7 @@
 
 <br/>
 
-<img src="app.png" alt="SpineLove 截图" width="860"/>
+<img src="screenshot_main.png" alt="SpineLove 主界面" width="860"/>
 
 </div>
 
@@ -173,6 +173,10 @@
 | `ko_KR` | 한국어 |
 
 在 **Setting → Language** 切换，下次启动会保留。
+
+<div align="center">
+<img src="screenshot_language.png" alt="语言切换界面" width="780"/>
+</div>
 
 ---
 
