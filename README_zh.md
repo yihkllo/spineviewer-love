@@ -32,6 +32,24 @@
 
 ---
 
+## 🌐 界面语言
+
+| 代码 | 语言 |
+|---|---|
+| `en` | English *(默认)* |
+| `zh_CN` | 简体中文 |
+| `zh_TW` | 繁體中文 |
+| `ja_JP` | 日本語 |
+| `ko_KR` | 한국어 |
+
+在 **Setting → Language** 切换，下次启动会保留。
+
+<div align="center">
+<img src="screenshot_language.png" alt="语言切换界面" width="780"/>
+</div>
+
+---
+
 ## 📦 支持内容
 
 | 项目 | 说明 |
@@ -159,24 +177,6 @@
 
 ### 队列导出
 打开 **`Queue ON`** 后会导出动画队列，而不是只导出当前动画。队列为空时导出会停止并提示错误。
-
----
-
-## 🌐 界面语言
-
-| 代码 | 语言 |
-|---|---|
-| `en` | English *(默认)* |
-| `zh_CN` | 简体中文 |
-| `zh_TW` | 繁體中文 |
-| `ja_JP` | 日本語 |
-| `ko_KR` | 한국어 |
-
-在 **Setting → Language** 切换，下次启动会保留。
-
-<div align="center">
-<img src="screenshot_language.png" alt="语言切换界面" width="780"/>
-</div>
 
 ---
 

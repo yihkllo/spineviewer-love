@@ -32,6 +32,24 @@
 
 ---
 
+## 🌐 Languages
+
+| Code | Language |
+|---|---|
+| `en` | English *(default)* |
+| `zh_CN` | 简体中文 |
+| `zh_TW` | 繁體中文 |
+| `ja_JP` | 日本語 |
+| `ko_KR` | 한국어 |
+
+Switch from **Setting → Language**. The choice is saved for the next launch.
+
+<div align="center">
+<img src="screenshot_language.png" alt="Language settings window" width="780"/>
+</div>
+
+---
+
 ## 📦 Supported content
 
 | Item | Details |
@@ -159,24 +177,6 @@ Renders PNG frames first, then encodes with **`ffmpeg.exe`**.
 
 ### Queue Export
 Toggle **`Queue ON`** to export the animation queue instead of just the current animation. An empty queue stops the export with an error message.
-
----
-
-## 🌐 Languages
-
-| Code | Language |
-|---|---|
-| `en` | English *(default)* |
-| `zh_CN` | 简体中文 |
-| `zh_TW` | 繁體中文 |
-| `ja_JP` | 日本語 |
-| `ko_KR` | 한국어 |
-
-Switch from **Setting → Language**. The choice is saved for the next launch.
-
-<div align="center">
-<img src="screenshot_language.png" alt="Language settings window" width="780"/>
-</div>
 
 ---
 
