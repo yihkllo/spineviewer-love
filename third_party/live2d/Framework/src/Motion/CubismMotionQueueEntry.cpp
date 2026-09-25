@@ -1,3 +1,5 @@
+﻿
+
 #include "CubismMotionQueueEntry.hpp"
 #include "CubismFramework.hpp"
 
@@ -122,6 +124,7 @@ csmFloat32 CubismMotionQueueEntry::GetStateWeight() const
 {
     return this->_stateWeight;
 }
+
 
 csmFloat32 CubismMotionQueueEntry::GetLastCheckEventTime() const
 {

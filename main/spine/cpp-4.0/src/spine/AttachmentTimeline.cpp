@@ -1,3 +1,4 @@
+
 #ifdef SPINE_UE4
 #include "SpinePluginPrivatePCH.h"
 #endif
@@ -49,7 +50,6 @@ void AttachmentTimeline::apply(Skeleton &skeleton, float lastTime, float time, V
 	}
 
 	if (time < _frames[0]) {
-
 		if (blend == MixBlend_Setup || blend == MixBlend_First) {
 			setAttachment(skeleton, *slot, &slot->_data._attachmentName);
 		}

@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 
 #include "CubismFramework.hpp"
@@ -62,3 +64,4 @@ CubismVector2 operator*(const csmFloat32 scalar, const CubismVector2& vector);
 CubismVector2 operator/(const CubismVector2& vector, const csmFloat32 scalar);
 
 }}}
+

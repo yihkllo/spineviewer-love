@@ -1,3 +1,4 @@
+
 #ifndef Spine_EventData_h
 #define Spine_EventData_h
 
@@ -5,7 +6,6 @@
 #include <spine/SpineString.h>
 
 namespace spine {
-
 class SP_API EventData : public SpineObject {
 	friend class SkeletonBinary;
 

@@ -1,3 +1,4 @@
+
 #include <spine/DeformTimeline.h>
 
 #include <spine/Event.h>
@@ -69,12 +70,10 @@ void DeformTimeline::apply(Skeleton &skeleton, float lastTime, float time, Vecto
 				deformArray.setSize(vertexCount, 0);
 				Vector<float> &deform = deformArray;
 				if (attachment->getBones().size() == 0) {
-
 					Vector<float> &setupVertices = attachment->getVertices();
 					for (size_t i = 0; i < vertexCount; i++)
 						deform[i] += (setupVertices[i] - deform[i]) * alpha;
 				} else {
-
 					alpha = 1 - alpha;
 					for (size_t i = 0; i < vertexCount; i++)
 						deform[i] *= alpha;
@@ -96,17 +95,14 @@ void DeformTimeline::apply(Skeleton &skeleton, float lastTime, float time, Vecto
 			if (blend == MixBlend_Add) {
 				VertexAttachment *vertexAttachment = static_cast<VertexAttachment *>(slotAttachment);
 				if (vertexAttachment->getBones().size() == 0) {
-
 					Vector<float> &setupVertices = vertexAttachment->getVertices();
 					for (size_t i = 0; i < vertexCount; i++)
 						deform[i] += lastVertices[i] - setupVertices[i];
 				} else {
-
 					for (size_t i = 0; i < vertexCount; i++)
 						deform[i] += lastVertices[i];
 				}
 			} else {
-
 				memcpy(deform.buffer(), lastVertices.buffer(), vertexCount * sizeof(float));
 			}
 		} else {
@@ -114,14 +110,12 @@ void DeformTimeline::apply(Skeleton &skeleton, float lastTime, float time, Vecto
 				case MixBlend_Setup: {
 					VertexAttachment *vertexAttachment = static_cast<VertexAttachment *>(slotAttachment);
 					if (vertexAttachment->getBones().size() == 0) {
-
 						Vector<float> &setupVertices = vertexAttachment->getVertices();
 						for (size_t i = 0; i < vertexCount; i++) {
 							float setup = setupVertices[i];
 							deform[i] = setup + (lastVertices[i] - setup) * alpha;
 						}
 					} else {
-
 						for (size_t i = 0; i < vertexCount; i++)
 							deform[i] = lastVertices[i] * alpha;
 					}
@@ -129,19 +123,16 @@ void DeformTimeline::apply(Skeleton &skeleton, float lastTime, float time, Vecto
 				}
 				case MixBlend_First:
 				case MixBlend_Replace:
-
 					for (size_t i = 0; i < vertexCount; i++)
 						deform[i] += (lastVertices[i] - deform[i]) * alpha;
 					break;
 				case MixBlend_Add:
 					VertexAttachment *vertexAttachment = static_cast<VertexAttachment *>(slotAttachment);
 					if (vertexAttachment->getBones().size() == 0) {
-
 						Vector<float> &setupVertices = vertexAttachment->getVertices();
 						for (size_t i = 0; i < vertexCount; i++)
 							deform[i] += (lastVertices[i] - setupVertices[i]) * alpha;
 					} else {
-
 						for (size_t i = 0; i < vertexCount; i++)
 							deform[i] += lastVertices[i] * alpha;
 					}
@@ -159,21 +150,18 @@ void DeformTimeline::apply(Skeleton &skeleton, float lastTime, float time, Vecto
 		if (blend == MixBlend_Add) {
 			VertexAttachment *vertexAttachment = static_cast<VertexAttachment *>(slotAttachment);
 			if (vertexAttachment->getBones().size() == 0) {
-
 				Vector<float> &setupVertices = vertexAttachment->getVertices();
 				for (size_t i = 0; i < vertexCount; i++) {
 					float prev = prevVertices[i];
 					deform[i] += prev + (nextVertices[i] - prev) * percent - setupVertices[i];
 				}
 			} else {
-
 				for (size_t i = 0; i < vertexCount; i++) {
 					float prev = prevVertices[i];
 					deform[i] += prev + (nextVertices[i] - prev) * percent;
 				}
 			}
 		} else {
-
 			for (size_t i = 0; i < vertexCount; i++) {
 				float prev = prevVertices[i];
 				deform[i] = prev + (nextVertices[i] - prev) * percent;
@@ -184,14 +172,12 @@ void DeformTimeline::apply(Skeleton &skeleton, float lastTime, float time, Vecto
 			case MixBlend_Setup: {
 				VertexAttachment *vertexAttachment = static_cast<VertexAttachment *>(slotAttachment);
 				if (vertexAttachment->getBones().size() == 0) {
-
 					Vector<float> &setupVertices = vertexAttachment->getVertices();
 					for (size_t i = 0; i < vertexCount; i++) {
 						float prev = prevVertices[i], setup = setupVertices[i];
 						deform[i] = setup + (prev + (nextVertices[i] - prev) * percent - setup) * alpha;
 					}
 				} else {
-
 					for (size_t i = 0; i < vertexCount; i++) {
 						float prev = prevVertices[i];
 						deform[i] = (prev + (nextVertices[i] - prev) * percent) * alpha;
@@ -201,7 +187,6 @@ void DeformTimeline::apply(Skeleton &skeleton, float lastTime, float time, Vecto
 			}
 			case MixBlend_First:
 			case MixBlend_Replace:
-
 				for (size_t i = 0; i < vertexCount; i++) {
 					float prev = prevVertices[i];
 					deform[i] += (prev + (nextVertices[i] - prev) * percent - deform[i]) * alpha;
@@ -210,14 +195,12 @@ void DeformTimeline::apply(Skeleton &skeleton, float lastTime, float time, Vecto
 			case MixBlend_Add:
 				VertexAttachment *vertexAttachment = static_cast<VertexAttachment *>(slotAttachment);
 				if (vertexAttachment->getBones().size() == 0) {
-
 					Vector<float> &setupVertices = vertexAttachment->getVertices();
 					for (size_t i = 0; i < vertexCount; i++) {
 						float prev = prevVertices[i];
 						deform[i] += (prev + (nextVertices[i] - prev) * percent - setupVertices[i]) * alpha;
 					}
 				} else {
-
 					for (size_t i = 0; i < vertexCount; i++) {
 						float prev = prevVertices[i];
 						deform[i] += (prev + (nextVertices[i] - prev) * percent) * alpha;

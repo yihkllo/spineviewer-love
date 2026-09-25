@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 
 #include "CubismFramework.hpp"
@@ -7,7 +9,6 @@ namespace Live2D { namespace Cubism { namespace Framework {
 class CubismTargetPoint
 {
 public:
-
     CubismTargetPoint();
 
     virtual ~CubismTargetPoint();

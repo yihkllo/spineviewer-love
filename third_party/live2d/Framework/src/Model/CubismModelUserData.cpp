@@ -1,3 +1,5 @@
+﻿
+
 #include "CubismModelUserData.hpp"
 #include "CubismModelUserDataJson.hpp"
 #include "Utils/CubismString.hpp"

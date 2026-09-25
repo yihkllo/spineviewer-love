@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 
 #include "ACubismMotion.hpp"
@@ -15,7 +17,6 @@ class CubismMotionQueueEntry
     friend class CubismMotion;
 
 public:
-
     CubismMotionQueueEntry();
 
     virtual ~CubismMotionQueueEntry();

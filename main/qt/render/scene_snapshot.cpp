@@ -1,20 +1,23 @@
-#include "scene_snapshot.h"
-#include "texture_loader.h"
+#include "spinelove/scene_snapshot.h"
+#include "spinelove/texture_loader.h"
 #include <QImageReader>
 #include <QtMath>
 #include <utility>
 #include <atomic>
 
 namespace slqt {
-
 static std::atomic<SlTextureId> nextTextureId{1};
 SceneRecorder::SceneRecorder(TextureLoader loader) : m_loader(std::move(loader)) { QImage white(1,1,QImage::Format_RGBA8888);white.fill(Qt::white);m_textures.insert(1,white);++m_revision; }
 SlTextureId SceneRecorder::LoadTextureUtf8(const char* path, bool premultiply)
 {
     auto img = m_loader ? m_loader(QString::fromUtf8(path),premultiply) : loadTextureImage(QString::fromUtf8(path),premultiply);
-    if (img.isNull()) return 0;
+    return addTexture(std::move(img));
+}
+SlTextureId SceneRecorder::addTexture(QImage image)
+{
+    if (image.isNull()) return 0;
     const auto id = ++nextTextureId;
-    m_textures.insert(id, img);
+    m_textures.insert(id, std::move(image));
     ++m_revision;
     return id;
 }

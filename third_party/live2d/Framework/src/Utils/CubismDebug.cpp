@@ -1,3 +1,5 @@
+﻿
+
 #include "CubismDebug.hpp"
 #include "CubismFramework.hpp"
 #include <stdio.h>
@@ -7,7 +9,6 @@ namespace Live2D { namespace Cubism { namespace Framework { namespace Utils {
 
 void CubismDebug::Print(CubismFramework::Option::LogLevel logLevel, const csmChar* format, ...)
 {
-
     if (logLevel < CubismFramework::GetLoggingLevel())
         return;
 
@@ -42,3 +43,4 @@ void CubismDebug::DumpBytes(CubismFramework::Option::LogLevel logLevel, const cs
 }
 
 }}}}
+

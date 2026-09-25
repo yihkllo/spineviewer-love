@@ -1,3 +1,5 @@
+﻿
+
 #include "CubismPhysics.hpp"
 #include "CubismPhysicsInternal.hpp"
 #include "CubismPhysicsJson.hpp"
@@ -399,7 +401,6 @@ void UpdateOutputParameterValue(csmFloat32* parameterValue, csmFloat32 parameter
 CubismPhysics::CubismPhysics()
     : _physicsRig(NULL)
 {
-
     _options.Gravity.Y = -1.0f;
     _options.Gravity.X = 0;
     _options.Wind.X = 0;
@@ -450,7 +451,6 @@ void CubismPhysics::Initialize()
 
 void CubismPhysics::Reset()
 {
-
     _options.Gravity.Y = -1.0f;
     _options.Gravity.X = 0.0f;
     _options.Wind.X = 0.0f;
@@ -614,6 +614,7 @@ void CubismPhysics::Parse(const csmByte* physicsJson, csmSizeInt size)
 
     CSM_DELETE(json);
 }
+
 
 void CubismPhysics::Stabilization(CubismModel* model)
 {
@@ -803,7 +804,6 @@ void CubismPhysics::Evaluate(CubismModel* model, csmFloat32 deltaTimeSeconds)
 
     while (_currentRemainTime >= physicsDeltaTime)
     {
-
         for (settingIndex = 0; settingIndex < _physicsRig->SubRigCount; ++settingIndex)
         {
             currentSetting = &_physicsRig->Settings[settingIndex];

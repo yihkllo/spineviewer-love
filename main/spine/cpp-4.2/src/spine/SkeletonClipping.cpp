@@ -1,3 +1,4 @@
+
 #include <spine/SkeletonClipping.h>
 
 #include <spine/ClippingAttachment.h>
@@ -282,7 +283,6 @@ bool SkeletonClipping::clip(float x1, float y1, float x2, float y2, float x3, fl
 					output->add(inputY2);
 					continue;
 				}
-
 				float ix = inputX2 - inputX, iy = inputY2 - inputY, t = s1 / (ix * ey - iy * ex);
 				if (t >= 0 && t <= 1) {
 					output->add(inputX + ix * t);
@@ -307,8 +307,8 @@ bool SkeletonClipping::clip(float x1, float y1, float x2, float y2, float x3, fl
 			clipped = true;
 		}
 
-		if (outputStart == output->size()) {
 
+		if (outputStart == output->size()) {
 			originalOutput->clear();
 			return true;
 		}

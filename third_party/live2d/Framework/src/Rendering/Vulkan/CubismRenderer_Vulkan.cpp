@@ -1,10 +1,11 @@
+﻿
+
 #include "CubismRenderer_Vulkan.hpp"
 #include "Math/CubismMatrix44.hpp"
 #include "Type/csmVector.hpp"
 #include "Model/CubismModel.hpp"
 
 namespace Live2D { namespace Cubism { namespace Framework { namespace Rendering {
-
 namespace {
 VkDevice s_device = VK_NULL_HANDLE;
 VkPhysicalDevice s_physicalDevice = VK_NULL_HANDLE;
@@ -41,16 +42,15 @@ VkRect2D GetScissor(csmFloat32 offsetX, csmFloat32 offsetY, csmFloat32 width, cs
     return rect;
 }
 
+
 void CubismClippingManager_Vulkan::SetupClippingContext(CubismModel& model, VkCommandBuffer commandBuffer,
                                                         VkCommandBuffer updateCommandBuffer,
                                                         CubismRenderer_Vulkan* renderer)
 {
-
     csmInt32 usingClipCount = 0;
 
     for (csmUint32 clipIndex = 0; clipIndex < _clippingContextListForMask.GetSize(); clipIndex++)
     {
-
         CubismClippingContext_Vulkan* cc = _clippingContextListForMask[clipIndex];
 
         CalcClippedDrawTotalBounds(model, cc);
@@ -96,7 +96,6 @@ void CubismClippingManager_Vulkan::SetupClippingContext(CubismModel& model, VkCo
     }
     else
     {
-
         for (csmInt32 i = 0; i < _renderTextureCount; ++i)
         {
             _clearedMaskBufferFlags[i] = false;
@@ -105,7 +104,6 @@ void CubismClippingManager_Vulkan::SetupClippingContext(CubismModel& model, VkCo
 
     for (csmUint32 clipIndex = 0; clipIndex < _clippingContextListForMask.GetSize(); clipIndex++)
     {
-
         CubismClippingContext_Vulkan* clipContext = _clippingContextListForMask[clipIndex];
         csmRectF* allClippedDrawRect = clipContext->_allClippedDrawRect;
         csmRectF* layoutBoundsOnTex01 = clipContext->_layoutBounds;
@@ -117,13 +115,11 @@ void CubismClippingManager_Vulkan::SetupClippingContext(CubismModel& model, VkCo
         {
             _currentMaskBuffer->EndDraw(commandBuffer);
             _currentMaskBuffer = clipContextOffscreenSurface;
-
             _currentMaskBuffer->BeginDraw(commandBuffer, 1.0f, 1.0f, 1.0f, 1.0f);
         }
 
         _tmpBoundsOnModel.SetRect(allClippedDrawRect);
         _tmpBoundsOnModel.Expand(allClippedDrawRect->Width * MARGIN, allClippedDrawRect->Height * MARGIN);
-
         csmFloat32 scaleX = layoutBoundsOnTex01->Width / _tmpBoundsOnModel.Width;
         csmFloat32 scaleY = layoutBoundsOnTex01->Height / _tmpBoundsOnModel.Height;
 
@@ -148,10 +144,10 @@ void CubismClippingManager_Vulkan::SetupClippingContext(CubismModel& model, VkCo
             renderer->DrawMeshVulkan(model, clipDrawIndex, commandBuffer, updateCommandBuffer);
         }
     }
-
     _currentMaskBuffer->EndDraw(commandBuffer);
     renderer->SetClippingContextBufferForMask(NULL);
 }
+
 
 CubismClippingContext_Vulkan::CubismClippingContext_Vulkan(
     CubismClippingManager<CubismClippingContext_Vulkan, CubismOffscreenSurface_Vulkan>* manager, CubismModel& model,
@@ -184,9 +180,9 @@ CubismClippingContext_Vulkan::GetClippingManager()
     return _owner;
 }
 
+
 namespace {
 const csmInt32 ShaderCount = 19;
-
 CubismPipeline_Vulkan* s_pipelineManager;
 }
 
@@ -426,7 +422,6 @@ void CubismPipeline_Vulkan::PipelineResource::Release()
 
 void CubismPipeline_Vulkan::CreatePipelines(VkDescriptorSetLayout descriptorSetLayout)
 {
-
     if (_pipelineResource.GetSize() != 0)
     {
         return;
@@ -477,6 +472,7 @@ void CubismPipeline_Vulkan::ReleaseShaderProgram()
     }
 }
 
+
 CubismRenderer* CubismRenderer::Create()
 {
     return CSM_NEW CubismRenderer_Vulkan;
@@ -499,7 +495,6 @@ CubismRenderer_Vulkan::CubismRenderer_Vulkan() :
 
 CubismRenderer_Vulkan::~CubismRenderer_Vulkan()
 {
-
     for (csmInt32 i = 0; i < _offscreenFrameBuffers.GetSize(); i++)
     {
         _offscreenFrameBuffers[i].DestroyOffscreenSurface(s_device);
@@ -719,7 +714,6 @@ void CubismRenderer_Vulkan::CreateIndexBuffer()
 
 void CubismRenderer_Vulkan::CreateDescriptorSets()
 {
-
     const csmInt32 drawableCount = GetModel()->GetDrawableCount();
     csmInt32 textureCount = 2;
     csmInt32 drawModeCount = 2;
@@ -847,7 +841,6 @@ void CubismRenderer_Vulkan::Initialize(CubismModel* model, csmInt32 maskBufferCo
 
     if (model->IsUsingMasking())
     {
-
         _clippingManager = CSM_NEW CubismClippingManager_Vulkan();
         _clippingManager->Initialize(
             *model,
@@ -872,7 +865,6 @@ void CubismRenderer_Vulkan::Initialize(CubismModel* model, csmInt32 maskBufferCo
 
         _offscreenFrameBuffers.Clear();
         _offscreenFrameBuffers.Resize(maskBufferCount);
-
         for (csmInt32 i = 0; i < maskBufferCount; i++)
         {
             _offscreenFrameBuffers[i].CreateOffscreenSurface(s_device, s_physicalDevice, bufferWidth, bufferHeight,
@@ -891,7 +883,6 @@ void CubismRenderer_Vulkan::CopyToBuffer(csmInt32 drawAssign, const csmInt32 vco
     for (csmInt32 ct = 0; ct < vcount * 2; ct += 2)
     {
         ModelVertex vertex;
-
         vertex.pos.X = varray[ct + 0];
         vertex.pos.Y = varray[ct + 1];
         vertex.texCoord.X = uvarray[ct + 0];
@@ -926,7 +917,6 @@ void CubismRenderer_Vulkan::UpdateColor(csmFloat32 vkVec4[4], csmFloat32 r, csmF
 void CubismRenderer_Vulkan::UpdateDescriptorSet(Descriptor& descriptor, csmUint32 textureIndex, bool isMasked)
 {
     VkBuffer uniformBuffer = descriptor.uniformBuffer.GetBuffer();
-
     VkDescriptorSet descriptorSet;
     if (isMasked && !descriptor.isDescriptorSetMaskedUpdated)
     {
@@ -994,7 +984,6 @@ void CubismRenderer_Vulkan::UpdateDescriptorSet(Descriptor& descriptor, csmUint3
 
 void CubismRenderer_Vulkan::ExecuteDrawForDraw(const CubismModel& model, const csmInt32 index, VkCommandBuffer& cmdBuffer)
 {
-
     csmUint32 blendIndex = 0;
     csmUint32 shaderIndex = 0;
     const csmBool masked = GetClippingContextBufferForDraw() != NULL;
@@ -1023,7 +1012,6 @@ void CubismRenderer_Vulkan::ExecuteDrawForDraw(const CubismModel& model, const c
     ModelUBO ubo;
     if (masked)
     {
-
         UpdateMatrix(ubo.clipMatrix, GetClippingContextBufferForDraw()->_matrixForDraw);
 
         SetColorChannel(ubo, GetClippingContextBufferForDraw());
@@ -1095,17 +1083,14 @@ void CubismRenderer_Vulkan::DrawMeshVulkan(const CubismModel& model, const csmIn
 {
     if (s_device == VK_NULL_HANDLE)
     {
-
         return;
     }
     if (model.GetDrawableVertexIndexCount(index) == 0)
     {
-
         return;
     }
     if (model.GetDrawableOpacity(index) <= 0.0f && GetClippingContextBufferForMask() == NULL)
     {
-
         return;
     }
 
@@ -1224,7 +1209,6 @@ void CubismRenderer_Vulkan::EndRendering(VkCommandBuffer drawCommandBuffer)
 
 void CubismRenderer_Vulkan::DoDrawModel()
 {
-
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     vkBeginCommandBuffer(updateCommandBuffer, &beginInfo);
@@ -1232,7 +1216,6 @@ void CubismRenderer_Vulkan::DoDrawModel()
 
     if (_clippingManager != NULL)
     {
-
         for (csmInt32 i = 0; i < _clippingManager->GetRenderTextureCount(); ++i)
         {
             if (_offscreenFrameBuffers[i].GetBufferWidth() != static_cast<csmUint32>(
@@ -1271,7 +1254,6 @@ void CubismRenderer_Vulkan::DoDrawModel()
 
     const csmInt32 drawableCount = GetModel()->GetDrawableCount();
     const csmInt32* renderOrder = GetModel()->GetDrawableRenderOrders();
-
     for (csmInt32 i = 0; i < drawableCount; ++i)
     {
         const csmInt32 order = renderOrder[i];
@@ -1285,7 +1267,6 @@ void CubismRenderer_Vulkan::DoDrawModel()
     for (csmInt32 i = 0; i < drawableCount; ++i)
     {
         const csmInt32 drawableIndex = _sortedDrawableIndexList[i];
-
         if (!GetModel()->GetDrawableDynamicFlagIsVisible(drawableIndex))
         {
             continue;
@@ -1300,7 +1281,6 @@ void CubismRenderer_Vulkan::DoDrawModel()
         {
             if (clipContext->_isUsing)
             {
-
                 EndRendering(drawCommandBuffer);
 
                 SubmitCommand(updateCommandBuffer, _updateFinishedSemaphore);
@@ -1340,7 +1320,6 @@ void CubismRenderer_Vulkan::DoDrawModel()
                     SetClippingContextBufferForMask(clipContext);
                     DrawMeshVulkan(*GetModel(), clipDrawIndex, drawCommandBuffer, updateCommandBuffer);
                 }
-
                 currentHighPrecisionMaskColorBuffer->EndDraw(drawCommandBuffer);
                 SetClippingContextBufferForMask(NULL);
                 SubmitCommand(updateCommandBuffer, _updateFinishedSemaphore);
@@ -1403,7 +1382,6 @@ void CubismRenderer_Vulkan::BindTexture(CubismImageVulkan& image)
 
 void CubismRenderer_Vulkan::SetClippingMaskBufferSize(csmFloat32 width, csmFloat32 height)
 {
-
     const csmInt32 renderTextureCount = _clippingManager->GetRenderTextureCount();
 
     CSM_DELETE_SELF(CubismClippingManager_Vulkan, _clippingManager);
@@ -1452,3 +1430,4 @@ void CubismRenderer_Vulkan::SetColorChannel(ModelUBO& ubo, CubismClippingContext
 }
 
 }}}}
+

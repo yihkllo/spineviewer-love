@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 
 #include "CubismFramework.hpp"
@@ -31,6 +33,7 @@
 #endif
 
 namespace Live2D { namespace Cubism { namespace Framework { namespace Rendering {
+
 
 class CubismOffscreenSurface_OpenGLES2
 {
@@ -69,4 +72,6 @@ private:
     csmBool     _isColorBufferInherited;
 };
 
+
 }}}}
+

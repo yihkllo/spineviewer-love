@@ -1,3 +1,4 @@
+
 #ifndef SPINE_SKELETON_H_
 #define SPINE_SKELETON_H_
 
@@ -67,26 +68,20 @@ void spSkeleton_updateCache (const spSkeleton* self);
 void spSkeleton_updateWorldTransform (const spSkeleton* self);
 
 void spSkeleton_setToSetupPose (const spSkeleton* self);
-
 void spSkeleton_setBonesToSetupPose (const spSkeleton* self);
 void spSkeleton_setSlotsToSetupPose (const spSkeleton* self);
 
 spBone* spSkeleton_findBone (const spSkeleton* self, const char* boneName);
-
 int spSkeleton_findBoneIndex (const spSkeleton* self, const char* boneName);
 
 spSlot* spSkeleton_findSlot (const spSkeleton* self, const char* slotName);
-
 int spSkeleton_findSlotIndex (const spSkeleton* self, const char* slotName);
 
 void spSkeleton_setSkin (spSkeleton* self, spSkin* skin);
-
 int spSkeleton_setSkinByName (spSkeleton* self, const char* skinName);
 
 spAttachment* spSkeleton_getAttachmentForSlotName (const spSkeleton* self, const char* slotName, const char* attachmentName);
-
 spAttachment* spSkeleton_getAttachmentForSlotIndex (const spSkeleton* self, int slotIndex, const char* attachmentName);
-
 int spSkeleton_setAttachment (spSkeleton* self, const char* slotName, const char* attachmentName);
 
 spIkConstraint* spSkeleton_findIkConstraint (const spSkeleton* self, const char* constraintName);

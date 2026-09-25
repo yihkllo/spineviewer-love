@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 
 #include "Model/CubismModel.hpp"
@@ -5,12 +7,12 @@
 #include "Id/CubismId.hpp"
 #include "ICubismModelSetting.hpp"
 
+
 namespace Live2D { namespace Cubism { namespace Framework {
 
 class CubismEyeBlink
 {
 public:
-
     enum EyeState
     {
         EyeState_First = 0,

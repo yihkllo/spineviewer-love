@@ -1,3 +1,5 @@
+﻿
+
 #include "CubismOffscreenSurface_D3D11.hpp"
 
 #include "CubismRenderer_D3D11.hpp"
@@ -16,6 +18,7 @@ CubismOffscreenSurface_D3D11::CubismOffscreenSurface_D3D11()
     , _bufferHeight(0)
 {
 }
+
 
 void CubismOffscreenSurface_D3D11::BeginDraw(ID3D11DeviceContext* renderContext)
 {
@@ -67,7 +70,6 @@ void CubismOffscreenSurface_D3D11::Clear(ID3D11DeviceContext* renderContext, flo
 
 csmBool CubismOffscreenSurface_D3D11::CreateOffscreenSurface(ID3D11Device* device, csmUint32 displayBufferWidth, csmUint32 displayBufferHeight)
 {
-
     DestroyOffscreenSurface();
 
     do
@@ -162,7 +164,6 @@ csmBool CubismOffscreenSurface_D3D11::CreateOffscreenSurface(ID3D11Device* devic
 
 void CubismOffscreenSurface_D3D11::DestroyOffscreenSurface()
 {
-
     if (_backupDepth)
     {
         _backupDepth->Release();
@@ -173,6 +174,7 @@ void CubismOffscreenSurface_D3D11::DestroyOffscreenSurface()
         _backupRender->Release();
         _backupRender = NULL;
     }
+
 
     if (_depthView)
     {
@@ -227,3 +229,4 @@ csmBool CubismOffscreenSurface_D3D11::IsValid() const
 }
 
 }}}}
+

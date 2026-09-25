@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 
 #include "CubismNativeInclude_D3D9.hpp"
@@ -43,6 +45,7 @@ private:
     void GenerateShaders(LPDIRECT3DDEVICE9 pD3dDevice);
 
     Csm::csmBool LoadShaderProgram(LPDIRECT3DDEVICE9 pD3dDevice);
+
 
     ID3DXEffect*                    _shaderEffect;
     IDirect3DVertexDeclaration9*    _vertexFormat;

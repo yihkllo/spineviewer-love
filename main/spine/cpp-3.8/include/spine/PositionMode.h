@@ -1,3 +1,4 @@
+
 #ifndef Spine_PositionMode_h
 #define Spine_PositionMode_h
 

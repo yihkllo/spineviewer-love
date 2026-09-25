@@ -1,3 +1,4 @@
+
 #ifndef SPINE_IKCONSTRAINT_H_
 #define SPINE_IKCONSTRAINT_H_
 
@@ -12,10 +13,10 @@ struct spSkeleton;
 
 typedef struct spIkConstraint {
 	spIkConstraintData* const data;
-
+	
 	int bonesCount;
 	spBone** bones;
-
+	
 	spBone* target;
 	int bendDirection;
 	float mix;

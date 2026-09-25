@@ -1,3 +1,5 @@
+﻿
+
 #include "CubismEyeBlink.hpp"
 #include "Id/CubismId.hpp"
 #include <stdlib.h>
@@ -147,3 +149,4 @@ void CubismEyeBlink::UpdateParameters(CubismModel* model, csmFloat32 deltaTimeSe
 }
 
 }}}
+

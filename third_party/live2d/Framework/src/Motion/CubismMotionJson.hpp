@@ -1,3 +1,6 @@
+﻿
+
+
 #pragma once
 
 #include "CubismJsonHolder.hpp"
@@ -14,7 +17,6 @@ enum EvaluationOptionFlag
 class CubismMotionJson : public CubismJsonHolder
 {
 public:
-
     CubismMotionJson(const csmByte* buffer, csmSizeInt size);
 
     virtual ~CubismMotionJson();
@@ -56,6 +58,7 @@ public:
     csmFloat32 GetMotionCurveFadeOutTime(csmInt32 curveIndex) const;
 
     csmInt32 GetMotionCurveSegmentCount(csmInt32 curveIndex) const;
+
 
     csmFloat32 GetMotionCurveSegment(csmInt32 curveIndex, csmInt32 segmentIndex) const;
 

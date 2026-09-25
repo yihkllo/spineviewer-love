@@ -5,7 +5,8 @@ Column {
     id: gazeView
     required property var shell
     readonly property var gaze: shell.read("gaze", {})
-    readonly property var channels: shell.read("gazeChannels", {})
+    property bool active: true
+    readonly property var channels: active ? shell.read("gazeChannels", {}) : ({})
     readonly property bool following: shell.read("effects", {}).gazeFollow !== false
     spacing: shell.metrics.spacing
 

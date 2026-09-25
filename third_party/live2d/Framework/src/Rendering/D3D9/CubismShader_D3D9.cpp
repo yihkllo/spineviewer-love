@@ -1,3 +1,5 @@
+﻿
+
 #include "CubismShader_D3D9.hpp"
 
 #include "CubismRenderer_D3D9.hpp"
@@ -185,6 +187,7 @@ static const csmChar* CubismShaderEffectSrc =
         "}"\
     "}";
 
+
 void CubismShader_D3D9::ReleaseShaderProgram()
 {
     if(_vertexFormat)
@@ -228,6 +231,7 @@ void CubismShader_D3D9::GenerateShaders(LPDIRECT3DDEVICE9 device)
         CSM_ASSERT(0);
     }
 
+
     D3DVERTEXELEMENT9 elems[] = {
         { 0, 0, D3DDECLTYPE_FLOAT2, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0 },
         { 0, sizeof(float) * 2, D3DDECLTYPE_FLOAT2, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 0 },
@@ -260,7 +264,6 @@ ID3DXEffect* CubismShader_D3D9::GetShaderEffect() const
 
 void CubismShader_D3D9::SetupShader(LPDIRECT3DDEVICE9 device)
 {
-
     GenerateShaders(device);
 
     if (!device || !_vertexFormat) return;
@@ -269,3 +272,5 @@ void CubismShader_D3D9::SetupShader(LPDIRECT3DDEVICE9 device)
 }
 
 }}}}
+
+

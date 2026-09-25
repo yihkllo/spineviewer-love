@@ -12,7 +12,6 @@ QtObject {
         return !customized ? Qt.rgba(r, g, b, a)
              : dark ? Qt.hsva(hue, 0, darkValue, a) : Qt.hsva(hue, saturation * sm, brightness * vm, a);
     }
-
     property color text: customized && dark ? "white" : "black"
     property color window: tone(.96, .93, 1, .08, 1, .13)
     property color popup: tone(.96, .93, 1, .08, 1, .16, .98)

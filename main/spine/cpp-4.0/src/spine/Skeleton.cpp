@@ -1,3 +1,4 @@
+
 #ifdef SPINE_UE4
 #include "SpinePluginPrivatePCH.h"
 #endif
@@ -199,7 +200,6 @@ void Skeleton::updateWorldTransform() {
 }
 
 void Skeleton::updateWorldTransform(Bone *parent) {
-
 	Bone &rootBone = *getRootBone();
 	float pa = parent->_a, pb = parent->_b, pc = parent->_c, pd = parent->_d;
 	rootBone._worldX = pa * _x + pb * _y + parent->_worldX;

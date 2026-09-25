@@ -1,3 +1,5 @@
+﻿
+
 #include "CubismShader_OpenGLES2.hpp"
 #include <float.h>
 #include "Type/csmRectF.hpp"
@@ -21,7 +23,6 @@ namespace {
 
 enum ShaderNames
 {
-
     ShaderNames_SetupMask,
 
     ShaderNames_Normal,
@@ -990,7 +991,6 @@ GLuint CubismShader_OpenGLES2::LoadShaderProgram(const csmChar* vertShaderSrc, c
 
 void CubismShader_OpenGLES2::SetVertexAttributes(const CubismModel& model, const csmInt32 index, CubismShaderSet* shaderSet)
 {
-
     const csmFloat32* vertexArray = model.GetDrawableVertices(index);
     glEnableVertexAttribArray(shaderSet->AttributePositionLocation);
     glVertexAttribPointer(shaderSet->AttributePositionLocation, 2, GL_FLOAT, GL_FALSE, sizeof(csmFloat32) * 2, vertexArray);
@@ -1025,3 +1025,4 @@ void CubismShader_OpenGLES2::SetColorChannelUniformVariables(CubismShaderSet* sh
 }
 
 }}}}
+

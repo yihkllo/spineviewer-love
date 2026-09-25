@@ -1,3 +1,5 @@
+﻿
+
 #include "CubismViewMatrix.hpp"
 
 namespace Live2D { namespace Cubism { namespace Framework {
@@ -78,6 +80,7 @@ csmBool CubismViewMatrix::IsMinScale() const
     return GetScaleX() <= _minScale;
 }
 
+
 void CubismViewMatrix::AdjustTranslate(csmFloat32 x, csmFloat32 y)
 {
     if (_tr[0] * _maxLeft + (_tr[12] + x) > _screenLeft)
@@ -89,6 +92,7 @@ void CubismViewMatrix::AdjustTranslate(csmFloat32 x, csmFloat32 y)
     {
         x = _screenRight - _tr[0] * _maxRight - _tr[12];
     }
+
 
     if (_tr[5] * _maxTop + (_tr[13] + y) < _screenTop)
     {

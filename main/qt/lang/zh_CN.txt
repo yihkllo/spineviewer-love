@@ -1,4 +1,4 @@
-
+﻿
 File=文件
 Setting=设置
 Background=背景
@@ -43,6 +43,7 @@ Add##AddTracks2=添加##AddTracks2
 Clear##ClearTracks2=清除##ClearTracks2
 Exclude slot by items=按条目排除插槽
 Clear##ClearExcSlots2=清除##ClearExcSlots2
+Hide slots by name text=按名称文字隐藏插槽
 Exclude slot by filter=按过滤器排除插槽
 Filter=过滤器
 Apply##FilterSlot2=应用##FilterSlot2
@@ -108,6 +109,11 @@ Reset to Default##theme=恢复默认##theme
 Render BG Color=渲染背景色
 Reset to Default##renderbg=恢复默认##renderbg
 
+Pro=Pro
+Pro Features=Pro Features
+To use this feature first, please open yihkllo.com.=To use this feature first, please open yihkllo.com.
+Maybe Later=Maybe Later
+Open yihkllo.com=Open yihkllo.com
 Warning=警告
 Cancel=取消
 Continue=继续
@@ -119,6 +125,7 @@ Add Spine=添加Spine
 Loading in this way will exit multi-spine mode and replace the currently loaded spines.=以这种方式加载将退出多模型模式，并替换当前已加载的spine。
 Language Settings=语言设置
 
+# Live2D
 Reset=重置
 Reset##live2d-scale=重置##live2d-scale
 Reset##live2d-timescale=重置##live2d-timescale
@@ -161,3 +168,30 @@ Filter parameters=筛选参数
 Lock this parameter for manual control=锁定该参数以手动控制
 Random Motion=随机切换动作
 Next Motion=下一个动作
+Choose background image=选择背景图片
+Custom=自定义
+Width (px)=宽度（像素）
+Height (px)=高度（像素）
+Adjust window size=调整窗口尺寸
+Render window size=渲染窗口尺寸
+Could not remove the desktop pet window frame.=无法移除桌宠窗口边框。
+Render size must be between 64 and 8192 pixels per side, up to 32 megapixels.=渲染区宽高范围为 64～8192 像素，总像素不能超过 3200 万。
+Enter a width from 320 to 16384 and a height from 240 to 16384.=宽度范围为 320～16384，高度范围为 240～16384。
+Video export needs ffmpeg.exe, which was not found.=导出视频需要 ffmpeg.exe，但没有找到。
+Put ffmpeg.exe in this folder, then export again:=请把 ffmpeg.exe 放进下面这个文件夹，然后重新导出：
+ffmpeg not found=未找到 ffmpeg
+Download ffmpeg=下载 ffmpeg
+Open folder=打开文件夹
+Preparing export...=正在准备导出...
+Capturing stage...=正在截取画面...
+Rendering frames...=正在渲染帧...
+Rendering video frames...=正在渲染视频帧...
+Rendering queue frames (%1/%2) %3...=正在渲染队列帧 (%1/%2) %3...
+Rendering queue video (%1/%2) %3...=正在渲染队列视频 (%1/%2) %3...
+Encoding video...=正在编码视频...
+Export failed.=导出失败。
+Export cancelled.=导出已取消。
+Video export complete.=视频导出完成。
+Frame export complete.=帧序列导出完成。
+Snapshot export complete.=截图导出完成。
+Snapshot export failed.=截图导出失败。

@@ -1,3 +1,4 @@
+
 #ifndef SPINE_STRING_H
 #define SPINE_STRING_H
 
@@ -177,5 +178,6 @@ private:
 	mutable char *_buffer;
 };
 }
+
 
 #endif

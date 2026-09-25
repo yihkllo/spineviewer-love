@@ -1,3 +1,5 @@
+﻿
+
 #include "CubismModel.hpp"
 #include "Rendering/CubismRenderer.hpp"
 #include "Id/CubismId.hpp"
@@ -29,7 +31,6 @@ CubismModel::~CubismModel()
 
 csmFloat32 CubismModel::GetParameterValue(CubismIdHandle parameterId)
 {
-
     const csmInt32 parameterIndex = GetParameterIndex(parameterId);
     return GetParameterValue(parameterIndex);
 }
@@ -64,7 +65,6 @@ void CubismModel::MultiplyParameterValue(csmInt32 parameterIndex, csmFloat32 val
 
 void CubismModel::Update() const
 {
-
     Core::csmUpdateModel(_model);
 
     Core::csmResetDrawableDynamicFlags(_model);
@@ -72,7 +72,6 @@ void CubismModel::Update() const
 
 void CubismModel::SetPartOpacity(CubismIdHandle partId, csmFloat32 opacity)
 {
-
     const csmInt32 index = GetPartIndex(partId);
 
     if (index < 0)
@@ -98,7 +97,6 @@ void CubismModel::SetPartOpacity(csmInt32 partIndex, csmFloat32 opacity)
 
 csmFloat32 CubismModel::GetPartOpacity(CubismIdHandle partId)
 {
-
     const csmInt32 index = GetPartIndex(partId);
 
     if (index < 0)
@@ -113,7 +111,6 @@ csmFloat32 CubismModel::GetPartOpacity(csmInt32 partIndex)
 {
     if (_notExistPartOpacities.IsExist(partIndex))
     {
-
         return _notExistPartOpacities[partIndex];
     }
 
@@ -151,6 +148,7 @@ csmInt32 CubismModel::GetParameterIndex(CubismIdHandle parameterId)
 {
     csmInt32            parameterIndex;
     const csmInt32      idCount = Core::csmGetParameterCount(_model);
+
 
     for (parameterIndex = 0; parameterIndex < idCount; ++parameterIndex)
     {
@@ -409,7 +407,6 @@ void CubismModel::Initialize()
         screenColor.A = 1.0f;
 
         {
-
             PartColorData userMultiplyColor;
             userMultiplyColor.IsOverwritten = false;
             userMultiplyColor.Color = multiplyColor;
@@ -426,7 +423,6 @@ void CubismModel::Initialize()
         }
 
         {
-
             DrawableColorData userMultiplyColor;
             userMultiplyColor.IsOverwritten = false;
             userMultiplyColor.Color = multiplyColor;

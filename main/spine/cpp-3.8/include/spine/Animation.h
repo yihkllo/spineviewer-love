@@ -1,3 +1,4 @@
+
 #ifndef Spine_Animation_h
 #define Spine_Animation_h
 
@@ -69,6 +70,8 @@ public:
 	float getDuration();
 
 	void setDuration(float inValue);
+
+
 
 private:
 	Vector<Timeline *> _timelines;

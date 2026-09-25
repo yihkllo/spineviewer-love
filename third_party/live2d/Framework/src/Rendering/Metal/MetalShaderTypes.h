@@ -1,3 +1,4 @@
+
 #pragma once
 
 #ifndef MetalShaderTypes_h
@@ -22,5 +23,6 @@ typedef struct
     vector_float4 screenColor;
 
 } CubismShaderUniforms;
+
 
 #endif

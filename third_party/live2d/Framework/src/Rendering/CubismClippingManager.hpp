@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 
 #include <float.h>
@@ -23,7 +25,6 @@ template <class T_ClippingContext, class T_OffscreenSurface>
 class CubismClippingManager
 {
 public:
-
     CubismClippingManager();
 
     virtual ~CubismClippingManager();
@@ -68,3 +69,4 @@ protected:
 
 #include "CubismClippingManager.tpp"
 }}}}
+

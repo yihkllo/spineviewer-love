@@ -1,3 +1,4 @@
+
 #ifndef SPINE_SKELETONBOUNDS_H_
 #define SPINE_SKELETONBOUNDS_H_
 
@@ -28,6 +29,7 @@ typedef spPolygon Polygon;
 #define Polygon_containsPoint(...) spPolygon_containsPoint(__VA_ARGS__)
 #define Polygon_intersectsSegment(...) spPolygon_intersectsSegment(__VA_ARGS__)
 #endif
+
 
 typedef struct spSkeletonBounds {
 	int count;

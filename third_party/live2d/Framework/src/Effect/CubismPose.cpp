@@ -1,3 +1,5 @@
+﻿
+
 #include "CubismPose.hpp"
 #include "Id/CubismIdManager.hpp"
 
@@ -242,7 +244,6 @@ void CubismPose::DoFade(CubismModel* model, csmFloat32 deltaTimeSeconds, csmInt3
         {
             model->SetPartOpacity(partsIndex, newOpacity);
         }
-
         else
         {
             csmFloat32 opacity = model->GetPartOpacity(partsIndex);
@@ -276,10 +277,8 @@ void CubismPose::DoFade(CubismModel* model, csmFloat32 deltaTimeSeconds, csmInt3
 
 void CubismPose::UpdateParameters(CubismModel* model, csmFloat32 deltaTimeSeconds)
 {
-
     if (model != _lastModel)
     {
-
         Reset(model);
     }
 

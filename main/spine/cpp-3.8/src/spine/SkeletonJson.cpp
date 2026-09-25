@@ -1,3 +1,4 @@
+
 #ifdef SPINE_UE4
 #include "SpinePluginPrivatePCH.h"
 #endif
@@ -1079,17 +1080,13 @@ Animation *SkeletonJson::readAnimation(Json *root, SkeletonData *skeletonData) {
 						setError(NULL, "Slot not found: ", Json::getString(offsetMap, "slot", 0));
 						return NULL;
 					}
-
 					while (originalIndex != (size_t)slotIndex)
 						unchanged[unchangedIndex++] = originalIndex++;
-
 					drawOrder2[originalIndex + Json::getInt(offsetMap, "offset", 0)] = originalIndex;
 					originalIndex++;
 				}
-
 				while (originalIndex < skeletonData->_slots.size())
 					unchanged[unchangedIndex++] = originalIndex++;
-
 				for (ii = (int)skeletonData->_slots.size() - 1; ii >= 0; ii--)
 					if (drawOrder2[ii] == -1) drawOrder2[ii] = unchanged[--unchangedIndex];
 			}

@@ -1,3 +1,4 @@
+
 #ifdef SPINE_UE4
 #include "SpinePluginPrivatePCH.h"
 #endif
@@ -59,14 +60,12 @@ void ColorTimeline::apply(Skeleton &skeleton, float lastTime, float time, Vector
 
 	float r, g, b, a;
 	if (time >= _frames[_frames.size() - ENTRIES]) {
-
 		size_t i = _frames.size();
 		r = _frames[i + PREV_R];
 		g = _frames[i + PREV_G];
 		b = _frames[i + PREV_B];
 		a = _frames[i + PREV_A];
 	} else {
-
 		size_t frame = (size_t)Animation::binarySearch(_frames, time, ENTRIES);
 		r = _frames[frame + PREV_R];
 		g = _frames[frame + PREV_G];

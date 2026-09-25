@@ -1,3 +1,4 @@
+
 #ifndef Spine_ScaleTimeline_h
 #define Spine_ScaleTimeline_h
 

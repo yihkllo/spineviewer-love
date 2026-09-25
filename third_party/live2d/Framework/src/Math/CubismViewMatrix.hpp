@@ -1,13 +1,13 @@
+﻿
+
 #pragma once
 
 #include "CubismMatrix44.hpp"
 
 namespace Live2D { namespace Cubism { namespace Framework {
-
 class CubismViewMatrix : public CubismMatrix44
 {
 public:
-
     CubismViewMatrix();
 
     virtual ~CubismViewMatrix();

@@ -1,3 +1,4 @@
+
 #ifdef SPINE_UE4
 #include "SpinePluginPrivatePCH.h"
 #endif
@@ -167,7 +168,6 @@ void ScaleXTimeline::apply(Skeleton &skeleton, float lastTime, float time, Vecto
 		else
 			bone->_scaleX = x;
 	} else {
-
 		float bx;
 		if (direction == MixDirection_Out) {
 			switch (blend) {
@@ -240,7 +240,6 @@ void ScaleYTimeline::apply(Skeleton &skeleton, float lastTime, float time, Vecto
 		else
 			bone->_scaleY = y;
 	} else {
-
 		float by = 0;
 		if (direction == MixDirection_Out) {
 			switch (blend) {

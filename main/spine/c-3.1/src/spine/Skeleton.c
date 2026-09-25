@@ -1,3 +1,4 @@
+
 #include <spine/Skeleton.h>
 #include <string.h>
 #include <spine/extension.h>
@@ -32,7 +33,6 @@ spSkeleton* spSkeleton_create (spSkeletonData* data) {
 		spBoneData* boneData = self->data->bones[i];
 		spBone* parent = 0;
 		if (boneData->parent) {
-
 			for (ii = 0; ii < self->bonesCount; ++ii) {
 				if (data->bones[ii] == boneData->parent) {
 					parent = self->bones[ii];
@@ -247,7 +247,6 @@ void spSkeleton_setSkin (spSkeleton* self, spSkin* newSkin) {
 		if (self->skin)
 			spSkin_attachAll(newSkin, self, self->skin);
 		else {
-
 			int i;
 			for (i = 0; i < self->slotsCount; ++i) {
 				spSlot* slot = self->slots[i];

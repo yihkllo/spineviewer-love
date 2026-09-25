@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 
 #include "CubismFramework.hpp"
@@ -10,6 +12,7 @@ enum CubismMotionCurveTarget
     CubismMotionCurveTarget_Parameter,
     CubismMotionCurveTarget_PartOpacity
 };
+
 
 enum CubismMotionSegmentType
 {
@@ -32,9 +35,9 @@ struct CubismMotionPoint
 
 typedef csmFloat32 (*csmMotionSegmentEvaluationFunction)(const CubismMotionPoint* points, const csmFloat32 time);
 
+
 struct CubismMotionSegment
 {
-
     CubismMotionSegment()
         : Evaluate(NULL)
         , BasePointIndex(0)

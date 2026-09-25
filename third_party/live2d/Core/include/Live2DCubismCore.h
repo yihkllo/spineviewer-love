@@ -1,3 +1,5 @@
+﻿
+
 #ifndef LIVE2D_CUBISM_CORE_H
 #define LIVE2D_CUBISM_CORE_H
 
@@ -6,9 +8,11 @@ extern "C"
 {
 #endif
 
+
 #if !defined(csmApi)
 #define csmApi
 #endif
+
 
     typedef struct csmMoc csmMoc;
 
@@ -18,7 +22,6 @@ extern "C"
 
     enum
     {
-
         csmAlignofMoc = 64,
 
         csmAlignofModel = 16
@@ -26,7 +29,6 @@ extern "C"
 
     enum
     {
-
         csmBlendAdditive = 1 << 0,
 
         csmBlendMultiplicative = 1 << 1,
@@ -38,19 +40,12 @@ extern "C"
 
     enum
     {
-
         csmIsVisible = 1 << 0,
-
         csmVisibilityDidChange = 1 << 1,
-
         csmOpacityDidChange = 1 << 2,
-
         csmDrawOrderDidChange = 1 << 3,
-
         csmRenderOrderDidChange = 1 << 4,
-
         csmVertexPositionsDidChange = 1 << 5,
-
         csmBlendColorDidChange = 1 << 6
     };
 
@@ -58,17 +53,11 @@ extern "C"
 
     enum
     {
-
         csmMocVersion_Unknown = 0,
-
         csmMocVersion_30 = 1,
-
         csmMocVersion_33 = 2,
-
         csmMocVersion_40 = 3,
-
         csmMocVersion_42 = 4,
-
         csmMocVersion_50 = 5
     };
 
@@ -76,7 +65,6 @@ extern "C"
 
     enum
     {
-
         csmParameterType_Normal = 0,
 
         csmParameterType_BlendShape = 1
@@ -86,7 +74,6 @@ extern "C"
 
     typedef struct
     {
-
         float X;
 
         float Y;
@@ -94,7 +81,6 @@ extern "C"
 
     typedef struct
     {
-
         float X;
 
         float Y;
@@ -112,19 +98,24 @@ extern "C"
 #define csmCallingConvention
 #endif
 
+
     csmApi csmVersion csmCallingConvention csmGetVersion();
 
     csmApi csmMocVersion csmCallingConvention csmGetLatestMocVersion();
 
     csmApi csmMocVersion csmCallingConvention csmGetMocVersion(const void* address, const unsigned int size);
 
+
     csmApi int csmCallingConvention csmHasMocConsistency(void* address, const unsigned int size);
+
 
     csmApi csmLogFunction csmCallingConvention csmGetLogFunction();
 
     csmApi void csmCallingConvention csmSetLogFunction(csmLogFunction handler);
 
+
     csmApi csmMoc* csmCallingConvention csmReviveMocInPlace(void* address, const unsigned int size);
+
 
     csmApi unsigned int csmCallingConvention csmGetSizeofModel(const csmMoc* moc);
 
@@ -134,14 +125,17 @@ extern "C"
 
     csmApi void csmCallingConvention csmUpdateModel(csmModel* model);
 
+
     csmApi void csmCallingConvention csmReadCanvasInfo(const csmModel* model,
                                                        csmVector2* outSizeInPixels,
                                                        csmVector2* outOriginInPixels,
                                                        float* outPixelsPerUnit);
 
+
     csmApi int csmCallingConvention csmGetParameterCount(const csmModel* model);
 
     csmApi const char** csmCallingConvention csmGetParameterIds(const csmModel* model);
+
 
     csmApi const csmParameterType* csmCallingConvention csmGetParameterTypes(const csmModel* model);
 
@@ -157,6 +151,8 @@ extern "C"
 
     csmApi const float** csmCallingConvention csmGetParameterKeyValues(const csmModel* model);
 
+
+
     csmApi int csmCallingConvention csmGetPartCount(const csmModel* model);
 
     csmApi const char** csmCallingConvention csmGetPartIds(const csmModel* model);
@@ -164,6 +160,7 @@ extern "C"
     csmApi float* csmCallingConvention csmGetPartOpacities(csmModel* model);
 
     csmApi const int* csmCallingConvention csmGetPartParentPartIndices(const csmModel* model);
+
 
     csmApi int csmCallingConvention csmGetDrawableCount(const csmModel* model);
 

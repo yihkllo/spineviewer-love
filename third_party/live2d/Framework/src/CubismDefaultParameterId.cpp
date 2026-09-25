@@ -1,3 +1,5 @@
+﻿
+
 #include "CubismDefaultParameterId.hpp"
 
 namespace Live2D { namespace Cubism { namespace Framework { namespace DefaultParameterId {
@@ -52,3 +54,4 @@ const csmChar* ParamBaseX = "ParamBaseX";
 const csmChar* ParamBaseY = "ParamBaseY";
 const csmChar* ParamNONE = "NONE:";
 }}}}
+

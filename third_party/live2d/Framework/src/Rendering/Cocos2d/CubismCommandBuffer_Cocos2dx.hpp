@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 
 #include "CubismFramework.hpp"
@@ -16,7 +18,6 @@
 #endif
 
 #if defined(CSM_TARGET_WIN_GL) || defined(CSM_TARGET_LINUX_GL)
-
 #endif
 
 #ifdef CSM_TARGET_MAC_GL
@@ -56,6 +57,7 @@ public:
 
         DrawCommandBuffer();
         virtual ~DrawCommandBuffer();
+
 
         void CreateVertexBuffer(csmSizeInt stride, csmSizeInt count);
         void CreateIndexBuffer(csmSizeInt count);

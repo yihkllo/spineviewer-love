@@ -1,3 +1,4 @@
+
 #include <spine/AnimationStateData.h>
 #include <spine/extension.h>
 
@@ -19,6 +20,7 @@ void _ToEntry_dispose (_ToEntry* self) {
 	FREE(self);
 }
 
+
 typedef struct _FromEntry _FromEntry;
 struct _FromEntry {
 	spAnimation* animation;
@@ -35,6 +37,7 @@ _FromEntry* _FromEntry_create (spAnimation* from) {
 void _FromEntry_dispose (_FromEntry* self) {
 	FREE(self);
 }
+
 
 spAnimationStateData* spAnimationStateData_create (spSkeletonData* skeletonData) {
 	spAnimationStateData* self = NEW(spAnimationStateData);
@@ -73,12 +76,10 @@ void spAnimationStateData_setMixByName (spAnimationStateData* self, const char* 
 }
 
 void spAnimationStateData_setMix (spAnimationStateData* self, spAnimation* from, spAnimation* to, float duration) {
-
 	_ToEntry* toEntry;
 	_FromEntry* fromEntry = (_FromEntry*)self->entries;
 	while (fromEntry) {
 		if (fromEntry->animation == from) {
-
 			toEntry = fromEntry->toEntries;
 			while (toEntry) {
 				if (toEntry->animation == to) {

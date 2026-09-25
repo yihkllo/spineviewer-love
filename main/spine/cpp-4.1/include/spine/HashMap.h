@@ -1,3 +1,4 @@
+
 #ifndef Spine_HashMap_h
 #define Spine_HashMap_h
 

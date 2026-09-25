@@ -4,14 +4,18 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QImageWriter>
+#include <QMutexLocker>
 #include <QSaveFile>
 #include <QScopedValueRollback>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTemporaryFile>
+#include <QThread>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
+#include <cstdint>
 #include <filesystem>
 #include <limits>
 #include <utility>
@@ -28,15 +32,32 @@ int straight(int channel, int alpha)
 {
     return alpha == 0 ? 0 : std::min(255, (channel * 255 + alpha / 2) / alpha);
 }
+const std::array<std::uint8_t, 256 * 256>& straightTable()
+{
+    static const auto table = [] {
+        std::array<std::uint8_t, 256 * 256> values{};
+        for (int alpha = 0; alpha < 256; ++alpha)
+            for (int channel = 0; channel < 256; ++channel)
+                values[alpha * 256 + channel] = std::uint8_t(straight(channel, alpha));
+        return values;
+    }();
+    return table;
+}
+constexpr qint64 BatchBudgetBytes = qint64(160) << 20;
+constexpr qint64 WriteBudgetBytes = qint64(256) << 20;
+constexpr int MaxBatchFrames = 16;
+constexpr int MaxPendingWrites = 48;
+constexpr int MovieFramePngQuality = 80;
+constexpr int SequenceFramePngQuality = 50;
 }
 
 ExportService::ExportService(QObject* parent) : QObject(parent)
 {
+    m_writers.setMaxThreadCount(std::clamp(QThread::idealThreadCount() - 1, 1, 8));
     m_frameTimer.setSingleShot(true);
     connect(&m_frameTimer, &QTimer::timeout, this, &ExportService::renderNext);
     connect(&m_encoder, &QProcess::readyReadStandardError, this, [this] {
         m_encoderError += QString::fromUtf8(m_encoder.readAllStandardError());
-
         if (m_encoderError.size() > 8192)
             m_encoderError = m_encoderError.right(8192);
     });
@@ -79,6 +100,7 @@ ExportService::ExportService(QObject* parent) : QObject(parent)
 
 ExportService::~ExportService()
 {
+    m_writers.waitForDone();
     m_running = false;
     m_frameTimer.stop();
     if (m_encoder.state() != QProcess::NotRunning) {
@@ -86,7 +108,6 @@ ExportService::~ExportService()
         m_encoder.waitForFinished(1000);
     }
     removeStagedMovie();
-
 }
 
 int ExportService::clampFps(int fps) noexcept { return std::clamp(fps, 1, 120); }
@@ -95,9 +116,7 @@ int ExportService::frameCount(double durationSeconds, int fps) noexcept
 {
     if (!std::isfinite(durationSeconds) || durationSeconds <= 0.0)
         return 1;
-
     const double count = std::ceil(static_cast<float>(durationSeconds) * static_cast<float>(clampFps(fps)));
-
     if (!std::isfinite(count) || count > static_cast<double>(std::numeric_limits<int>::max()))
         return 0;
     return std::max(1, static_cast<int>(count));
@@ -107,23 +126,36 @@ QImage ExportService::outputPixels(const QImage& image, bool keepAlpha, const QC
 {
     if (image.isNull())
         return {};
-    const QImage pma = image.convertToFormat(QImage::Format_ARGB32_Premultiplied);
-    QImage output(pma.size(), keepAlpha ? QImage::Format_ARGB32 : QImage::Format_RGB32);
+    const QImage pma = image.format() == QImage::Format_RGBA8888_Premultiplied
+        ? image : image.convertToFormat(QImage::Format_RGBA8888_Premultiplied);
+    QImage output(pma.size(), keepAlpha ? QImage::Format_RGBA8888 : QImage::Format_RGB888);
     if (output.isNull())
         return {};
+    const auto& table = straightTable();
+    std::array<std::uint8_t, 256> matte[3];
+    for (int inverse = 0; inverse < 256; ++inverse) {
+        matte[0][inverse] = std::uint8_t((matteColor.red() * inverse + 127) / 255);
+        matte[1][inverse] = std::uint8_t((matteColor.green() * inverse + 127) / 255);
+        matte[2][inverse] = std::uint8_t((matteColor.blue() * inverse + 127) / 255);
+    }
     for (int y = 0; y < pma.height(); ++y) {
-        const auto* source = reinterpret_cast<const QRgb*>(pma.constScanLine(y));
-        auto* target = reinterpret_cast<QRgb*>(output.scanLine(y));
-        for (int x = 0; x < pma.width(); ++x) {
-            const int alpha = qAlpha(source[x]);
+        const uchar* source = pma.constScanLine(y);
+        uchar* target = output.scanLine(y);
+        for (int x = 0; x < pma.width(); ++x, source += 4) {
+            const int alpha = source[3];
             if (keepAlpha) {
-                target[x] = qRgba(straight(qRed(source[x]), alpha), straight(qGreen(source[x]), alpha),
-                                  straight(qBlue(source[x]), alpha), alpha);
+                const auto* row = table.data() + alpha * 256;
+                target[0] = row[source[0]];
+                target[1] = row[source[1]];
+                target[2] = row[source[2]];
+                target[3] = uchar(alpha);
+                target += 4;
             } else {
                 const int inverse = 255 - alpha;
-                target[x] = qRgb(std::min(255, qRed(source[x]) + (matteColor.red() * inverse + 127) / 255),
-                                 std::min(255, qGreen(source[x]) + (matteColor.green() * inverse + 127) / 255),
-                                 std::min(255, qBlue(source[x]) + (matteColor.blue() * inverse + 127) / 255));
+                target[0] = uchar(std::min(255, source[0] + matte[0][inverse]));
+                target[1] = uchar(std::min(255, source[1] + matte[1][inverse]));
+                target[2] = uchar(std::min(255, source[2] + matte[2][inverse]));
+                target += 3;
             }
         }
     }
@@ -132,6 +164,12 @@ QImage ExportService::outputPixels(const QImage& image, bool keepAlpha, const QC
 
 bool ExportService::saveImage(const QString& path, ImageFormat format, const QImage& image,
                              bool keepAlpha, const QColor& matteColor, QString* error)
+{
+    return writeImage(path, format, image, keepAlpha, matteColor, -1, error);
+}
+
+bool ExportService::writeImage(const QString& path, ImageFormat format, const QImage& image, bool keepAlpha,
+                               const QColor& matteColor, int pngQuality, QString* error)
 {
     if (error)
         error->clear();
@@ -146,6 +184,8 @@ bool ExportService::saveImage(const QString& path, ImageFormat format, const QIm
     if (!file.open(QIODevice::WriteOnly))
         return failWith(error, file.errorString());
     QImageWriter writer(&file, format == ImageFormat::Png ? QByteArray("png") : QByteArray("jpg"));
+    if (format == ImageFormat::Png && pngQuality >= 0)
+        writer.setQuality(pngQuality);
     if (!writer.write(pixels))
         return failWith(error, writer.errorString());
     if (!file.commit())
@@ -161,7 +201,7 @@ QString ExportService::findFfmpeg()
 #endif
         ;
     const QDir application(QCoreApplication::applicationDirPath());
-    const QStringList candidates{application.filePath(name), application.filePath("tools/" + name), application.filePath("../tools/" + name)};
+    const QStringList candidates{application.filePath(name), application.filePath("tools/" + name)};
     for (const auto& path : candidates) {
         const QFileInfo info(path);
         if (info.isFile() && info.isExecutable())
@@ -193,12 +233,36 @@ QList<QStringList> ExportService::movieArguments(const QString& frameFolder, con
 }
 
 bool ExportService::startFrames(const ExportRequest& request, RenderFrame render, QString* error)
-{ return start(request, std::move(render), false, error); }
+{ return start(request, perFrame(std::move(render)), false, error); }
 
 bool ExportService::startMovie(const ExportRequest& request, RenderFrame render, QString* error)
+{ return start(request, perFrame(std::move(render)), true, error); }
+
+bool ExportService::startFrames(const ExportRequest& request, RenderFrames render, QString* error)
+{ return start(request, std::move(render), false, error); }
+
+bool ExportService::startMovie(const ExportRequest& request, RenderFrames render, QString* error)
 { return start(request, std::move(render), true, error); }
 
-bool ExportService::start(const ExportRequest& request, RenderFrame render, bool movie, QString* error)
+ExportService::RenderFrames ExportService::perFrame(RenderFrame render)
+{
+    if (!render)
+        return {};
+    return [this, render = std::move(render)](const QList<ExportFrameStep>& steps, QString* error) {
+        QList<QImage> images;
+        for (const auto& step : steps) {
+            QImage image = render(step.motionIndex, step.frameInMotion, step.advanceSeconds, error);
+            if (image.isNull())
+                break;
+            images.append(std::move(image));
+            if (m_cancelled || !m_running)
+                break;
+        }
+        return images;
+    };
+}
+
+bool ExportService::start(const ExportRequest& request, RenderFrames render, bool movie, QString* error)
 {
     if (error)
         error->clear();
@@ -226,7 +290,6 @@ bool ExportService::start(const ExportRequest& request, RenderFrame render, bool
             return failWith(error, QStringLiteral("The movie export path is not a file."));
         const QString suffix = request.movieFormat == MovieFormat::Mp4 ? ".mp4"
             : request.movieFormat == MovieFormat::Gif ? ".gif" : ".webm";
-
         QTemporaryFile encoded(QDir(output.absolutePath()).filePath(".spinelove-encode-XXXXXX" + suffix));
         if (!encoded.open())
             return failWith(error, encoded.errorString());
@@ -262,10 +325,53 @@ bool ExportService::start(const ExportRequest& request, RenderFrame render, bool
     m_totalFrames = total;
     m_completedFrames = m_motionIndex = m_frameInMotion = m_encodeAttempt = 0;
     m_frameSize = {};
+    m_writeLimit = 2;
     m_encoderError.clear();
-    emit progressChanged(0, total, QStringLiteral("Rendering frames..."));
+    {
+        QMutexLocker lock(&m_writeMutex);
+        m_writeError.clear();
+    }
+    emit progressChanged(0, total, renderStatus(0));
     m_frameTimer.start(0);
     return true;
+}
+
+int ExportService::batchFrames() const
+{
+    if (m_frameSize.isEmpty())
+        return 1;
+    const qint64 bytes = std::max<qint64>(1, qint64(m_frameSize.width()) * m_frameSize.height() * 4);
+    return int(std::clamp<qint64>(BatchBudgetBytes / bytes, 1, MaxBatchFrames));
+}
+
+QString ExportService::renderStatus(int motionIndex) const
+{
+    if (m_request.queue && motionIndex >= 0 && motionIndex < m_request.motions.size())
+        return (m_movie ? tr("Rendering queue video (%1/%2) %3...") : tr("Rendering queue frames (%1/%2) %3..."))
+            .arg(motionIndex + 1).arg(m_request.motions.size()).arg(m_request.motions[motionIndex].name);
+    return m_movie ? tr("Rendering video frames...") : tr("Rendering frames...");
+}
+
+void ExportService::writeFrame(const QString& path, const QImage& frame)
+{
+    m_pendingWrites.fetch_add(1, std::memory_order_acq_rel);
+    const int quality = m_movie ? MovieFramePngQuality : SequenceFramePngQuality;
+    m_writers.start([this, path, frame, format = m_request.imageFormat, keepAlpha = m_request.keepAlpha,
+                     matte = m_request.matteColor, quality] {
+        QString error;
+        if (!writeImage(path, format, frame, keepAlpha, matte, quality, &error)) {
+            QMutexLocker lock(&m_writeMutex);
+            if (m_writeError.isEmpty())
+                m_writeError = error.isEmpty() ? QStringLiteral("Could not save animation frame.") : error;
+        }
+        m_pendingWrites.fetch_sub(1, std::memory_order_acq_rel);
+    });
+}
+
+QString ExportService::writeError() const
+{
+    QMutexLocker lock(&m_writeMutex);
+    return m_writeError;
 }
 
 void ExportService::renderNext()
@@ -276,43 +382,71 @@ void ExportService::renderNext()
         finish(false, QStringLiteral("Export cancelled."));
         return;
     }
+    if (const QString failed = writeError(); !failed.isEmpty()) {
+        finish(false, failed);
+        return;
+    }
+    if (m_pendingWrites.load(std::memory_order_acquire) >= m_writeLimit) {
+        m_frameTimer.start(2);
+        return;
+    }
+    QList<ExportFrameStep> steps;
+    int motion = m_motionIndex, frame = m_frameInMotion;
+    const int count = std::min(batchFrames(), m_totalFrames - m_completedFrames);
+    for (int i = 0; i < count; ++i) {
+        while (frame >= m_frameCounts[motion]) {
+            ++motion;
+            frame = 0;
+        }
+        steps.append({motion, frame, frame == 0 ? 0.0f : 1.0f / m_request.fps});
+        ++frame;
+    }
     QString error;
     const auto generation = m_generation;
-    const RenderFrame renderer = m_render;
-    QImage frame;
+    const RenderFrames renderer = m_render;
+    QList<QImage> frames;
     {
         QScopedValueRollback<bool> rendering(m_rendering, true);
-        frame = renderer(m_motionIndex, m_frameInMotion,
-                         m_frameInMotion == 0 ? 0.0f : 1.0f / m_request.fps, &error);
+        frames = renderer(steps, &error);
     }
-
     if (!m_running || m_generation != generation)
         return;
-    if (frame.isNull()) {
-        finish(false, error.isEmpty() ? QStringLiteral("Could not render animation frame.") : error);
-        return;
-    }
-    if (m_frameSize.isEmpty())
-        m_frameSize = frame.size();
-    if (frame.size() != m_frameSize) {
-        finish(false, QStringLiteral("Export frame dimensions changed during rendering."));
-        return;
-    }
     const QString suffix = m_request.imageFormat == ImageFormat::Png ? ".png" : ".jpg";
-    const QString path = QDir(m_frameFolder).filePath(
-        QStringLiteral("frame_%1").arg(m_completedFrames + 1, 6, 10, QLatin1Char('0')) + suffix);
-    if (!saveImage(path, m_request.imageFormat, frame, m_request.keepAlpha, m_request.matteColor, &error)) {
-        finish(false, error);
+    int accepted = 0;
+    for (; accepted < frames.size() && accepted < steps.size(); ++accepted) {
+        const QImage& image = frames[accepted];
+        if (image.isNull())
+            break;
+        if (m_frameSize.isEmpty()) {
+            m_frameSize = image.size();
+            const qint64 bytes = std::max<qint64>(1, qint64(m_frameSize.width()) * m_frameSize.height() * 4);
+            m_writeLimit = int(std::clamp<qint64>(WriteBudgetBytes / bytes, 2, MaxPendingWrites));
+        }
+        if (image.size() != m_frameSize) {
+            finish(false, QStringLiteral("Export frame dimensions changed during rendering."));
+            return;
+        }
+        const QString path = QDir(m_frameFolder).filePath(
+            QStringLiteral("frame_%1").arg(m_completedFrames + 1, 6, 10, QLatin1Char('0')) + suffix);
+        writeFrame(path, image);
+        ++m_completedFrames;
+        m_motionIndex = steps[accepted].motionIndex;
+        m_frameInMotion = steps[accepted].frameInMotion + 1;
+    }
+    if (accepted < steps.size()) {
+        finish(false, !error.isEmpty() ? error
+            : m_cancelled ? QStringLiteral("Export cancelled.") : QStringLiteral("Could not render animation frame."));
         return;
     }
-    ++m_completedFrames;
-    ++m_frameInMotion;
-    emit progressChanged(m_completedFrames, m_totalFrames,
-                         QStringLiteral("Rendering (%1/%2) %3").arg(m_motionIndex + 1)
-                             .arg(m_request.motions.size()).arg(m_request.motions[m_motionIndex].name));
+    emit progressChanged(m_completedFrames, m_totalFrames, renderStatus(m_motionIndex));
     if (!m_running || m_generation != generation)
         return;
     if (m_completedFrames == m_totalFrames) {
+        m_writers.waitForDone();
+        if (const QString failed = writeError(); !failed.isEmpty()) {
+            finish(false, failed);
+            return;
+        }
         if (!m_movie) {
             finish(true, {});
             return;
@@ -322,10 +456,6 @@ void ExportService::renderNext()
                                            m_request.movieFormat, m_request.keepAlpha, m_request.fps);
         encodeNext();
         return;
-    }
-    if (m_frameInMotion >= m_frameCounts[m_motionIndex]) {
-        ++m_motionIndex;
-        m_frameInMotion = 0;
     }
     m_frameTimer.start(0);
 }
@@ -347,17 +477,15 @@ void ExportService::encodeNext()
         return;
     }
     const auto generation = m_generation;
-    emit progressChanged(m_completedFrames, m_totalFrames, QStringLiteral("Encoding video..."));
+    emit progressChanged(m_completedFrames, m_totalFrames, tr("Encoding video..."));
     if (!m_running || m_generation != generation)
         return;
-
     if (QFileInfo::exists(m_stagedMoviePath) && !QFile::remove(m_stagedMoviePath)) {
         finish(false, QStringLiteral("Could not prepare the temporary movie output."));
         return;
     }
     m_encoder.setProgram(m_ffmpeg);
     m_encoder.setArguments(m_encodeArguments[m_encodeAttempt]);
-
     m_encoder.start();
 }
 
@@ -379,8 +507,12 @@ void ExportService::finish(bool success, const QString& error)
         return;
     m_frameTimer.stop();
     m_running = false;
+    m_writers.waitForDone();
+    {
+        QMutexLocker lock(&m_writeMutex);
+        m_writeError.clear();
+    }
     const QString recovery = !success && m_movie ? m_frameFolder : QString{};
-
     if (success && m_ownedTemporaryDirectory)
         QDir(m_frameFolder).removeRecursively();
     m_ownedTemporaryDirectory = false;

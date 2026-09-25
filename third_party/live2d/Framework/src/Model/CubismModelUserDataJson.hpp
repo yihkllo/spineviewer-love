@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 
 #include "CubismJsonHolder.hpp"
@@ -10,7 +12,6 @@ namespace Live2D {  namespace Cubism {  namespace Framework {
 class CubismModelUserDataJson : public CubismJsonHolder
 {
 public:
-
     CubismModelUserDataJson(const csmByte* buffer, csmSizeInt size);
 
     virtual ~CubismModelUserDataJson();

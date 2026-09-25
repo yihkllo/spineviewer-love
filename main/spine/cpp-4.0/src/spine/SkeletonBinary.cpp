@@ -1,3 +1,4 @@
+
 #ifdef SPINE_UE4
 #include "SpinePluginPrivatePCH.h"
 #endif
@@ -706,7 +707,6 @@ Animation *SkeletonBinary::readAnimation(const String &name, DataInput *input, S
 	float scale = _scale;
 	int numTimelines = readVarint(input, true);
 	SP_UNUSED(numTimelines);
-
 	for (int i = 0, n = readVarint(input, true); i < n; ++i) {
 		int slotIndex = readVarint(input, true);
 		for (int ii = 0, nn = readVarint(input, true); ii < nn; ++ii) {
@@ -1218,10 +1218,8 @@ Animation *SkeletonBinary::readAnimation(const String &name, DataInput *input, S
 			size_t originalIndex = 0, unchangedIndex = 0;
 			for (size_t ii = 0; ii < offsetCount; ++ii) {
 				size_t slotIndex = (size_t) readVarint(input, true);
-
 				while (originalIndex != slotIndex)
 					unchanged[unchangedIndex++] = originalIndex++;
-
 				size_t index = originalIndex;
 				drawOrder[index + (size_t) readVarint(input, true)] = originalIndex++;
 			}

@@ -1,3 +1,4 @@
+
 #ifndef SPINE_VERTEXEFFECT_H_
 #define SPINE_VERTEXEFFECT_H_
 

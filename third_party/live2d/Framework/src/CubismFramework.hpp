@@ -1,8 +1,13 @@
+﻿
+
 #pragma once
+
 
 #include "Live2DCubismCore.hpp"
 
+
 #include "CubismFrameworkConfig.hpp"
+
 
 #include <new>
 #include "ICubismAllocator.hpp"
@@ -10,6 +15,7 @@
 #ifdef __linux__
 #include <cstdlib>
 #endif
+
 
 namespace Live2D { namespace Cubism { namespace Framework {
 
@@ -25,6 +31,7 @@ static CubismAllocationAlignedTag GloabalAlignedTag;
 }}}
 
 #ifdef CSM_DEBUG_MEMORY_LEAKING
+
 
 void* operator new (Live2D::Cubism::Framework::csmSizeType size, Live2D::Cubism::Framework::CubismAllocationTag tag, const Live2D::Cubism::Framework::csmChar* fileName, Live2D::Cubism::Framework::csmInt32 lineNumber);
 void* operator new (Live2D::Cubism::Framework::csmSizeType size, Live2D::Cubism::Framework::csmUint32 alignment, Live2D::Cubism::Framework::CubismAllocationAlignedTag tag, const Live2D::Cubism::Framework::csmChar* fileName, Live2D::Cubism::Framework::csmInt32 lineNumber);
@@ -53,6 +60,7 @@ void CsmDelete(T* address, const Live2D::Cubism::Framework::csmChar* fileName, L
 #define CSM_FREE_ALLIGNED(ptr)           Live2D::Cubism::Framework::CubismFramework::DeallocateAligned(ptr, __FILE__, __LINE__)
 
 #else
+
 
 void* operator new (Live2D::Cubism::Framework::csmSizeType size, Live2D::Cubism::Framework::CubismAllocationTag tag);
 void* operator new (Live2D::Cubism::Framework::csmSizeType size, Live2D::Cubism::Framework::csmUint32 alignment, Live2D::Cubism::Framework::CubismAllocationAlignedTag tag);
@@ -84,13 +92,16 @@ void CsmDelete(T* address)
 
 #define CSM_PLACEMENT_NEW(addrs)         new((addrs))
 
+
 #include "Type/CubismBasicType.hpp"
+
 
 namespace Live2D { namespace Cubism { namespace Framework {
 
 class CubismIdManager;
 
 }}}
+
 
 #ifdef _MSC_VER
 #pragma warning (disable : 4100)
@@ -99,6 +110,7 @@ class CubismIdManager;
 #ifndef NULL
 #define NULL  0
 #endif
+
 
 #define CubismEnsure(expression, message, body)       \
 do                                              \
@@ -111,12 +123,14 @@ do                                              \
 }                                               \
 while (0);
 
+
+
 namespace Csm = Live2D::Cubism::Framework;
+
 
 namespace Live2D { namespace Cubism { namespace Framework {
 
 namespace Constant {
-
 extern const csmInt32 VertexOffset;
 
 extern const csmInt32 VertexStep;
@@ -125,14 +139,11 @@ extern const csmInt32 VertexStep;
 class CubismFramework
 {
 public:
-
     class Option
     {
     public:
-
         enum LogLevel
         {
-
             LogLevel_Verbose = 0,
 
             LogLevel_Debug,
@@ -192,7 +203,6 @@ public:
 #endif
 
 private:
-
     CubismFramework(){}
 
 };

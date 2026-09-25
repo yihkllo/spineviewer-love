@@ -1,3 +1,4 @@
+
 #include <spine/IkConstraintData.h>
 
 #include <spine/BoneData.h>
@@ -59,6 +60,7 @@ bool IkConstraintData::getCompress() {
 void IkConstraintData::setCompress(bool inValue) {
 	_compress = inValue;
 }
+
 
 bool IkConstraintData::getUniform() {
 	return _uniform;

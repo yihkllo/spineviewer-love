@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 
 #include "CubismFramework.hpp"
@@ -10,7 +12,6 @@ class CubismMoc
 {
     friend class CubismModel;
 public:
-
     static CubismMoc* Create(const csmByte* mocBytes, csmSizeInt size, csmBool shouldCheckMocConsistency = false);
 
     static void Delete(CubismMoc* moc);
@@ -28,7 +29,6 @@ public:
     static csmBool HasMocConsistencyFromUnrevivedMoc(const csmByte* mocBytes, csmSizeInt size);
 
 private:
-
     CubismMoc(Core::csmMoc* moc);
 
     virtual ~CubismMoc();

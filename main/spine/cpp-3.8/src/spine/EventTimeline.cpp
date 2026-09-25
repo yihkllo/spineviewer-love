@@ -1,3 +1,4 @@
+
 #ifdef SPINE_UE4
 #include "SpinePluginPrivatePCH.h"
 #endif
@@ -39,11 +40,9 @@ void EventTimeline::apply(Skeleton &skeleton, float lastTime, float time, Vector
 	size_t frameCount = _frames.size();
 
 	if (lastTime > time) {
-
 		apply(skeleton, lastTime, FLT_MAX, pEvents, alpha, blend, direction);
 		lastTime = -1.0f;
 	} else if (lastTime >= _frames[frameCount - 1]) {
-
 		return;
 	}
 
@@ -56,7 +55,6 @@ void EventTimeline::apply(Skeleton &skeleton, float lastTime, float time, Vector
 		frame = Animation::binarySearch(_frames, lastTime);
 		float frameTime = _frames[frame];
 		while (frame > 0) {
-
 			if (_frames[frame - 1] != frameTime) break;
 			frame--;
 		}

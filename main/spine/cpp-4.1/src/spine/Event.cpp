@@ -1,3 +1,4 @@
+
 #include <spine/Event.h>
 
 #include <spine/EventData.h>
@@ -42,6 +43,7 @@ const spine::String &spine::Event::getStringValue() {
 void spine::Event::setStringValue(const spine::String &inValue) {
 	_stringValue = inValue;
 }
+
 
 float spine::Event::getVolume() {
 	return _volume;

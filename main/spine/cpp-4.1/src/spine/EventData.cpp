@@ -1,3 +1,4 @@
+
 #include <spine/EventData.h>
 
 #include <assert.h>
@@ -47,6 +48,7 @@ const spine::String &spine::EventData::getAudioPath() const {
 void spine::EventData::setAudioPath(const spine::String &inValue) {
 	_audioPath = inValue;
 }
+
 
 float spine::EventData::getVolume() const {
 	return _volume;

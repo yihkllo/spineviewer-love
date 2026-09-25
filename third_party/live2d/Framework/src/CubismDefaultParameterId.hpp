@@ -1,6 +1,9 @@
+﻿
+
 #pragma once
 
 #include "CubismFramework.hpp"
+
 
 namespace Live2D { namespace Cubism { namespace Framework { namespace DefaultParameterId {
 
@@ -54,3 +57,4 @@ extern const csmChar* ParamBaseX;
 extern const csmChar* ParamBaseY;
 extern const csmChar* ParamNONE;
 }}}}
+

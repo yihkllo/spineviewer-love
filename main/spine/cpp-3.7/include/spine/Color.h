@@ -1,3 +1,4 @@
+
 #ifndef SPINE_COLOR_H_
 #define SPINE_COLOR_H_
 

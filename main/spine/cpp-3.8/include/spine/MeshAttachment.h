@@ -1,3 +1,4 @@
+
 #ifndef Spine_MeshAttachment_h
 #define Spine_MeshAttachment_h
 
@@ -7,7 +8,6 @@
 #include <spine/HasRendererObject.h>
 
 namespace spine {
-
 	class SP_API MeshAttachment : public VertexAttachment, public HasRendererObject {
 		friend class SkeletonBinary;
 		friend class SkeletonJson;

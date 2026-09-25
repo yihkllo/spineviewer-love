@@ -1,3 +1,4 @@
+
 #ifndef Spine_Constraint_h
 #define Spine_Constraint_h
 
@@ -5,7 +6,6 @@
 #include <spine/SpineString.h>
 
 namespace spine {
-
 	class SP_API ConstraintData : public SpineObject {
 
 	public:

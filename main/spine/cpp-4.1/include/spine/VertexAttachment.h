@@ -1,3 +1,4 @@
+
 #ifndef Spine_VertexAttachment_h
 #define Spine_VertexAttachment_h
 

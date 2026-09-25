@@ -1,3 +1,14 @@
+
+
+
+
+
+
+
+
+
+
+
 #ifndef AC_KVEC_H
 #define AC_KVEC_H
 
@@ -31,7 +42,7 @@
 		_kv_free(type, (v).a);										\
 		(v).a = b; (v).m = (s);										\
 	} while (0)
-
+	
 #define kv_trim(type, v) kv_resize(type, (v), kv_size(v))
 
 #define kv_copy(type, v1, v0) do {								\

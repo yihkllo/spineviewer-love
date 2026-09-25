@@ -1,3 +1,4 @@
+
 #ifndef Spine_HasRendererObject_h
 #define Spine_HasRendererObject_h
 

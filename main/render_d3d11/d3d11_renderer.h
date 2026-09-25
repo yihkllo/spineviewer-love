@@ -7,8 +7,8 @@
 #include <vector>
 #include <wrl/client.h>
 
-#include "../sl_gfx_draw.h"
-#include "../sl_gfx_types.h"
+#include "spinelove/sl_gfx_draw.h"
+#include "spinelove/sl_gfx_types.h"
 #include "d3d11_texture.h"
 
 namespace sl_d3d11 {
@@ -36,7 +36,6 @@ public:
 
 	SlTextureId CreateDynamicTexture(int width, int height);
 	bool UpdateDynamicTexture(SlTextureId texture, const unsigned char* rgba, int width, int height);
-
 	SlTextureId CreateVideoTexture(int width, int height);
 	ID3D11Texture2D* GetNativeTexture(SlTextureId texture) const noexcept;
 	ID3D11Device* NativeDevice() const noexcept { return m_device; }
@@ -97,7 +96,6 @@ private:
 	size_t m_vertexBufferCapacity = 0;
 	size_t m_indexBufferCapacity = 0;
 	std::vector<SlVertex2D> m_premultiplyScratch;
-
 	Microsoft::WRL::ComPtr<ID3D11Texture2D> m_readbackStaging;
 	D3D11_TEXTURE2D_DESC m_readbackStagingDesc{};
 };

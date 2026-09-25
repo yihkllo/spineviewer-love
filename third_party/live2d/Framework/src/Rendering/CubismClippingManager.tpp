@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 
 template <class T_ClippingContext, class T_OffscreenSurface>
@@ -72,7 +74,6 @@ void CubismClippingManager<T_ClippingContext, T_OffscreenSurface>::Initialize(Cu
     {
         if (model.GetDrawableMaskCounts()[i] <= 0)
         {
-
             _clippingContextListForDraw.PushBack(NULL);
             continue;
         }
@@ -80,7 +81,6 @@ void CubismClippingManager<T_ClippingContext, T_OffscreenSurface>::Initialize(Cu
         T_ClippingContext* cc = FindSameClip(model.GetDrawableMasks()[i], model.GetDrawableMaskCounts()[i]);
         if (cc == NULL)
         {
-
             cc = CSM_NEW T_ClippingContext(this, model, model.GetDrawableMasks()[i], model.GetDrawableMaskCounts()[i]);
             _clippingContextListForMask.PushBack(cc);
         }
@@ -94,7 +94,6 @@ void CubismClippingManager<T_ClippingContext, T_OffscreenSurface>::Initialize(Cu
 template <class T_ClippingContext, class T_OffscreenSurface>
 T_ClippingContext* CubismClippingManager<T_ClippingContext, T_OffscreenSurface>::FindSameClip(const csmInt32* drawableMasks, csmInt32 drawableMaskCounts) const
 {
-
     for (csmUint32 i = 0; i < _clippingContextListForMask.GetSize(); i++)
     {
         T_ClippingContext* cc = _clippingContextListForMask[i];
@@ -125,11 +124,9 @@ T_ClippingContext* CubismClippingManager<T_ClippingContext, T_OffscreenSurface>:
 template <class T_ClippingContext, class T_OffscreenSurface>
 void CubismClippingManager<T_ClippingContext, T_OffscreenSurface>::SetupMatrixForHighPrecision(CubismModel& model, csmBool isRightHanded)
 {
-
     csmInt32 usingClipCount = 0;
     for (csmUint32 clipIndex = 0; clipIndex < _clippingContextListForMask.GetSize(); clipIndex++)
     {
-
         T_ClippingContext* cc = _clippingContextListForMask[clipIndex];
 
         CalcClippedDrawTotalBounds(model, cc);
@@ -143,7 +140,6 @@ void CubismClippingManager<T_ClippingContext, T_OffscreenSurface>::SetupMatrixFo
     if (usingClipCount <= 0) {
         return;
     }
-
     SetupLayoutBounds(0);
 
     if (_clearedMaskBufferFlags.GetSize() != _renderTextureCount)
@@ -157,7 +153,6 @@ void CubismClippingManager<T_ClippingContext, T_OffscreenSurface>::SetupMatrixFo
     }
     else
     {
-
         for (csmInt32 i = 0; i < _renderTextureCount; ++i)
         {
             _clearedMaskBufferFlags[i] = false;
@@ -166,7 +161,6 @@ void CubismClippingManager<T_ClippingContext, T_OffscreenSurface>::SetupMatrixFo
 
     for (csmUint32 clipIndex = 0; clipIndex < _clippingContextListForMask.GetSize(); clipIndex++)
     {
-
         T_ClippingContext* clipContext = _clippingContextListForMask[clipIndex];
         csmRectF* allClippedDrawRect = clipContext->_allClippedDrawRect;
         csmRectF* layoutBoundsOnTex01 = clipContext->_layoutBounds;
@@ -200,6 +194,7 @@ void CubismClippingManager<T_ClippingContext, T_OffscreenSurface>::SetupMatrixFo
             scaleY = ppu / physicalMaskHeight;
         }
 
+
         createMatrixForMask(isRightHanded, layoutBoundsOnTex01, scaleX, scaleY);
 
         clipContext->_matrixForMask.SetMatrix(_tmpMatrixForMask.GetArray());
@@ -212,17 +207,14 @@ void CubismClippingManager<T_ClippingContext, T_OffscreenSurface>::createMatrixF
 {
     _tmpMatrix.LoadIdentity();
     {
-
         _tmpMatrix.TranslateRelative(-1.0f, -1.0f);
         _tmpMatrix.ScaleRelative(2.0f, 2.0f);
     }
     {
-
         _tmpMatrix.TranslateRelative(layoutBoundsOnTex01->X, layoutBoundsOnTex01->Y);
         _tmpMatrix.ScaleRelative(scaleX, scaleY);
         _tmpMatrix.TranslateRelative(-_tmpBoundsOnModel.X, -_tmpBoundsOnModel.Y);
      }
-
      _tmpMatrixForMask.SetMatrix(_tmpMatrix.GetArray());
 
     _tmpMatrix.LoadIdentity();
@@ -246,7 +238,6 @@ void CubismClippingManager<T_ClippingContext, T_OffscreenSurface>::SetupLayoutBo
     {
         if (usingClipCount > useClippingMaskMaxCount)
         {
-
             csmInt32 count = usingClipCount - useClippingMaskMaxCount;
             CubismLogError("not supported mask count : %d\n[Details] render texture count: %d\n, mask count : %d"
                 , count, _renderTextureCount, usingClipCount);
@@ -279,24 +270,20 @@ void CubismClippingManager<T_ClippingContext, T_OffscreenSurface>::SetupLayoutBo
     {
         for (csmInt32 channelIndex = 0; channelIndex < ColorChannelCount; channelIndex++)
         {
-
             csmInt32 layoutCount = divCount + (channelIndex < modCount ? 1 : 0);
 
             const csmInt32 checkChannelIndex = modCount + (divCount < 1 ? -1 : 0);
 
             if (channelIndex == checkChannelIndex && reduceLayoutTextureCount > 0)
             {
-
                 layoutCount -= !(renderTextureIndex < reduceLayoutTextureCount) ? 1 : 0;
             }
 
             if (layoutCount == 0)
             {
-
             }
             else if (layoutCount == 1)
             {
-
                 T_ClippingContext* cc = _clippingContextListForMask[curClipIndex++];
                 cc->_layoutChannelIndex = channelIndex;
                 cc->_layoutBounds->X = 0.0f;
@@ -319,12 +306,10 @@ void CubismClippingManager<T_ClippingContext, T_OffscreenSurface>::SetupLayoutBo
                     cc->_layoutBounds->Width = 0.5f;
                     cc->_layoutBounds->Height = 1.0f;
                     cc->_bufferIndex = renderTextureIndex;
-
                 }
             }
             else if (layoutCount <= 4)
             {
-
                 for (csmInt32 i = 0; i < layoutCount; i++)
                 {
                     const csmInt32 xpos = i % 2;
@@ -342,7 +327,6 @@ void CubismClippingManager<T_ClippingContext, T_OffscreenSurface>::SetupLayoutBo
             }
             else if (layoutCount <= layoutCountMaxValue)
             {
-
                 for (csmInt32 i = 0; i < layoutCount; i++)
                 {
                     const csmInt32 xpos = i % 3;
@@ -358,10 +342,10 @@ void CubismClippingManager<T_ClippingContext, T_OffscreenSurface>::SetupLayoutBo
                     cc->_bufferIndex = renderTextureIndex;
                 }
             }
-
             else
             {
                 csmInt32 count = usingClipCount - useClippingMaskMaxCount;
+
 
                 CubismLogError("not supported mask count : %d\n[Details] render texture count: %d\n, mask count : %d"
                     , count, _renderTextureCount, usingClipCount);
@@ -386,14 +370,13 @@ void CubismClippingManager<T_ClippingContext, T_OffscreenSurface>::SetupLayoutBo
 template <class T_ClippingContext, class T_OffscreenSurface>
 void CubismClippingManager<T_ClippingContext, T_OffscreenSurface>::CalcClippedDrawTotalBounds(CubismModel& model, T_ClippingContext* clippingContext)
 {
-
     csmFloat32 clippedDrawTotalMinX = FLT_MAX, clippedDrawTotalMinY = FLT_MAX;
     csmFloat32 clippedDrawTotalMaxX = -FLT_MAX, clippedDrawTotalMaxY = -FLT_MAX;
+
 
     const csmInt32 clippedDrawCount = clippingContext->_clippedDrawableIndexList->GetSize();
     for (csmInt32 clippedDrawableIndex = 0; clippedDrawableIndex < clippedDrawCount; clippedDrawableIndex++)
     {
-
         const csmInt32 drawableIndex = (*clippingContext->_clippedDrawableIndexList)[clippedDrawableIndex];
 
         csmInt32 drawableVertexCount = model.GetDrawableVertexCount(drawableIndex);

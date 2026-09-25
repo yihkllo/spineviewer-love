@@ -1,3 +1,4 @@
+
 #ifdef SPINE_UE4
 #include "SpinePluginPrivatePCH.h"
 #endif
@@ -59,11 +60,9 @@ void PathConstraintMixTimeline::apply(Skeleton &skeleton, float lastTime, float 
 
 	float rotate, translate;
 	if (time >= _frames[_frames.size() - ENTRIES]) {
-
 		rotate = _frames[_frames.size() + PREV_ROTATE];
 		translate = _frames[_frames.size() + PREV_TRANSLATE];
 	} else {
-
 		int frame = Animation::binarySearch(_frames, time, ENTRIES);
 		rotate = _frames[frame + PREV_ROTATE];
 		translate = _frames[frame + PREV_TRANSLATE];

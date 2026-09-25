@@ -1,3 +1,4 @@
+
 #include <spine/Skeleton.h>
 
 #include <spine/Attachment.h>
@@ -224,7 +225,6 @@ void Skeleton::updateWorldTransform(Physics physics) {
 }
 
 void Skeleton::updateWorldTransform(Physics physics, Bone *parent) {
-
 	Bone *rootBone = getRootBone();
 	float pa = parent->_a, pb = parent->_b, pc = parent->_c, pd = parent->_d;
 	rootBone->_worldX = pa * _x + pb * _y + parent->_worldX;

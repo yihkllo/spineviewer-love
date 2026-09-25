@@ -1,14 +1,14 @@
+﻿
+
 #pragma once
 
 #include "CubismMatrix44.hpp"
 #include "Type/csmMap.hpp"
 
 namespace Live2D { namespace Cubism { namespace Framework {
-
 class CubismModelMatrix : public CubismMatrix44
 {
 public:
-
     CubismModelMatrix();
 
     CubismModelMatrix(csmFloat32 w, csmFloat32 h);

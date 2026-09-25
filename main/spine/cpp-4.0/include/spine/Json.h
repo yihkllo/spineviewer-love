@@ -1,10 +1,10 @@
+
 #ifndef Spine_Json_h
 #define Spine_Json_h
 
 #include <spine/SpineObject.h>
 
 #ifndef SPINE_JSON_HAVE_PREV
-
 #define SPINE_JSON_HAVE_PREV 0
 #endif
 
@@ -13,7 +13,6 @@ namespace spine {
 		friend class SkeletonJson;
 
 	public:
-
 		static const int JSON_FALSE;
 		static const int JSON_TRUE;
 		static const int JSON_NULL;
@@ -39,6 +38,7 @@ namespace spine {
 		explicit Json(const char *value);
 
 		~Json();
+
 
 	private:
 		static const char *_error;

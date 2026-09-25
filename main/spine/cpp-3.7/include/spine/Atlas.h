@@ -1,3 +1,4 @@
+
 #ifndef SPINE_ATLAS_H_
 #define SPINE_ATLAS_H_
 
@@ -82,6 +83,7 @@ typedef spAtlasPage AtlasPage;
 #define AtlasPage_dispose(...) spAtlasPage_dispose(__VA_ARGS__)
 #endif
 
+
 typedef struct spAtlasRegion spAtlasRegion;
 struct spAtlasRegion {
 	const char* name;
@@ -109,6 +111,7 @@ typedef spAtlasRegion AtlasRegion;
 #define AtlasRegion_dispose(...) spAtlasRegion_dispose(__VA_ARGS__)
 #endif
 
+
 struct spAtlas {
 	spAtlasPage* pages;
 	spAtlasRegion* regions;
@@ -117,7 +120,6 @@ struct spAtlas {
 };
 
 SP_API spAtlas* spAtlas_create (const char* data, int length, const char* dir, void* rendererObject);
-
 SP_API spAtlas* spAtlas_createFromFile (const char* path, void* rendererObject);
 SP_API void spAtlas_dispose (spAtlas* atlas);
 

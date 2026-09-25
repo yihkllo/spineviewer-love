@@ -1,3 +1,4 @@
+
 #ifndef Spine_AnimationState_h
 #define Spine_AnimationState_h
 
@@ -44,7 +45,6 @@ namespace spine {
 		AnimationStateListenerObject() { };
 		virtual ~AnimationStateListenerObject() { };
 	public:
-
 		virtual void callback(AnimationState* state, EventType type, TrackEntry* entry, Event* event) = 0;
 	};
 

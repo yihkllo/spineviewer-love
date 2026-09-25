@@ -1,3 +1,5 @@
+﻿
+
 #include "CubismRenderer_Cocos2dx.hpp"
 #include "Math/CubismMatrix44.hpp"
 #include "Type/csmVector.hpp"
@@ -13,11 +15,9 @@ namespace Live2D { namespace Cubism { namespace Framework { namespace Rendering 
 
 void CubismClippingManager_Cocos2dx::SetupClippingContext(CubismModel& model, CubismRenderer_Cocos2dx* renderer, cocos2d::Texture2D* lastColorBuffer, csmRectF lastViewport)
 {
-
     csmInt32 usingClipCount = 0;
     for (csmUint32 clipIndex = 0; clipIndex < _clippingContextListForMask.GetSize(); clipIndex++)
     {
-
         CubismClippingContext_Cocos2dx* cc = _clippingContextListForMask[clipIndex];
 
         CalcClippedDrawTotalBounds(model, cc);
@@ -54,7 +54,6 @@ void CubismClippingManager_Cocos2dx::SetupClippingContext(CubismModel& model, Cu
     }
     else
     {
-
         for (csmInt32 i = 0; i < _renderTextureCount; ++i)
         {
             _clearedMaskBufferFlags[i] = false;
@@ -63,7 +62,6 @@ void CubismClippingManager_Cocos2dx::SetupClippingContext(CubismModel& model, Cu
 
     for (csmUint32 clipIndex = 0; clipIndex < _clippingContextListForMask.GetSize(); clipIndex++)
     {
-
         CubismClippingContext_Cocos2dx* clipContext = _clippingContextListForMask[clipIndex];
         csmRectF* allClippedDrawRect = clipContext->_allClippedDrawRect;
         csmRectF* layoutBoundsOnTex01 = clipContext->_layoutBounds;
@@ -81,9 +79,9 @@ void CubismClippingManager_Cocos2dx::SetupClippingContext(CubismModel& model, Cu
             _currentMaskBuffer->BeginDraw(renderer->GetCommandBuffer(), lastColorBuffer);
         }
 
+
         _tmpBoundsOnModel.SetRect(allClippedDrawRect);
         _tmpBoundsOnModel.Expand(allClippedDrawRect->Width * MARGIN, allClippedDrawRect->Height * MARGIN);
-
         csmFloat32 scaleX = layoutBoundsOnTex01->Width / _tmpBoundsOnModel.Width;
         csmFloat32 scaleY = layoutBoundsOnTex01->Height / _tmpBoundsOnModel.Height;
 
@@ -97,6 +95,7 @@ void CubismClippingManager_Cocos2dx::SetupClippingContext(CubismModel& model, Cu
         {
             const csmInt32 clipDrawIndex = clipContext->_clippingIdList[i];
             CubismCommandBuffer_Cocos2dx::DrawCommandBuffer* drawCommandBufferData = clipContext->_clippingCommandBufferList->At(i);
+
 
             if (!model.GetDrawableDynamicFlagVertexPositionsDidChange(clipDrawIndex))
             {
@@ -128,7 +127,6 @@ void CubismClippingManager_Cocos2dx::SetupClippingContext(CubismModel& model, Cu
 
             if (!_clearedMaskBufferFlags[clipContext->_bufferIndex])
             {
-
                 renderer->GetOffscreenSurface(clipContext->_bufferIndex)->Clear(renderer->GetCommandBuffer(), 1.0f, 1.0f, 1.0f, 1.0f);
                 _clearedMaskBufferFlags[clipContext->_bufferIndex] = true;
             }
@@ -157,11 +155,13 @@ CubismClippingContext_Cocos2dx::CubismClippingContext_Cocos2dx(CubismClippingMan
         const csmInt32 drawableVertexIndexCount = model.GetDrawableVertexIndexCount(clippingId);
         const csmSizeInt vertexSize = sizeof(csmFloat32) * 2;
 
+
         drawCommandBuffer = CSM_NEW CubismCommandBuffer_Cocos2dx::DrawCommandBuffer();
         drawCommandBuffer->GetCommandDraw()->GetCommand()->setDrawType(cocos2d::CustomCommand::DrawType::ELEMENT);
         drawCommandBuffer->GetCommandDraw()->GetCommand()->setPrimitiveType(cocos2d::backend::PrimitiveType::TRIANGLE);
         drawCommandBuffer->CreateVertexBuffer(vertexSize, drawableVertexCount * 2);
         drawCommandBuffer->CreateIndexBuffer(drawableVertexIndexCount);
+
 
         _clippingCommandBufferList->PushBack(drawCommandBuffer);
     }
@@ -189,12 +189,12 @@ CubismClippingManager<CubismClippingContext_Cocos2dx, CubismOffscreenSurface_Coc
 
 void CubismRendererProfile_Cocos2dx::Save()
 {
-
     _lastScissorTest = GetCocos2dRenderer()->getScissorTest();
     _lastStencilTest = GetCocos2dRenderer()->getStencilTest();
     _lastDepthTest = GetCocos2dRenderer()->getDepthTest();
     _lastCullFace = GetCocos2dRenderer()->getCullMode();
     _lastWinding = GetCocos2dRenderer()->getWinding();
+
 
     _lastColorBuffer = GetCocos2dRenderer()->getColorAttachment();
     _lastDepthBuffer = GetCocos2dRenderer()->getDepthAttachment();
@@ -214,6 +214,7 @@ void CubismRendererProfile_Cocos2dx::Restore()
     GetCocos2dRenderer()->setRenderTarget(_lastRenderTargetFlag, _lastColorBuffer, _lastDepthBuffer, _lastStencilBuffer);
     GetCocos2dRenderer()->setViewPort(_lastViewport.X, _lastViewport.Y, _lastViewport.Width, _lastViewport.Height);
 }
+
 
 #ifdef CSM_TARGET_ANDROID_ES2
 void CubismRenderer_Cocos2dx::SetExtShaderMode(csmBool extMode, csmBool extPAMode)
@@ -247,7 +248,6 @@ CubismRenderer_Cocos2dx::CubismRenderer_Cocos2dx() : _clippingManager(NULL)
                                                      , _clippingContextBufferForMask(NULL)
                                                      , _clippingContextBufferForDraw(NULL)
 {
-
     _textures.PrepareCapacity(32, true);
 }
 
@@ -299,7 +299,6 @@ void CubismRenderer_Cocos2dx::Initialize(CubismModel* model)
 
 void CubismRenderer_Cocos2dx::Initialize(Framework::CubismModel* model, csmInt32 maskBufferCount)
 {
-
     if (maskBufferCount < 1)
     {
         maskBufferCount = 1;
@@ -345,6 +344,7 @@ void CubismRenderer_Cocos2dx::Initialize(Framework::CubismModel* model, csmInt32
         }
     }
 
+
     CubismRenderer::Initialize(model, maskBufferCount);
 }
 
@@ -354,15 +354,14 @@ void CubismRenderer_Cocos2dx::PreDraw()
     _commandBuffer->SetOperationEnable(CubismCommandBuffer_Cocos2dx::OperationType_StencilTest, false);
     _commandBuffer->SetOperationEnable(CubismCommandBuffer_Cocos2dx::OperationType_DepthTest, false);
 
+
     if (GetAnisotropy() > 0.0f)
     {
-
     }
 }
 
 void CubismRenderer_Cocos2dx::DoDrawModel()
 {
-
     if (_clippingManager != NULL)
     {
         PreDraw();
@@ -431,7 +430,6 @@ void CubismRenderer_Cocos2dx::DoDrawModel()
         {
             if(clipContext->_isUsing)
             {
-
                 _commandBuffer->Viewport(0, 0, _offscreenSurfaces[ clipContext->_bufferIndex].GetViewPortSize().Width, _offscreenSurfaces[ clipContext->_bufferIndex].GetViewPortSize().Height);
 
                 PreDraw();
@@ -487,7 +485,6 @@ void CubismRenderer_Cocos2dx::DoDrawModel()
             }
 
             {
-
                 _offscreenSurfaces[ clipContext->_bufferIndex].EndDraw(_commandBuffer);
                 SetClippingContextBufferForMask(NULL);
                 _commandBuffer->Viewport(_rendererProfile._lastViewport.X, _rendererProfile._lastViewport.Y, _rendererProfile._lastViewport.Width, _rendererProfile._lastViewport.Height);
@@ -645,3 +642,4 @@ cocos2d::Texture2D* CubismRenderer_Cocos2dx::GetBindedTexture(csmInt32 textureIn
 }
 
 }}}}
+

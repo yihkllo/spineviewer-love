@@ -1,3 +1,5 @@
+﻿
+
 #include "CubismRenderer_OpenGLES2.hpp"
 #include "Math/CubismMatrix44.hpp"
 #include "Type/csmVector.hpp"
@@ -18,11 +20,9 @@ namespace Live2D { namespace Cubism { namespace Framework { namespace Rendering 
 
 void CubismClippingManager_OpenGLES2::SetupClippingContext(CubismModel& model, CubismRenderer_OpenGLES2* renderer, GLint lastFBO, GLint lastViewport[4])
 {
-
     csmInt32 usingClipCount = 0;
     for (csmUint32 clipIndex = 0; clipIndex < _clippingContextListForMask.GetSize(); clipIndex++)
     {
-
         CubismClippingContext_OpenGLES2* cc = _clippingContextListForMask[clipIndex];
 
         CalcClippedDrawTotalBounds(model, cc);
@@ -41,7 +41,6 @@ void CubismClippingManager_OpenGLES2::SetupClippingContext(CubismModel& model, C
     glViewport(0, 0, _clippingMaskBufferSize.X, _clippingMaskBufferSize.Y);
 
     _currentMaskBuffer = renderer->GetMaskBuffer(0);
-
     _currentMaskBuffer->BeginDraw(lastFBO);
 
     renderer->PreDraw();
@@ -59,7 +58,6 @@ void CubismClippingManager_OpenGLES2::SetupClippingContext(CubismModel& model, C
     }
     else
     {
-
         for (csmInt32 i = 0; i < _renderTextureCount; ++i)
         {
             _clearedMaskBufferFlags[i] = false;
@@ -68,7 +66,6 @@ void CubismClippingManager_OpenGLES2::SetupClippingContext(CubismModel& model, C
 
     for (csmUint32 clipIndex = 0; clipIndex < _clippingContextListForMask.GetSize(); clipIndex++)
     {
-
         CubismClippingContext_OpenGLES2* clipContext = _clippingContextListForMask[clipIndex];
         csmRectF* allClippedDrawRect = clipContext->_allClippedDrawRect;
         csmRectF* layoutBoundsOnTex01 = clipContext->_layoutBounds;
@@ -80,7 +77,6 @@ void CubismClippingManager_OpenGLES2::SetupClippingContext(CubismModel& model, C
         {
             _currentMaskBuffer->EndDraw();
             _currentMaskBuffer = clipContextOffscreenSurface;
-
             _currentMaskBuffer->BeginDraw(lastFBO);
 
             renderer->PreDraw();
@@ -88,7 +84,6 @@ void CubismClippingManager_OpenGLES2::SetupClippingContext(CubismModel& model, C
 
         _tmpBoundsOnModel.SetRect(allClippedDrawRect);
         _tmpBoundsOnModel.Expand(allClippedDrawRect->Width * MARGIN, allClippedDrawRect->Height * MARGIN);
-
         csmFloat32 scaleX = layoutBoundsOnTex01->Width / _tmpBoundsOnModel.Width;
         csmFloat32 scaleY = layoutBoundsOnTex01->Height / _tmpBoundsOnModel.Height;
 
@@ -111,7 +106,6 @@ void CubismClippingManager_OpenGLES2::SetupClippingContext(CubismModel& model, C
 
             if (!_clearedMaskBufferFlags[clipContext->_bufferIndex])
             {
-
                 glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
                 glClear(GL_COLOR_BUFFER_BIT);
                 _clearedMaskBufferFlags[clipContext->_bufferIndex] = true;
@@ -157,7 +151,6 @@ void CubismRendererProfile_OpenGLES2::SetGlEnableVertexAttribArray(GLuint index,
 
 void CubismRendererProfile_OpenGLES2::Save()
 {
-
     glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &_lastArrayBufferBinding);
     glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &_lastElementArrayBufferBinding);
     glGetIntegerv(GL_CURRENT_PROGRAM, &_lastProgram);
@@ -227,6 +220,7 @@ void CubismRendererProfile_OpenGLES2::Restore()
     glBlendFuncSeparate(_lastBlending[0], _lastBlending[1], _lastBlending[2], _lastBlending[3]);
 }
 
+
 #ifdef CSM_TARGET_ANDROID_ES2
 void CubismRenderer_OpenGLES2::SetExtShaderMode(csmBool extMode, csmBool extPAMode)
 {
@@ -240,6 +234,7 @@ void CubismRenderer_OpenGLES2::ReloadShader()
 }
 #endif
 
+
 #ifdef CSM_TARGET_WIN_GL
 
 namespace {
@@ -250,7 +245,6 @@ PFNGLUNIFORM1IPROC glUniform1i;
 PFNGLGETATTRIBLOCATIONPROC glGetAttribLocation;
 PFNGLGETUNIFORMLOCATIONPROC glGetUniformLocation;
 PFNGLBLENDFUNCSEPARATEPROC glBlendFuncSeparate;
-
 PFNGLENABLEVERTEXATTRIBARRAYPROC glEnableVertexAttribArray;
 PFNGLDISABLEVERTEXATTRIBARRAYPROC glDisableVertexAttribArray;
 PFNGLVERTEXATTRIBPOINTERPROC glVertexAttribPointer;
@@ -300,7 +294,6 @@ void CubismRenderer_OpenGLES2::InitializeGlFunctions()
     s_isInitializeGlFunctionsSuccess = true;
 
     glActiveTexture = (PFNGLACTIVETEXTUREPROC)WinGlGetProcAddress("glActiveTexture");
-
     if (glActiveTexture) s_isFirstInitializeGlFunctions = false;
     else return;
 
@@ -385,7 +378,6 @@ CubismRenderer_OpenGLES2::CubismRenderer_OpenGLES2() : _clippingManager(NULL)
                                                      , _clippingContextBufferForMask(NULL)
                                                      , _clippingContextBufferForDraw(NULL)
 {
-
     _textures.PrepareCapacity(32, true);
 }
 
@@ -419,7 +411,6 @@ void CubismRenderer_OpenGLES2::Initialize(CubismModel* model)
 
 void CubismRenderer_OpenGLES2::Initialize(CubismModel* model, csmInt32 maskBufferCount)
 {
-
     if (maskBufferCount < 1)
     {
         maskBufferCount = 1;
@@ -480,9 +471,9 @@ void CubismRenderer_OpenGLES2::PreDraw()
     }
 }
 
+
 void CubismRenderer_OpenGLES2::DoDrawModel()
 {
-
     if (_clippingManager != NULL)
     {
         PreDraw();
@@ -535,7 +526,6 @@ void CubismRenderer_OpenGLES2::DoDrawModel()
         {
             if(clipContext->_isUsing)
             {
-
                 glViewport(0, 0, _clippingManager->GetClippingMaskBufferSize().X, _clippingManager->GetClippingMaskBufferSize().Y);
 
                 PreDraw();
@@ -566,7 +556,6 @@ void CubismRenderer_OpenGLES2::DoDrawModel()
             }
 
             {
-
                 GetMaskBuffer(clipContext->_bufferIndex)->EndDraw();
                 SetClippingContextBufferForMask(NULL);
                 glViewport(_rendererProfile._lastViewport[0], _rendererProfile._lastViewport[1], _rendererProfile._lastViewport[2], _rendererProfile._lastViewport[3]);
@@ -714,3 +703,4 @@ GLuint CubismRenderer_OpenGLES2::GetBindedTextureId(csmInt32 textureId)
 }
 
 }}}}
+

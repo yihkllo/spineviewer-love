@@ -1,3 +1,4 @@
+
 #ifndef Spine_BlendMode_h
 #define Spine_BlendMode_h
 

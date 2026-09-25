@@ -1,3 +1,5 @@
+﻿
+
 #include "CubismOffscreenSurface_Vulkan.hpp"
 
 namespace Live2D { namespace Cubism { namespace Framework { namespace Rendering {
@@ -138,3 +140,4 @@ csmBool CubismOffscreenSurface_Vulkan::IsValid() const
     return true;
 }
 }}}}
+

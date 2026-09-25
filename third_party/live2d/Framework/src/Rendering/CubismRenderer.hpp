@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 
 #include "CubismFramework.hpp"
@@ -28,7 +30,6 @@ public:
 
     struct CubismTextureColor
     {
-
         CubismTextureColor()
             : R(1.0f)
             , G(1.0f)
@@ -91,7 +92,6 @@ public:
     csmBool IsUsingHighPrecisionMask();
 
 protected:
-
     CubismRenderer();
 
     virtual ~CubismRenderer();
@@ -100,10 +100,10 @@ protected:
 
     virtual void SaveProfile() = 0;
 
+
     virtual void RestoreProfile() = 0;
 
 private:
-
     CubismRenderer(const CubismRenderer&);
     CubismRenderer& operator=(const CubismRenderer&);
 
@@ -117,10 +117,10 @@ private:
     csmBool             _useHighPrecisionMask;
 };
 
+
 class CubismClippingContext
 {
 public:
-
     CubismClippingContext(const csmInt32* clippingDrawableIndices, csmInt32 clipCount);
 
     ~CubismClippingContext();
@@ -140,3 +140,4 @@ public:
 };
 
 }}}}
+

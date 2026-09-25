@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 
 #include "CubismFramework.hpp"
@@ -9,6 +11,7 @@
 #endif
 
 namespace Live2D { namespace Cubism { namespace Framework {
+
 
 template<class _KeyT, class _ValT>
 class csmPair
@@ -43,7 +46,6 @@ public:
 
     void AppendKey(_KeyT& key)
     {
-
         PrepareCapacity(_size + 1, false);
 
         void* addr = &_keyValues[_size];
@@ -116,11 +118,9 @@ public:
 
     class iterator
     {
-
         friend class csmMap;
 
     public:
-
         iterator() : _index(0)
                    , _map(NULL) {}
 
@@ -139,28 +139,24 @@ public:
 
         iterator& operator++()
         {
-
             this->_index++;
             return *this;
         }
 
         iterator& operator--()
         {
-
             this->_index--;
             return *this;
         }
 
         iterator operator++(csmInt32)
         {
-
             iterator iteold(this->_map, this->_index++);
             return iteold;
         }
 
         iterator operator--(csmInt32)
         {
-
             iterator iteold(this->_map, this->_index--);
             return iteold;
         }
@@ -182,11 +178,9 @@ public:
 
     class const_iterator
     {
-
         friend class csmMap;
 
     public:
-
         const_iterator() : _index(0)
                          , _map(NULL) {}
 
@@ -205,28 +199,24 @@ public:
 
         const_iterator& operator++()
         {
-
             ++this->_index;
             return *this;
         }
 
         const_iterator& operator--()
         {
-
             --this->_index;
             return *this;
         }
 
         const_iterator operator++(csmInt32)
         {
-
             const_iterator iteold(this->_map, this->_index++);
             return iteold;
         }
 
         const_iterator operator--(csmInt32)
         {
-
             const_iterator iteold(this->_map, this->_index--);
             return iteold;
         }
@@ -304,6 +294,8 @@ private:
     csmInt32 _capacity;
 };
 
+
+
 template<class _KeyT, class _ValT>
 csmMap<_KeyT, _ValT>::csmMap()
     : _keyValues(NULL)
@@ -372,7 +364,6 @@ void csmMap<_KeyT, _ValT>::PrepareCapacity(csmInt32 newSize, csmBool fitToSize)
             _capacity = newSize;
         }
     }
-
 }
 
 template<class _KeyT, class _ValT>
@@ -392,3 +383,4 @@ void csmMap<_KeyT, _ValT>::Clear()
     _capacity = 0;
 }
 }}}
+

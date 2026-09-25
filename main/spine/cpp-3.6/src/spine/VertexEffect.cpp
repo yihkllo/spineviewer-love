@@ -1,3 +1,4 @@
+
 #include <spine/VertexEffect.h>
 #include <spine/extension.h>
 
@@ -65,3 +66,4 @@ spSwirlVertexEffect* spSwirlVertexEffect_create(float radius) {
 void spSwirlVertexEffect_dispose(spSwirlVertexEffect* effect) {
 	FREE(effect);
 }
+

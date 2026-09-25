@@ -1,3 +1,4 @@
+
 #ifdef SPINE_UE4
 #include "SpinePluginPrivatePCH.h"
 #endif
@@ -66,14 +67,12 @@ void TransformConstraintTimeline::apply(Skeleton &skeleton, float lastTime, floa
 
 	float rotate, translate, scale, shear;
 	if (time >= _frames[_frames.size() - ENTRIES]) {
-
 		size_t i = _frames.size();
 		rotate = _frames[i + PREV_ROTATE];
 		translate = _frames[i + PREV_TRANSLATE];
 		scale = _frames[i + PREV_SCALE];
 		shear = _frames[i + PREV_SHEAR];
 	} else {
-
 		int frame = Animation::binarySearch(_frames, time, ENTRIES);
 		rotate = _frames[frame + PREV_ROTATE];
 		translate = _frames[frame + PREV_TRANSLATE];

@@ -1,3 +1,4 @@
+
 #ifndef Spine_BlockAllocator_h
 #define Spine_BlockAllocator_h
 
@@ -64,7 +65,6 @@ namespace spine {
 
     private:
         void *_allocate(int numBytes) {
-
             int alignedNumBytes = numBytes + (numBytes % 16 != 0 ? 16 - (numBytes % 16) : 0);
             Block *block = &blocks[blocks.size() - 1];
             if (!block->canFit(alignedNumBytes)) {

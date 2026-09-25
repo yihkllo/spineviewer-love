@@ -1,3 +1,5 @@
+﻿
+
 #include "CubismOffscreenSurface_Cocos2dx.hpp"
 
 namespace Live2D { namespace Cubism { namespace Framework { namespace Rendering {
@@ -11,6 +13,7 @@ CubismOffscreenSurface_Cocos2dx::CubismOffscreenSurface_Cocos2dx()
     , _bufferHeight(0)
 {
 }
+
 
 void CubismOffscreenSurface_Cocos2dx::BeginDraw(CubismCommandBuffer_Cocos2dx* commandBuffer, cocos2d::Texture2D* colorBufferOnFinishDrawing)
 {
@@ -47,13 +50,11 @@ void CubismOffscreenSurface_Cocos2dx::EndDraw(CubismCommandBuffer_Cocos2dx* comm
 
 void CubismOffscreenSurface_Cocos2dx::Clear(CubismCommandBuffer_Cocos2dx* commandBuffer, float r, float g, float b, float a)
 {
-
     commandBuffer->Clear(r, g, b, a);
 }
 
 csmBool CubismOffscreenSurface_Cocos2dx::CreateOffscreenSurface(csmUint32 displayBufferWidth, csmUint32 displayBufferHeight, cocos2d::RenderTexture* renderTexture)
 {
-
     DestroyOffscreenSurface();
 
     do
@@ -61,7 +62,9 @@ csmBool CubismOffscreenSurface_Cocos2dx::CreateOffscreenSurface(csmUint32 displa
         if (!renderTexture)
         {
 
+
             csmBool initResult = false;
+
 
             _renderTexture = cocos2d::RenderTexture::create(displayBufferWidth, displayBufferHeight);
 
@@ -71,6 +74,7 @@ csmBool CubismOffscreenSurface_Cocos2dx::CreateOffscreenSurface(csmUint32 displa
             }
 
             _renderTexture->retain();
+
 
             _renderTexture->getSprite()->getTexture()->setTexParameters(
                 cocos2d::Texture2D::TexParams(
@@ -86,9 +90,9 @@ csmBool CubismOffscreenSurface_Cocos2dx::CreateOffscreenSurface(csmUint32 displa
         }
         else
         {
-
             _renderTexture = renderTexture;
             _colorBuffer = _renderTexture->getSprite()->getTexture();
+
 
             _isInheritedRenderTexture = true;
         }
@@ -104,6 +108,7 @@ csmBool CubismOffscreenSurface_Cocos2dx::CreateOffscreenSurface(csmUint32 displa
 
         _bufferWidth = displayBufferWidth;
         _bufferHeight = displayBufferHeight;
+
 
         return true;
 
@@ -149,3 +154,4 @@ csmBool CubismOffscreenSurface_Cocos2dx::IsValid() const
 }
 
 }}}}
+

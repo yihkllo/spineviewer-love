@@ -1,3 +1,4 @@
+
 #include <spine/CurveTimeline.h>
 
 #include <spine/MathUtil.h>
@@ -176,7 +177,6 @@ float CurveTimeline1::getScaleValue(float time, float alpha, MixBlend blend, Mix
 		if (blend == MixBlend_Add) return current + value - setup;
 		return value;
 	}
-
 	if (direction == MixDirection_Out) {
 		switch (blend) {
 			case MixBlend_Setup:
@@ -203,6 +203,7 @@ float CurveTimeline1::getScaleValue(float time, float alpha, MixBlend blend, Mix
 	}
 	return current + (value - setup) * alpha;
 }
+
 
 RTTI_IMPL(CurveTimeline2, CurveTimeline)
 

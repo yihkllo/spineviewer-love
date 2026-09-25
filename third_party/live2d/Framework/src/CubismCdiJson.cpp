@@ -1,9 +1,10 @@
+﻿
+
 #include "CubismCdiJson.hpp"
 
 namespace Live2D {  namespace Cubism {  namespace Framework {
 
 namespace {
-
 const csmChar* Version = "Version";
 const csmChar* Parameters = "Parameters";
 const csmChar* ParameterGroups = "ParameterGroups";

@@ -1,3 +1,4 @@
+
 #include <spine/PhysicsConstraintData.h>
 
 #include <spine/BoneData.h>
@@ -15,6 +16,7 @@ PhysicsConstraintData::PhysicsConstraintData(const String &name) : ConstraintDat
 																   _inertiaGlobal(false), _strengthGlobal(false), _dampingGlobal(false), _massGlobal(false),
 																   _windGlobal(false), _gravityGlobal(false), _mixGlobal(false) {
 }
+
 
 void PhysicsConstraintData::setBone(BoneData *bone) {
 	_bone = bone;

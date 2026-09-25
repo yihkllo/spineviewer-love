@@ -7,7 +7,6 @@ ScrollBar {
     required property UiMetrics metrics
     required property UiTheme theme
     policy: ScrollBar.AsNeeded
-
     visible: policy === ScrollBar.AlwaysOn || (policy === ScrollBar.AsNeeded && size < .999999)
     implicitWidth: metrics.scrollbarWidth
     padding: 3 * metrics.pixel

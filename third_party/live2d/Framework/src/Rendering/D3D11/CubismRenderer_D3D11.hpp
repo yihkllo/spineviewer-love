@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 
 #include "CubismNativeInclude_D3D11.hpp"
@@ -12,6 +14,7 @@
 #include "Type/csmMap.hpp"
 #include "Rendering/D3D11/CubismOffscreenSurface_D3D11.hpp"
 #include "CubismRenderState_D3D11.hpp"
+#include <unordered_set>
 
 namespace Live2D { namespace Cubism { namespace Framework { namespace Rendering {
 
@@ -28,6 +31,7 @@ public:
     void SetupClippingContext(ID3D11Device* device, ID3D11DeviceContext* renderContext, CubismModel& model, CubismRenderer_D3D11* renderer, csmInt32 offscreenCurrent);
 };
 
+
 class CubismClippingContext_D3D11 : public CubismClippingContext
 {
     friend class CubismClippingManager_D3D11;
@@ -35,7 +39,6 @@ class CubismClippingContext_D3D11 : public CubismClippingContext
     friend class CubismRenderer_D3D11;
 
 public:
-
     CubismClippingContext_D3D11(CubismClippingManager<CubismClippingContext_D3D11, CubismOffscreenSurface_D3D11>* manager, CubismModel& model, const csmInt32* clippingDrawableIndices, csmInt32 clipCount);
 
     virtual ~CubismClippingContext_D3D11();
@@ -45,6 +48,7 @@ public:
     CubismClippingManager<CubismClippingContext_D3D11, CubismOffscreenSurface_D3D11>* _owner;
 };
 
+
 class CubismRenderer_D3D11 : public CubismRenderer
 {
     friend class CubismRenderer;
@@ -52,6 +56,7 @@ class CubismRenderer_D3D11 : public CubismRenderer
     friend class CubismShader_D3D11;
 
 public:
+    void SetDrawableDisabled(csmInt32 index) { _disabledDrawables.insert(index); }
 
     static void InitializeConstantSettings(csmUint32 bufferSetNum, ID3D11Device* device);
 
@@ -92,7 +97,6 @@ public:
     CubismOffscreenSurface_D3D11* GetMaskBuffer(csmUint32 backbufferNum, csmInt32 offscreenIndex);
 
 protected:
-
     CubismRenderer_D3D11();
 
     virtual ~CubismRenderer_D3D11();
@@ -102,6 +106,7 @@ protected:
     void DrawMeshDX11(const CubismModel& model, const csmInt32 index);
 
 private:
+    std::unordered_set<csmInt32> _disabledDrawables;
 
     void ExecuteDrawForMask(const CubismModel& model, const csmInt32 index);
 
@@ -112,6 +117,7 @@ private:
     static void DoStaticRelease();
 
     static void ReleaseShader();
+
 
     CubismRenderer_D3D11(const CubismRenderer_D3D11&);
     CubismRenderer_D3D11& operator=(const CubismRenderer_D3D11&);

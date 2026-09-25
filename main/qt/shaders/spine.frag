@@ -12,7 +12,7 @@ layout(binding=2) uniform sampler2D maskTexture;
 void main() {
     vec4 pixel=texture(spriteTexture,vUv)*vColor;
     if(params.view.z>0.5) {
-        float a=texture(maskTexture,vMaskUv).a;
+        float a=texture(maskTexture,vMaskUv*gl_FragCoord.w).a;
         pixel*=params.view.z>1.5?1.0-a:a;
     }
     fragColor=pixel;

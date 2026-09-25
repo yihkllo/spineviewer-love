@@ -13,7 +13,6 @@ ListView {
     boundsBehavior: Flickable.StopAtBounds
     property string lastScrolledPath: ""
     function synchronize() {
-
         const oldY = contentY;
         let sameOrder = fileData.count === sourceFiles.length;
         for (let i = 0; sameOrder && i < sourceFiles.length; ++i)

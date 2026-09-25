@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 
 #include "CubismFramework.hpp"
@@ -9,7 +11,6 @@ namespace Live2D { namespace Cubism { namespace Framework {
 class ICubismModelSetting
 {
 public:
-
     virtual ~ICubismModelSetting() {}
 
     virtual const csmChar* GetModelFileName() = 0;

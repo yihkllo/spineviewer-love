@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 
 #include "CubismFramework.hpp"
@@ -13,9 +15,7 @@ class CubismModel;
 class ACubismMotion
 {
 public:
-
     typedef void (*FinishedMotionCallback)(ACubismMotion* self);
-
     static void Delete(ACubismMotion* motion);
 
     ACubismMotion();
@@ -40,10 +40,12 @@ public:
 
     virtual csmFloat32 GetLoopDuration();
 
+
     void SetOffsetTime(csmFloat32 offsetSeconds);
 
     virtual const csmVector<const csmString*>& GetFiredEvent(csmFloat32 beforeCheckTimeSeconds,
                                                                    csmFloat32 motionTimeSeconds);
+
 
     void SetFinishedMotionHandler(FinishedMotionCallback onFinishedMotionHandler);
 
@@ -64,12 +66,10 @@ public:
     csmFloat32 UpdateFadeWeight(CubismMotionQueueEntry* motionQueueEntry, csmFloat32 userTimeSeconds);
 
 private:
-
     ACubismMotion(const ACubismMotion&);
     ACubismMotion& operator=(const ACubismMotion&);
 
 protected:
-
     virtual ~ACubismMotion();
 
     virtual csmFloat32 GetModelOpacityValue() const;

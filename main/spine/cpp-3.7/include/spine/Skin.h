@@ -1,3 +1,4 @@
+
 #ifndef SPINE_SKIN_H_
 #define SPINE_SKIN_H_
 
@@ -46,7 +47,6 @@ SP_API spSkin* spSkin_create (const char* name);
 SP_API void spSkin_dispose (spSkin* self);
 
 SP_API void spSkin_addAttachment (spSkin* self, int slotIndex, const char* name, spAttachment* attachment);
-
 SP_API spAttachment* spSkin_getAttachment (const spSkin* self, int slotIndex, const char* name);
 
 SP_API const char* spSkin_getAttachmentName (const spSkin* self, int slotIndex, int attachmentIndex);

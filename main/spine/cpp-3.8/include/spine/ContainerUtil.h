@@ -1,3 +1,4 @@
+
 #ifndef Spine_ContainerUtil_h
 #define Spine_ContainerUtil_h
 
@@ -12,7 +13,6 @@
 namespace spine {
 	class SP_API ContainerUtil : public SpineObject {
 	public:
-
 		template<typename T>
 		static T* findWithName(Vector<T*>& items, const String& name) {
 			assert(name.length() > 0);
@@ -81,7 +81,6 @@ namespace spine {
 		}
 
 	private:
-
 		ContainerUtil();
 		ContainerUtil(const ContainerUtil&);
 		ContainerUtil& operator=(const ContainerUtil&);

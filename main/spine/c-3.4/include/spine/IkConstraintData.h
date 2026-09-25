@@ -1,3 +1,4 @@
+
 #ifndef SPINE_IKCONSTRAINTDATA_H_
 #define SPINE_IKCONSTRAINTDATA_H_
 
@@ -9,10 +10,10 @@ extern "C" {
 
 typedef struct spIkConstraintData {
 	const char* const name;
-
+	
 	int bonesCount;
 	spBoneData** bones;
-
+	
 	spBoneData* target;
 	int bendDirection;
 	float mix;

@@ -19,7 +19,6 @@ CheckBox {
         if (item && (item instanceof TextInput || item instanceof TextEdit)) item.focus = false;
     }
     implicitHeight: Math.max(contentItem.implicitHeight, indicator.height)
-
     implicitWidth: text.length ? contentItem.implicitWidth : indicator.width
     opacity: enabled ? 1 : 0.6
     indicator: Rectangle {
@@ -35,7 +34,6 @@ CheckBox {
             anchors.fill: parent
             visible: control.checked
             preferredRendererType: Shape.CurveRenderer
-
             readonly property real pad: Math.max(1, Math.floor(width / control.metrics.pixel / 6)) * control.metrics.pixel
             readonly property real markSize: Math.max(0, width - 2 * pad)
             readonly property real thickness: Math.max(markSize / 5, control.metrics.pixel)

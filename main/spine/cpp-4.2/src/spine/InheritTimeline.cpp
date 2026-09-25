@@ -1,3 +1,4 @@
+
 #include <spine/InheritTimeline.h>
 
 #include <spine/Event.h>
@@ -26,6 +27,7 @@ void InheritTimeline::setFrame(int frame, float time, Inherit inherit) {
 	_frames[frame] = time;
 	_frames[frame + INHERIT] = inherit;
 }
+
 
 void InheritTimeline::apply(Skeleton &skeleton, float lastTime, float time, Vector<Event *> *pEvents, float alpha,
 							MixBlend blend, MixDirection direction) {

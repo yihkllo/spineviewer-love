@@ -1,10 +1,11 @@
+﻿
+
 #pragma once
 #include <vulkan/vulkan.h>
 #include "CubismFramework.hpp"
 #include "CubismClass_Vulkan.hpp"
 
 namespace Live2D { namespace Cubism { namespace Framework { namespace Rendering {
-
 class CubismOffscreenSurface_Vulkan
 {
 public:
@@ -41,3 +42,4 @@ private:
     CubismImageVulkan* _depthImage = VK_NULL_HANDLE;
 };
 }}}}
+

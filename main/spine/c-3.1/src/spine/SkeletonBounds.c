@@ -1,3 +1,4 @@
+
 #include <spine/SkeletonBounds.h>
 #include <limits.h>
 #include <spine/extension.h>
@@ -50,6 +51,7 @@ int spPolygon_intersectsSegment (spPolygon* self, float x1, float y1, float x2, 
 	}
 	return 0;
 }
+
 
 typedef struct {
 	spSkeletonBounds super;

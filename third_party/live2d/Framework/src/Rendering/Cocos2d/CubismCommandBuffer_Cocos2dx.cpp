@@ -1,3 +1,5 @@
+﻿
+
 #include "CubismCommandBuffer_Cocos2dx.hpp"
 #include "CubismFramework.hpp"
 
@@ -128,6 +130,7 @@ void CubismCommandBuffer_Cocos2dx::SetOperationEnable(OperationType operationTyp
 {
     _operationStateArray[operationType].Enabled = enabled;
 
+
     AddCommand
     (
         [=]() -> void
@@ -176,12 +179,14 @@ void CubismCommandBuffer_Cocos2dx::SetCullMode(CullType cullType)
 {
     _operationStateArray[OperationType_Culling].Arg0.i32 = cullType;
 
+
     SetOperationEnable(OperationType_Culling, _operationStateArray[OperationType_Culling].Enabled);
 }
 
 void CubismCommandBuffer_Cocos2dx::SetWindingMode(WindingType windingType)
 {
     _operationStateArray[OperationType_Winding].Arg0.i32 = windingType;
+
 
     AddCommand
     (
@@ -203,7 +208,6 @@ void CubismCommandBuffer_Cocos2dx::SetWindingMode(WindingType windingType)
 
 void CubismCommandBuffer_Cocos2dx::Clear(csmFloat32 r, csmFloat32 g, csmFloat32 b, csmFloat32 a)
 {
-
     GetCocos2dRenderer()->clear(cocos2d::ClearFlag::COLOR, cocos2d::Color4F(r, g, b, a), 0.0f, 0, 0.0f);
 }
 

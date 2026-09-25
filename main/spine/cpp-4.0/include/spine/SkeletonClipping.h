@@ -1,3 +1,4 @@
+
 #ifndef Spine_SkeletonClipping_h
 #define Spine_SkeletonClipping_h
 

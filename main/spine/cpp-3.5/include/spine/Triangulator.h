@@ -1,3 +1,4 @@
+
 #ifndef SPINE_TRIANGULATOR_H
 #define SPINE_TRIANGULATOR_H
 
@@ -23,6 +24,7 @@ spTriangulator* spTriangulator_create();
 spShortArray* spTriangulator_triangulate(spTriangulator* self, spFloatArray* verticesArray);
 spArrayFloatArray* spTriangulator_decompose(spTriangulator* self, spFloatArray* verticesArray, spShortArray* triangles);
 void spTriangulator_dispose(spTriangulator* self);
+
 
 #ifdef __cplusplus
 }

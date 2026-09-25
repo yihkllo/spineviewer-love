@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 
 #include "CubismNativeInclude_D3D9.hpp"
@@ -24,7 +26,6 @@ D3DXMATRIX ConvertToD3DX(CubismMatrix44& mtx);
 class CubismClippingManager_DX9 : public CubismClippingManager<CubismClippingContext_D3D9, CubismOffscreenSurface_D3D9>
 {
 public:
-
     void SetupClippingContext(LPDIRECT3DDEVICE9 device, CubismModel& model, CubismRenderer_D3D9* renderer, csmInt32 offscreenCurrent);
 };
 
@@ -35,7 +36,6 @@ class CubismClippingContext_D3D9 : public CubismClippingContext
     friend class CubismRenderer_D3D9;
 
 public:
-
     CubismClippingContext_D3D9(CubismClippingManager<CubismClippingContext_D3D9, CubismOffscreenSurface_D3D9>* manager, CubismModel& model, const csmInt32* clippingDrawableIndices, csmInt32 clipCount);
 
     virtual ~CubismClippingContext_D3D9();
@@ -45,6 +45,7 @@ public:
 private:
     CubismClippingManager<CubismClippingContext_D3D9, CubismOffscreenSurface_D3D9>* _owner;
 };
+
 
 class CubismRenderer_D3D9 : public CubismRenderer
 {
@@ -93,7 +94,6 @@ public:
     CubismOffscreenSurface_D3D9* GetMaskBuffer(csmUint32 backbufferNum, csmInt32 offscreenIndex);
 
 protected:
-
     CubismRenderer_D3D9();
 
     virtual ~CubismRenderer_D3D9();

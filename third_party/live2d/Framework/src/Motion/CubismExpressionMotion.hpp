@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 
 #include "ACubismMotion.hpp"
@@ -10,7 +12,6 @@ namespace Live2D { namespace Cubism { namespace Framework {
 class CubismExpressionMotion : public ACubismMotion
 {
 public:
-
     enum ExpressionBlendType
     {
         Additive = 0,
@@ -40,7 +41,6 @@ public:
     static const csmFloat32 DefaultMultiplyValue;
 
 protected:
-
     CubismExpressionMotion();
 
     virtual ~CubismExpressionMotion();
@@ -52,6 +52,7 @@ protected:
 private:
 
     csmFloat32 CalculateValue(csmFloat32 source, csmFloat32 destination, csmFloat32 fadeWeight);
+
 
     csmFloat32 _fadeWeight;
 };

@@ -1,3 +1,5 @@
+﻿
+
 #include "CubismRenderer_D3D11.hpp"
 
 #include <cfloat>
@@ -38,11 +40,9 @@ DirectX::XMMATRIX ConvertToD3DX(CubismMatrix44& mtx)
 
 void CubismClippingManager_D3D11::SetupClippingContext(ID3D11Device* device, ID3D11DeviceContext* renderContext, CubismModel& model, CubismRenderer_D3D11* renderer, csmInt32 offscreenCurrent)
 {
-
     csmInt32 usingClipCount = 0;
     for (csmUint32 clipIndex = 0; clipIndex < _clippingContextListForMask.GetSize(); clipIndex++)
     {
-
         CubismClippingContext_D3D11* cc = _clippingContextListForMask[clipIndex];
 
         CalcClippedDrawTotalBounds(model, cc);
@@ -82,7 +82,6 @@ void CubismClippingManager_D3D11::SetupClippingContext(ID3D11Device* device, ID3
     }
     else
     {
-
         for (csmInt32 i = 0; i < _renderTextureCount; ++i)
         {
             _clearedMaskBufferFlags[i] = false;
@@ -91,7 +90,6 @@ void CubismClippingManager_D3D11::SetupClippingContext(ID3D11Device* device, ID3
 
     for (csmUint32 clipIndex = 0; clipIndex < _clippingContextListForMask.GetSize(); clipIndex++)
     {
-
         CubismClippingContext_D3D11* clipContext = _clippingContextListForMask[clipIndex];
         csmRectF* allClippedDrawRect = clipContext->_allClippedDrawRect;
         csmRectF* layoutBoundsOnTex01 = clipContext->_layoutBounds;
@@ -110,7 +108,6 @@ void CubismClippingManager_D3D11::SetupClippingContext(ID3D11Device* device, ID3
 
         _tmpBoundsOnModel.SetRect(allClippedDrawRect);
         _tmpBoundsOnModel.Expand(allClippedDrawRect->Width * MARGIN, allClippedDrawRect->Height * MARGIN);
-
         csmFloat32 scaleX = layoutBoundsOnTex01->Width / _tmpBoundsOnModel.Width;
         csmFloat32 scaleY = layoutBoundsOnTex01->Height / _tmpBoundsOnModel.Height;
 
@@ -133,7 +130,6 @@ void CubismClippingManager_D3D11::SetupClippingContext(ID3D11Device* device, ID3
 
             if (!_clearedMaskBufferFlags[clipContext->_bufferIndex])
             {
-
                 renderer->GetMaskBuffer(offscreenCurrent, clipContext->_bufferIndex)->Clear(renderContext, 1.0f, 1.0f, 1.0f, 1.0f);
                 _clearedMaskBufferFlags[clipContext->_bufferIndex] = true;
             }
@@ -163,6 +159,8 @@ CubismClippingManager<CubismClippingContext_D3D11, CubismOffscreenSurface_D3D11>
 {
     return _owner;
 }
+
+
 
 namespace
 {
@@ -239,7 +237,6 @@ ID3D11Device* CubismRenderer_D3D11::GetCurrentDevice()
 
 void CubismRenderer_D3D11::OnDeviceLost()
 {
-
     ReleaseShader();
 }
 
@@ -270,7 +267,6 @@ CubismRenderer_D3D11::CubismRenderer_D3D11()
 CubismRenderer_D3D11::~CubismRenderer_D3D11()
 {
     {
-
         for (csmUint32 i = 0; i < _offscreenSurfaces.GetSize(); i++)
         {
             for (csmUint32 j = 0; j < _offscreenSurfaces[i].GetSize(); j++)
@@ -293,13 +289,11 @@ CubismRenderer_D3D11::~CubismRenderer_D3D11()
                 _constantBuffers[buffer][drawAssign]->Release();
                 _constantBuffers[buffer][drawAssign] = NULL;
             }
-
             if (_indexBuffers[buffer][drawAssign])
             {
                 _indexBuffers[buffer][drawAssign]->Release();
                 _indexBuffers[buffer][drawAssign] = NULL;
             }
-
             if (_vertexBuffers[buffer][drawAssign])
             {
                 _vertexBuffers[buffer][drawAssign]->Release();
@@ -321,11 +315,10 @@ CubismRenderer_D3D11::~CubismRenderer_D3D11()
 
 void CubismRenderer_D3D11::DoStaticRelease()
 {
-
     DeleteRenderStateManager();
-
     DeleteShaderManager();
 }
+
 
 void CubismRenderer_D3D11::Initialize(CubismModel* model)
 {
@@ -334,7 +327,6 @@ void CubismRenderer_D3D11::Initialize(CubismModel* model)
 
 void CubismRenderer_D3D11::Initialize(CubismModel* model, csmInt32 maskBufferCount)
 {
-
     if (s_device == 0)
     {
         CubismLogError("Device has not been set.");
@@ -387,14 +379,12 @@ void CubismRenderer_D3D11::Initialize(CubismModel* model, csmInt32 maskBufferCou
 
     for (csmUint32 buffer = 0; buffer < s_bufferSetNum; buffer++)
     {
-
         _vertexBuffers[buffer] = static_cast<ID3D11Buffer**>(CSM_MALLOC(sizeof(ID3D11Buffer*) * drawableCount));
         _indexBuffers[buffer] = static_cast<ID3D11Buffer**>(CSM_MALLOC(sizeof(ID3D11Buffer*) * drawableCount));
         _constantBuffers[buffer] = static_cast<ID3D11Buffer**>(CSM_MALLOC(sizeof(ID3D11Buffer*) * drawableCount));
 
         for (csmUint32 drawAssign = 0; drawAssign < drawableCount; drawAssign++)
         {
-
             const csmInt32 vcount = GetModel()->GetDrawableVertexCount(drawAssign);
             if (vcount != 0)
             {
@@ -472,7 +462,6 @@ void CubismRenderer_D3D11::PreDraw()
 
 void CubismRenderer_D3D11::PostDraw()
 {
-
     _commandBufferCurrent++;
     if (_commandBufferNum <= _commandBufferCurrent)
     {
@@ -482,7 +471,6 @@ void CubismRenderer_D3D11::PostDraw()
 
 void CubismRenderer_D3D11::DoDrawModel()
 {
-
     CSM_ASSERT(s_device != NULL);
     CSM_ASSERT(s_context != NULL);
 
@@ -490,7 +478,6 @@ void CubismRenderer_D3D11::DoDrawModel()
 
     if (_clippingManager != NULL)
     {
-
         for (csmInt32 i = 0; i < _clippingManager->GetRenderTextureCount(); ++i)
         {
             if (_offscreenSurfaces[_commandBufferCurrent][i].GetBufferWidth() != static_cast<csmUint32>(_clippingManager->GetClippingMaskBufferSize().X) ||
@@ -512,7 +499,6 @@ void CubismRenderer_D3D11::DoDrawModel()
 
         if (!IsUsingHighPrecisionMask())
         {
-
             GetRenderStateManager()->SetViewport(s_context,
                 0.0f,
                 0.0f,
@@ -577,7 +563,6 @@ void CubismRenderer_D3D11::DoDrawModel()
                 }
 
                 {
-
                     currentHighPrecisionMaskColorBuffer->EndDraw(s_context);
                     SetClippingContextBufferForMask(NULL);
 
@@ -605,7 +590,6 @@ void CubismRenderer_D3D11::DoDrawModel()
 
 void CubismRenderer_D3D11::ExecuteDrawForMask(const CubismModel& model, const csmInt32 index)
 {
-
     CubismShader_D3D11* shaderManager = Live2D::Cubism::Framework::Rendering::CubismRenderer_D3D11::GetShaderManager();
     if(!shaderManager)
     {
@@ -648,7 +632,6 @@ void CubismRenderer_D3D11::ExecuteDrawForMask(const CubismModel& model, const cs
 
 void CubismRenderer_D3D11::ExecuteDrawForDraw(const CubismModel& model, const csmInt32 index)
 {
-
     CubismShader_D3D11* shaderManager = Live2D::Cubism::Framework::Rendering::CubismRenderer_D3D11::GetShaderManager();
     if(!shaderManager)
     {
@@ -672,7 +655,6 @@ void CubismRenderer_D3D11::ExecuteDrawForDraw(const CubismModel& model, const cs
         const csmBool masked = GetClippingContextBufferForDraw() != NULL;
         if (masked)
         {
-
             DirectX::XMMATRIX clip = ConvertToD3DX(GetClippingContextBufferForDraw()->_matrixForDraw);
             XMStoreFloat4x4(&cb.clipMatrix, DirectX::XMMatrixTranspose(clip));
 
@@ -710,7 +692,7 @@ void CubismRenderer_D3D11::DrawDrawableIndexed(const CubismModel& model, const c
 
 void CubismRenderer_D3D11::DrawMeshDX11(const CubismModel& model, const csmInt32 index)
 {
-
+    if (_disabledDrawables.find(index) != _disabledDrawables.end()) return;
     if (s_device == NULL)
     {
         return;
@@ -756,7 +738,6 @@ void CubismRenderer_D3D11::DrawMeshDX11(const CubismModel& model, const csmInt32
 
 void CubismRenderer_D3D11::SaveProfile()
 {
-
     CSM_ASSERT(s_device != NULL);
     CSM_ASSERT(s_context != NULL);
 
@@ -765,7 +746,6 @@ void CubismRenderer_D3D11::SaveProfile()
 
 void CubismRenderer_D3D11::RestoreProfile()
 {
-
     CSM_ASSERT(s_device != NULL);
     CSM_ASSERT(s_context != NULL);
 
@@ -828,7 +808,6 @@ void CubismRenderer_D3D11::InitializeConstantSettings(csmUint32 bufferSetNum, ID
 
 void CubismRenderer_D3D11::SetDefaultRenderState()
 {
-
     GetRenderStateManager()->SetZEnable(s_context,
         CubismRenderState_D3D11::Depth_Disable,
         0);
@@ -843,7 +822,6 @@ void CubismRenderer_D3D11::SetDefaultRenderState()
 
 void CubismRenderer_D3D11::StartFrame(ID3D11Device* device, ID3D11DeviceContext* renderContext, csmUint32 viewportWidth, csmUint32 viewportHeight)
 {
-
     s_device = device;
     s_context = renderContext;
     s_viewportWidth = viewportWidth;
@@ -880,7 +858,6 @@ CubismClippingContext_D3D11* CubismRenderer_D3D11::GetClippingContextBufferForMa
 
 void CubismRenderer_D3D11::CopyToBuffer(ID3D11DeviceContext* renderContext, csmInt32 drawAssign, const csmInt32 vcount, const csmFloat32* varray, const csmFloat32* uvarray)
 {
-
     if (_vertexBuffers[_commandBufferCurrent][drawAssign])
     {
         D3D11_MAPPED_SUBRESOURCE subRes;
@@ -1049,3 +1026,4 @@ const csmBool inline CubismRenderer_D3D11::IsGeneratingMask() const
 }
 
 }}}}
+

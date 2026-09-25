@@ -1,3 +1,4 @@
+
 #include <spine/AnimationState.h>
 #include <spine/extension.h>
 #include <string.h>
@@ -15,6 +16,7 @@ void _spTrackEntry_dispose (spTrackEntry* self) {
 	if (self->previous) SUB_CAST(_spAnimationState, self->state)->disposeTrackEntry(self->previous);
 	FREE(self);
 }
+
 
 spTrackEntry* _spAnimationState_createTrackEntry (spAnimationState* self) {
 	return _spTrackEntry_create(self);
@@ -75,7 +77,6 @@ void spAnimationState_update (spAnimationState* self, float delta) {
 			current->next->time = current->lastTime - current->next->delay;
 			if (current->next->time >= 0) _spAnimationState_setCurrent(self, i, current->next);
 		} else {
-
 			if (!current->loop && current->lastTime >= current->endTime) spAnimationState_clearTrack(self, i);
 		}
 	}
@@ -206,7 +207,6 @@ void _spAnimationState_setCurrent (spAnimationState* self, int index, spTrackEnt
 		entry->mixDuration = spAnimationStateData_getMix(self->data, current->animation, entry->animation);
 		if (entry->mixDuration > 0) {
 			entry->mixTime = 0;
-
 			if (previous && current->mixTime / current->mixDuration < 0.5f) {
 				entry->previous = previous;
 				previous = current;

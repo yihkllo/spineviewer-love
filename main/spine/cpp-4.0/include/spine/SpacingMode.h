@@ -1,3 +1,4 @@
+
 #ifndef Spine_SpacingMode_h
 #define Spine_SpacingMode_h
 

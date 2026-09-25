@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 
 namespace Live2D { namespace Cubism { namespace Core {

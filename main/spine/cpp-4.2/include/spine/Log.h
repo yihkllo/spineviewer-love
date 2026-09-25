@@ -1,3 +1,4 @@
+
 #ifndef SPINE_DEBUG_LOG_H
 #define SPINE_DEBUG_LOG_H
 

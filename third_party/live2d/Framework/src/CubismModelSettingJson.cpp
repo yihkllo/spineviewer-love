@@ -1,3 +1,5 @@
+﻿
+
 #include "CubismModelSettingJson.hpp"
 #include "CubismFramework.hpp"
 #include "Type/csmMap.hpp"
@@ -127,6 +129,7 @@ csmBool CubismModelSettingJson::IsExistMotionFadeOut(const csmChar* groupName, c
 }
 csmBool CubismModelSettingJson::IsExistUserDataFile() const { return !_json->GetRoot()[FileReferences][UserData].IsNull(); }
 
+
 csmBool CubismModelSettingJson::IsExistEyeBlinkParameters() const
 {
     if (_jsonValue[FrequentNode_Groups]->IsNull() || _jsonValue[FrequentNode_Groups]->IsError())
@@ -216,14 +219,12 @@ const csmChar* CubismModelSettingJson::GetTextureDirectory()
     csmInt32 rawStringSize = (*_jsonValue[FrequentNode_Textures])[0].GetString().GetLength();
     for (csmInt32 i = 0; i < rawStringSize; i++)
     {
-
         if (rawString[i] == '/')
         {
             csmString str = csmString(charBuffer.GetPtr());
             splitPathBuffer.PushBack(str);
             charBuffer.Clear();
         }
-
         else
         {
             charBuffer.PushBack(static_cast<csmChar>(rawString[i] & 0xFF));
@@ -346,6 +347,7 @@ csmFloat32 CubismModelSettingJson::GetMotionFadeOutTimeValue(const csmChar* grou
     if (!IsExistMotionFadeOut(groupName, index))return -1.0f;
     return (*_jsonValue[FrequentNode_Motions])[groupName][index][FadeOutTime].ToFloat();
 }
+
 
 const csmChar* CubismModelSettingJson::GetUserDataFile()
 {

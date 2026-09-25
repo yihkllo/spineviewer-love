@@ -1,3 +1,5 @@
+﻿
+
 #include "CubismMotionQueueManager.hpp"
 #include "CubismMotionQueueEntry.hpp"
 #include "CubismFramework.hpp"
@@ -89,6 +91,7 @@ CubismMotionQueueEntryHandle CubismMotionQueueManager::StartMotion(ACubismMotion
 csmBool CubismMotionQueueManager::DoUpdateMotion(CubismModel* model, csmFloat32 userTimeSeconds)
 {
     csmBool updated = false;
+
 
     for (csmVector<CubismMotionQueueEntry*>::iterator ite = _motions.Begin(); ite != _motions.End();)
     {

@@ -1,3 +1,5 @@
+﻿
+
 #include "CubismShader_Cocos2dx.hpp"
 #include <float.h>
 #include "renderer/backend/Device.h"
@@ -15,7 +17,6 @@ namespace {
 
 enum ShaderNames
 {
-
     ShaderNames_SetupMask,
 
     ShaderNames_Normal,
@@ -506,12 +507,15 @@ void CubismShader_Cocos2dx::GenerateShaders()
     _shaderSets[5]->ShaderProgram = LoadShaderProgram(VertShaderSrcMasked, FragShaderSrcMaskPremultipliedAlpha);
     _shaderSets[6]->ShaderProgram = LoadShaderProgram(VertShaderSrcMasked, FragShaderSrcMaskInvertedPremultipliedAlpha);
 
+
+
     _shaderSets[7]->ShaderProgram = _shaderSets[1]->ShaderProgram;
     _shaderSets[8]->ShaderProgram = _shaderSets[2]->ShaderProgram;
     _shaderSets[9]->ShaderProgram = _shaderSets[3]->ShaderProgram;
     _shaderSets[10]->ShaderProgram = _shaderSets[4]->ShaderProgram;
     _shaderSets[11]->ShaderProgram = _shaderSets[5]->ShaderProgram;
     _shaderSets[12]->ShaderProgram = _shaderSets[6]->ShaderProgram;
+
 
     _shaderSets[13]->ShaderProgram = _shaderSets[1]->ShaderProgram;
     _shaderSets[14]->ShaderProgram = _shaderSets[2]->ShaderProgram;
@@ -812,7 +816,6 @@ void CubismShader_Cocos2dx::SetupShaderProgramForDraw(CubismCommandBuffer_Cocos2
 
     if (masked)
     {
-
         cocos2d::Texture2D* tex = renderer->GetOffscreenSurface(renderer->GetClippingContextBufferForDraw()->_bufferIndex)->GetColorBuffer();
 
         programState->setTexture(shaderSet->SamplerTexture1Location, 1, tex->getBackendTexture());
@@ -840,15 +843,12 @@ void CubismShader_Cocos2dx::SetupShaderProgramForDraw(CubismCommandBuffer_Cocos2
 
 cocos2d::backend::Program* CubismShader_Cocos2dx::LoadShaderProgram(const csmChar* vertShaderSrc, const csmChar* fragShaderSrc)
 {
-
     return cocos2d::backend::Device::getInstance()->newProgram(vertShaderSrc, fragShaderSrc);
 }
 
 void CubismShader_Cocos2dx::SetVertexAttributes(cocos2d::backend::ProgramState* programState, CubismShaderSet* shaderSet)
 {
-
     programState->getVertexLayout()->setAttribute("a_position", shaderSet->AttributePositionLocation, cocos2d::backend::VertexFormat::FLOAT2, 0, false);
-
     programState->getVertexLayout()->setAttribute("a_texCoord", shaderSet->AttributeTexCoordLocation, cocos2d::backend::VertexFormat::FLOAT2, sizeof(csmFloat32) * 2, false);
 }
 

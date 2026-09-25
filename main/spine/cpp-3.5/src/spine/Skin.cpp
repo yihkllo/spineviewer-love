@@ -1,3 +1,4 @@
+
 #include <spine/Skin.h>
 #include <spine/extension.h>
 
@@ -14,6 +15,7 @@ void _Entry_dispose (_Entry* self) {
 	FREE(self->name);
 	FREE(self);
 }
+
 
 spSkin* spSkin_create (const char* name) {
 	spSkin* self = SUPER(NEW(_spSkin));

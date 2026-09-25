@@ -1,3 +1,4 @@
+
 #ifdef SPINE_UE4
 #include "SpinePluginPrivatePCH.h"
 #endif
@@ -19,7 +20,7 @@ void IkConstraint::apply(Bone &bone, float targetX, float targetY, bool compress
 	Bone *p = bone.getParent();
 	float pa = p->_a, pb = p->_b, pc = p->_c, pd = p->_d;
 	float rotationIK = -bone._ashearX - bone._arotation;
-	float tx = 0, ty = 0;
+	float tx = 0, ty = 0;    
 
 	switch(bone._data.getTransformMode()) {
         case TransformMode_OnlyTranslation:

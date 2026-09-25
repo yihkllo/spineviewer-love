@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 #include <fstream>
 #include <vulkan/vulkan.h>
@@ -5,11 +7,9 @@
 #include "Type/csmVector.hpp"
 
 namespace Live2D { namespace Cubism { namespace Framework {
-
 class CubismBufferVulkan
 {
 public:
-
     CubismBufferVulkan();
 
     csmUint32 FindMemoryType(VkPhysicalDevice physicalDevice, csmUint32 typeFilter, VkMemoryPropertyFlags properties);
@@ -36,7 +36,6 @@ private:
 class CubismImageVulkan
 {
 public:
-
     CubismImageVulkan();
 
     csmUint32 FindMemoryType(VkPhysicalDevice physicalDevice, csmUint32 typeFilter, VkMemoryPropertyFlags properties);

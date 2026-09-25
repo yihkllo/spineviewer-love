@@ -15,9 +15,9 @@ Window {
     flags: Qt.Window | Qt.FramelessWindowHint
     FrameAnimation {
         objectName: "viewerFrameClock"
-
         running: root.visible && root.visibility !== Window.Minimized
-                 && backend.state.exportRunning !== true
+                 && ui.read("petDragging", false) !== true
+                 && ui.read("pluginsOpen", false) !== true && ui.read("exportRunning", false) !== true
         onRunningChanged: backend.resetFrameClock()
         onTriggered: backend.advanceFrame()
     }
@@ -33,7 +33,14 @@ Window {
             width: Math.max(1, ui.width - x); height: ui.height
             controller: backend
         }
+        Loader {
+            id: proView
+            anchors.fill: parent
+            readonly property string view: ui.read("pluginActive", false) === true ? (backend.plugins.state.view || "") : ""
+            onViewChanged: view ? setSource(view, {shell: ui}) : setSource("")
+        }
     }
+    PluginSelector { host: backend.plugins; metrics: ui.metrics; theme: ui.theme }
     DropArea {
         anchors.fill: parent
         onDropped: function(drop) { if (drop.hasUrls) { backend.openUrls(drop.urls); drop.acceptProposedAction(); } }

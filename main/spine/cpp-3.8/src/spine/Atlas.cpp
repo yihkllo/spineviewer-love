@@ -1,3 +1,4 @@
+
 #ifdef SPINE_UE4
 #include "SpinePluginPrivatePCH.h"
 #endif
@@ -169,7 +170,6 @@ void Atlas::load(const char *begin, int length, const char *dir, bool createText
 			assert(count);
 
 			if (count == 4) {
-
 				region->splits.setSize(4, 0);
 				region->splits[0] = toInt(tuple);
 				region->splits[1] = toInt(tuple + 1);
@@ -180,7 +180,6 @@ void Atlas::load(const char *begin, int length, const char *dir, bool createText
 				assert(count);
 
 				if (count == 4) {
-
 					region->pads.setSize(4, 0);
 					region->pads[0] = toInt(tuple);
 					region->pads[1] = toInt(tuple + 1);

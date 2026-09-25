@@ -1,3 +1,4 @@
+
 #ifndef Spine_AnimationStateData_h
 #define Spine_AnimationStateData_h
 

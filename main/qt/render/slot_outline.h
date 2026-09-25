@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../../runtime_shared/slot_mesh_data.h"
-#include "../../sl_gfx_draw.h"
+#include "spinelove/slot_mesh_data.h"
+#include "spinelove/sl_gfx_draw.h"
 #include <QImage>
 #include <QSize>
 

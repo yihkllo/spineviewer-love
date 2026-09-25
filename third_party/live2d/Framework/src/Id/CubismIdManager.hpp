@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 
 #include "Type/CubismBasicType.hpp"
@@ -13,7 +15,6 @@ class CubismIdManager
     friend struct CubismId;
 
 public:
-
     CubismIdManager();
 
     ~CubismIdManager();

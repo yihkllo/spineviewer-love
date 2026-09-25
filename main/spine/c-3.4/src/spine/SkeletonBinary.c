@@ -1,3 +1,4 @@
+
 #include <spine/SkeletonBinary.h>
 #include <stdio.h>
 #include <spine/extension.h>
@@ -199,7 +200,6 @@ static void _spSkeletonBinary_addLinkedMesh (spSkeletonBinary* self, spMeshAttac
 		_spLinkedMesh* linkedMeshes;
 		internal->linkedMeshCapacity *= 2;
 		if (internal->linkedMeshCapacity < 8) internal->linkedMeshCapacity = 8;
-
 		linkedMeshes = MALLOC(_spLinkedMesh, internal->linkedMeshCapacity);
 		memcpy(linkedMeshes, internal->linkedMeshes, sizeof(_spLinkedMesh) * internal->linkedMeshCount);
 		FREE(internal->linkedMeshes);
@@ -250,7 +250,6 @@ static spAnimation* _spSkeletonBinary_readAnimation (spSkeletonBinary* self, con
 					for (frameIndex = 0; frameIndex < frameCount; ++frameIndex) {
 						float time = readFloat(input);
 						const char* attachmentName = readString(input);
-
 						spAttachmentTimeline_setFrame(timeline, frameIndex, time, attachmentName);
 						FREE(attachmentName);
 					}
@@ -500,21 +499,16 @@ static spAnimation* _spSkeletonBinary_readAnimation (spSkeletonBinary* self, con
 			memset(drawOrder, -1, sizeof(int) * skeletonData->slotsCount);
 			for (ii = 0; ii < offsetCount; ++ii) {
 				int slotIndex = readVarint(input, 1);
-
 				while (originalIndex != slotIndex)
 					unchanged[unchangedIndex++] = originalIndex++;
-
 				drawOrder[originalIndex + readVarint(input, 1)] = originalIndex;
 				++originalIndex;
 			}
-
 			while (originalIndex < skeletonData->slotsCount)
 				unchanged[unchangedIndex++] = originalIndex++;
-
 			for (ii = skeletonData->slotsCount - 1; ii >= 0; ii--)
 				if (drawOrder[ii] == -1) drawOrder[ii] = unchanged[--unchangedIndex];
 			FREE(unchanged);
-
 			spDrawOrderTimeline_setFrame(timeline, i, time, drawOrder);
 			FREE(drawOrder);
 		}
@@ -812,7 +806,6 @@ spSkeletonData* spSkeletonBinary_readSkeletonData (spSkeletonBinary* self, const
 		spBoneData* data;
 		const char* name = readString(input);
 		spBoneData* parent = i == 0 ? 0 : skeletonData->bones[readVarint(input, 1)];
-
 		data = spBoneData_create(i, name, parent);
 		FREE(name);
 		data->rotation = readFloat(input);
@@ -834,7 +827,6 @@ spSkeletonData* spSkeletonBinary_readSkeletonData (spSkeletonBinary* self, const
 	for (i = 0; i < skeletonData->slotsCount; ++i) {
 		const char* slotName = readString(input);
 		spBoneData* boneData = skeletonData->bones[readVarint(input, 1)];
-
 		spSlotData* slotData = spSlotData_create(i, slotName, boneData);
 		FREE(slotName);
 		readColor(input, &slotData->r, &slotData->g, &slotData->b, &slotData->a);
@@ -847,7 +839,6 @@ spSkeletonData* spSkeletonBinary_readSkeletonData (spSkeletonBinary* self, const
 	skeletonData->ikConstraints = MALLOC(spIkConstraintData*, skeletonData->ikConstraintsCount);
 	for (i = 0; i < skeletonData->ikConstraintsCount; ++i) {
 		const char* name = readString(input);
-
 		spIkConstraintData* data = spIkConstraintData_create(name);
 		FREE(name);
 		data->bonesCount = readVarint(input, 1);
@@ -865,7 +856,6 @@ spSkeletonData* spSkeletonBinary_readSkeletonData (spSkeletonBinary* self, const
 			spTransformConstraintData*, skeletonData->transformConstraintsCount);
 	for (i = 0; i < skeletonData->transformConstraintsCount; ++i) {
 		const char* name = readString(input);
-
 		spTransformConstraintData* data = spTransformConstraintData_create(name);
 		FREE(name);
 		data->bonesCount = readVarint(input, 1);
@@ -890,7 +880,6 @@ spSkeletonData* spSkeletonBinary_readSkeletonData (spSkeletonBinary* self, const
 	skeletonData->pathConstraints = MALLOC(spPathConstraintData*, skeletonData->pathConstraintsCount);
 	for (i = 0; i < skeletonData->pathConstraintsCount; ++i) {
 		const char* name = readString(input);
-
 		spPathConstraintData* data = spPathConstraintData_create(name);
 		FREE(name);
 		data->bonesCount = readVarint(input, 1);
@@ -924,7 +913,6 @@ spSkeletonData* spSkeletonBinary_readSkeletonData (spSkeletonBinary* self, const
 
 	for (i = skeletonData->defaultSkin ? 1 : 0; i < skeletonData->skinsCount; ++i) {
 		const char* skinName = readString(input);
-
 		skeletonData->skins[i] = spSkeletonBinary_readSkin(self, input, skinName, nonessential);
 		FREE(skinName);
 	}
@@ -955,7 +943,6 @@ spSkeletonData* spSkeletonBinary_readSkeletonData (spSkeletonBinary* self, const
 	skeletonData->events = MALLOC(spEventData*, skeletonData->eventsCount);
 	for (i = 0; i < skeletonData->eventsCount; ++i) {
 		const char* name = readString(input);
-
 		spEventData* eventData = spEventData_create(name);
 		FREE(name);
 		eventData->intValue = readVarint(input, 0);

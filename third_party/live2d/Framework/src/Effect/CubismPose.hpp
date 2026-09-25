@@ -1,17 +1,16 @@
+﻿
+
 #pragma once
 
 #include "Model/CubismModel.hpp"
 #include "Utils/CubismJson.hpp"
 
 namespace Live2D { namespace Cubism { namespace Framework {
-
 class CubismPose
 {
 public:
-
     struct PartData
     {
-
         PartData();
 
         PartData(const PartData& v);
@@ -37,7 +36,6 @@ public:
     void                Reset(CubismModel* model);
 
 private:
-
     CubismPose();
 
     virtual ~CubismPose();

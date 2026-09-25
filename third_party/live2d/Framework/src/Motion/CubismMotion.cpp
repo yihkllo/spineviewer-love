@@ -1,3 +1,5 @@
+﻿
+
 #include "CubismMotion.hpp"
 #include <float.h>
 #include "CubismFramework.hpp"
@@ -178,7 +180,6 @@ csmFloat32 InverseSteppedEvaluate(const CubismMotionPoint* points, const csmFloa
 
 csmFloat32 EvaluateCurve(const CubismMotionData* motionData, const csmInt32 index, csmFloat32 time)
 {
-
     const CubismMotionCurve& curve = motionData->Curves[index];
 
     csmInt32 target = -1;
@@ -186,11 +187,11 @@ csmFloat32 EvaluateCurve(const CubismMotionData* motionData, const csmInt32 inde
     csmInt32 pointPosition = 0;
     for (csmInt32 i = curve.BaseSegmentIndex; i < totalSegmentCount; ++i)
     {
-
         pointPosition = motionData->Segments[i].BasePointIndex
             + (motionData->Segments[i].SegmentType == CubismMotionSegmentType_Bezier
                 ? 3
                 : 1);
+
 
         if (motionData->Points[pointPosition].Time > time)
         {
@@ -199,10 +200,12 @@ csmFloat32 EvaluateCurve(const CubismMotionData* motionData, const csmInt32 inde
         }
     }
 
+
     if (target == -1)
     {
         return motionData->Points[pointPosition].Value;
     }
+
 
     const CubismMotionSegment& segment = motionData->Segments[target];
 
@@ -237,6 +240,7 @@ CubismMotion* CubismMotion::Create(const csmByte* buffer, csmSizeInt size, Finis
     ret->_sourceFrameRate = ret->_motionData->Fps;
     ret->_loopDurationSeconds = ret->_motionData->Duration;
     ret->_onFinishedMotion = onFinishedMotionHandler;
+
 
     return ret;
 }
@@ -311,7 +315,6 @@ void CubismMotion::DoUpdateParameters(CubismModel* model, csmFloat32 userTimeSec
 
     for (c = 0; c < _motionData->CurveCount && curves[c].Type == CubismMotionCurveTarget_Model; ++c)
     {
-
         value = EvaluateCurve(_motionData, c, time);
 
         if (curves[c].Id == _modelCurveIdEyeBlink)
@@ -374,15 +377,12 @@ void CubismMotion::DoUpdateParameters(CubismModel* model, csmFloat32 userTimeSec
         }
 
         csmFloat32 v;
-
         if (curves[c].FadeInTime < 0.0f && curves[c].FadeOutTime < 0.0f)
         {
-
             v = sourceValue + (value - sourceValue) * fadeWeight;
         }
         else
         {
-
             csmFloat32 fin;
             csmFloat32 fout;
 
@@ -422,7 +422,6 @@ void CubismMotion::DoUpdateParameters(CubismModel* model, csmFloat32 userTimeSec
             for (csmUint32 i = 0; i < _eyeBlinkParameterIds.GetSize() && i < MaxTargetSize; ++i)
             {
                 const csmFloat32 sourceValue = model->GetParameterValue(_eyeBlinkParameterIds[i]);
-
                 if ((eyeBlinkFlags >> i) & 0x01)
                 {
                     continue;
@@ -439,7 +438,6 @@ void CubismMotion::DoUpdateParameters(CubismModel* model, csmFloat32 userTimeSec
             for (csmUint32 i = 0; i < _lipSyncParameterIds.GetSize() && i < MaxTargetSize; ++i)
             {
                 const csmFloat32 sourceValue = model->GetParameterValue(_lipSyncParameterIds[i]);
-
                 if ((lipSyncFlags >> i) & 0x01)
                 {
                     continue;
@@ -454,7 +452,6 @@ void CubismMotion::DoUpdateParameters(CubismModel* model, csmFloat32 userTimeSec
 
     for (; c < _motionData->CurveCount && curves[c].Type == CubismMotionCurveTarget_PartOpacity; ++c)
     {
-
         parameterIndex = model->GetParameterIndex(curves[c].Id);
 
         if (parameterIndex == -1)
@@ -474,7 +471,6 @@ void CubismMotion::DoUpdateParameters(CubismModel* model, csmFloat32 userTimeSec
             motionQueueEntry->SetStartTime(userTimeSeconds);
             if (_isLoopFadeIn)
             {
-
                 motionQueueEntry->SetFadeInStartTime(userTimeSeconds);
             }
         }
@@ -694,6 +690,7 @@ void CubismMotion::Parse(const csmByte* motionJson, const csmSizeInt size)
         }
     }
 
+
     for (csmInt32 userdatacount = 0; userdatacount < json->GetEventCount(); ++userdatacount)
     {
         _motionData->Events[userdatacount].FireTime = json->GetEventTime(userdatacount);
@@ -795,7 +792,6 @@ void CubismMotion::SetEffectIds(const csmVector<CubismIdHandle>& eyeBlinkParamet
 const csmVector<const csmString*>& CubismMotion::GetFiredEvent(csmFloat32 beforeCheckTimeSeconds, csmFloat32 motionTimeSeconds)
 {
     _firedEventValues.UpdateSize(0);
-
     for (csmInt32 u = 0; u < _motionData->EventCount; ++u)
     {
         if ((_motionData->Events[u].FireTime >beforeCheckTimeSeconds) &&

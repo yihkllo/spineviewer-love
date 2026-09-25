@@ -1,3 +1,5 @@
+﻿
+
 #include "CubismRenderer_D3D9.hpp"
 
 #include <cfloat>
@@ -38,11 +40,9 @@ D3DXMATRIX ConvertToD3DX(CubismMatrix44& mtx)
 
 void CubismClippingManager_DX9::SetupClippingContext(LPDIRECT3DDEVICE9 device, CubismModel& model, CubismRenderer_D3D9* renderer, csmInt32 offscreenCurrent)
 {
-
     csmInt32 usingClipCount = 0;
     for (csmUint32 clipIndex = 0; clipIndex < _clippingContextListForMask.GetSize(); clipIndex++)
     {
-
         CubismClippingContext_D3D9* cc = _clippingContextListForMask[clipIndex];
 
         CalcClippedDrawTotalBounds(model, cc);
@@ -83,7 +83,6 @@ void CubismClippingManager_DX9::SetupClippingContext(LPDIRECT3DDEVICE9 device, C
     }
     else
     {
-
         for (csmInt32 i = 0; i < _renderTextureCount; ++i)
         {
             _clearedMaskBufferFlags[i] = false;
@@ -92,7 +91,6 @@ void CubismClippingManager_DX9::SetupClippingContext(LPDIRECT3DDEVICE9 device, C
 
     for (csmUint32 clipIndex = 0; clipIndex < _clippingContextListForMask.GetSize(); clipIndex++)
     {
-
         CubismClippingContext_D3D9* clipContext = _clippingContextListForMask[clipIndex];
         csmRectF* allClippedDrawRect = clipContext->_allClippedDrawRect;
         csmRectF* layoutBoundsOnTex01 = clipContext->_layoutBounds;
@@ -111,7 +109,6 @@ void CubismClippingManager_DX9::SetupClippingContext(LPDIRECT3DDEVICE9 device, C
 
         _tmpBoundsOnModel.SetRect(allClippedDrawRect);
         _tmpBoundsOnModel.Expand(allClippedDrawRect->Width * MARGIN, allClippedDrawRect->Height * MARGIN);
-
         csmFloat32 scaleX = layoutBoundsOnTex01->Width / _tmpBoundsOnModel.Width;
         csmFloat32 scaleY = layoutBoundsOnTex01->Height / _tmpBoundsOnModel.Height;
 
@@ -134,7 +131,6 @@ void CubismClippingManager_DX9::SetupClippingContext(LPDIRECT3DDEVICE9 device, C
 
             if (!_clearedMaskBufferFlags[clipContext->_bufferIndex])
             {
-
                 renderer->GetMaskBuffer(offscreenCurrent, clipContext->_bufferIndex)->Clear(device, 1.0f, 1.0f, 1.0f, 1.0f);
                     _clearedMaskBufferFlags[clipContext->_bufferIndex] = true;
             }
@@ -162,6 +158,8 @@ CubismClippingManager<CubismClippingContext_D3D9, CubismOffscreenSurface_D3D9>* 
 {
     return _owner;
 }
+
+
 
 namespace {
     CubismRenderState_D3D9*         s_renderStateManagerInstance;
@@ -231,7 +229,6 @@ void CubismRenderer_D3D9::GenerateShader(LPDIRECT3DDEVICE9 device)
 
 void CubismRenderer_D3D9::OnDeviceLost()
 {
-
     ReleaseShader();
 }
 
@@ -261,7 +258,6 @@ CubismRenderer_D3D9::CubismRenderer_D3D9()
 CubismRenderer_D3D9::~CubismRenderer_D3D9()
 {
     {
-
         for (csmUint32 i = 0; i < _offscreenSurfaces.GetSize(); i++)
         {
             for (csmUint32 j = 0; j < _offscreenSurfaces[i].GetSize(); j++)
@@ -277,12 +273,10 @@ CubismRenderer_D3D9::~CubismRenderer_D3D9()
 
     for (csmInt32 drawAssign = 0; drawAssign < drawableCount; drawAssign++)
     {
-
         if (_indexStore[drawAssign])
         {
             CSM_FREE(_indexStore[drawAssign]);
         }
-
         if (_vertexStore[drawAssign])
         {
             CSM_FREE(_vertexStore[drawAssign]);
@@ -299,9 +293,7 @@ CubismRenderer_D3D9::~CubismRenderer_D3D9()
 
 void CubismRenderer_D3D9::DoStaticRelease()
 {
-
     DeleteRenderStateManager();
-
     DeleteShaderManager();
 }
 
@@ -312,7 +304,6 @@ void CubismRenderer_D3D9::Initialize(CubismModel* model)
 
 void CubismRenderer_D3D9::Initialize(CubismModel* model, csmInt32 maskBufferCount)
 {
-
     if (s_bufferSetNum == 0)
     {
         CubismLogError("ContextNum has not been set.");
@@ -371,7 +362,6 @@ void CubismRenderer_D3D9::Initialize(CubismModel* model, csmInt32 maskBufferCoun
 
     for (csmInt32 drawAssign = 0; drawAssign < drawableCount; drawAssign++)
     {
-
         const csmInt32 vcount = GetModel()->GetDrawableVertexCount(drawAssign);
         if (vcount != 0)
         {
@@ -413,7 +403,6 @@ void CubismRenderer_D3D9::PreDraw()
 
 void CubismRenderer_D3D9::PostDraw()
 {
-
     _commandBufferCurrent++;
     if (_commandBufferNum <= _commandBufferCurrent)
     {
@@ -423,14 +412,12 @@ void CubismRenderer_D3D9::PostDraw()
 
 void CubismRenderer_D3D9::DoDrawModel()
 {
-
     CSM_ASSERT(s_useDevice != NULL);
 
     PreDraw();
 
     if (_clippingManager != NULL)
     {
-
         for (csmInt32 i = 0; i < _clippingManager->GetRenderTextureCount(); ++i)
         {
             if (_offscreenSurfaces[_commandBufferCurrent][i].GetBufferWidth() != static_cast<csmUint32>(_clippingManager->GetClippingMaskBufferSize().X) ||
@@ -452,7 +439,6 @@ void CubismRenderer_D3D9::DoDrawModel()
 
         if (!IsUsingHighPrecisionMask())
         {
-
             GetRenderStateManager()->SetViewport(s_useDevice,
                 0,
                 0,
@@ -540,7 +526,6 @@ void CubismRenderer_D3D9::DoDrawModel()
 
 void CubismRenderer_D3D9::ExecuteDrawForDraw(const CubismModel& model, const csmInt32 index)
 {
-
     CubismShader_D3D9* shaderManager = Live2D::Cubism::Framework::Rendering::CubismRenderer_D3D9::GetShaderManager();
     if (!shaderManager)
     {
@@ -567,7 +552,6 @@ void CubismRenderer_D3D9::ExecuteDrawForDraw(const CubismModel& model, const csm
         const csmBool masked = GetClippingContextBufferForDraw() != NULL;
         if (masked)
         {
-
             CubismMatrix44 ClipF = GetClippingContextBufferForDraw()->_matrixForDraw;
             D3DXMATRIX clipM = ConvertToD3DX(ClipF);
             shaderEffect->SetMatrix("clipMatrix", &clipM);
@@ -594,7 +578,6 @@ void CubismRenderer_D3D9::ExecuteDrawForDraw(const CubismModel& model, const csm
 
 void CubismRenderer_D3D9::ExecuteDrawForMask(const CubismModel& model, const csmInt32 index)
 {
-
     CubismShader_D3D9* shaderManager = Live2D::Cubism::Framework::Rendering::CubismRenderer_D3D9::GetShaderManager();
     if (!shaderManager)
     {
@@ -618,7 +601,6 @@ void CubismRenderer_D3D9::ExecuteDrawForMask(const CubismModel& model, const csm
     GetRenderStateManager()->SetTextureFilter(s_useDevice, 1, D3DTEXF_LINEAR, D3DTEXF_LINEAR, D3DTEXF_LINEAR, D3DTADDRESS_WRAP, D3DTADDRESS_WRAP);
 
     {
-
         SetProjectionMatrix(shaderEffect, GetClippingContextBufferForMask()->_matrixForMask);
 
         csmRectF* rect = GetClippingContextBufferForMask()->_layoutBounds;
@@ -643,7 +625,6 @@ void CubismRenderer_D3D9::ExecuteDrawForMask(const CubismModel& model, const csm
 
 void CubismRenderer_D3D9::DrawMeshDX9(const CubismModel& model, const csmInt32 index)
 {
-
     if (s_useDevice == NULL)
     {
         return;
@@ -689,7 +670,6 @@ void CubismRenderer_D3D9::DrawMeshDX9(const CubismModel& model, const csmInt32 i
 
 void CubismRenderer_D3D9::SaveProfile()
 {
-
     CSM_ASSERT(s_useDevice != NULL);
 
     GetRenderStateManager()->SaveCurrentNativeState(s_useDevice);
@@ -697,7 +677,6 @@ void CubismRenderer_D3D9::SaveProfile()
 
 void CubismRenderer_D3D9::RestoreProfile()
 {
-
     CSM_ASSERT(s_useDevice != NULL);
 
     GetRenderStateManager()->RestoreNativeState(s_useDevice);
@@ -721,6 +700,7 @@ void CubismRenderer_D3D9::SetClippingMaskBufferSize(csmFloat32 width, csmFloat32
     }
 
     const csmInt32 renderTextureCount = _clippingManager->GetRenderTextureCount();
+
 
     CSM_DELETE_SELF(CubismClippingManager_DX9, _clippingManager);
 
@@ -757,7 +737,6 @@ void CubismRenderer_D3D9::InitializeConstantSettings(csmUint32 bufferSetNum, LPD
 
 void CubismRenderer_D3D9::SetDefaultRenderState()
 {
-
     GetRenderStateManager()->SetZEnable(s_useDevice,
         D3DZB_FALSE,
         D3DCMP_LESS);
@@ -782,7 +761,6 @@ void CubismRenderer_D3D9::SetDefaultRenderState()
 
 void CubismRenderer_D3D9::StartFrame(LPDIRECT3DDEVICE9 device, csmUint32 viewportWidth, csmUint32 viewportHeight)
 {
-
     s_useDevice = device;
     s_viewportWidth = viewportWidth;
     s_viewportHeight = viewportHeight;
@@ -794,11 +772,9 @@ void CubismRenderer_D3D9::StartFrame(LPDIRECT3DDEVICE9 device, csmUint32 viewpor
 
 void CubismRenderer_D3D9::EndFrame(LPDIRECT3DDEVICE9 device)
 {
-
     Live2D::Cubism::Framework::Rendering::CubismShader_D3D9* shaderManager = Live2D::Cubism::Framework::Rendering::CubismRenderer_D3D9::GetShaderManager();
     {
         ID3DXEffect* shaderEffect = shaderManager->GetShaderEffect();
-
         if (shaderEffect)
         {
             shaderEffect->SetTexture("mainTexture", NULL);
@@ -1015,3 +991,4 @@ void CubismRenderer_D3D9::DrawIndexedPrimiteveWithSetup(const CubismModel& model
 }
 
 }}}}
+

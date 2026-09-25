@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 
 #include "Model/CubismModel.hpp"
@@ -9,7 +11,6 @@ namespace Live2D { namespace Cubism { namespace Framework {
 class CubismMotionManager : public CubismMotionQueueManager
 {
 public:
-
     CubismMotionManager();
 
     virtual ~CubismMotionManager();

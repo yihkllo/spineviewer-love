@@ -1,3 +1,4 @@
+
 #ifndef SPINE_COLOR_H
 #define SPINE_COLOR_H
 
@@ -60,5 +61,6 @@ public:
 	float r, g, b, a;
 };
 }
+
 
 #endif

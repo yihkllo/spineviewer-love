@@ -1,3 +1,4 @@
+
 #ifdef SPINE_UE4
 #include "SpinePluginPrivatePCH.h"
 #endif
@@ -778,7 +779,6 @@ Timeline *SkeletonJson::readTimeline(Json *keyMap, CurveTimeline1 *timeline, flo
 		value = value2;
 		keyMap = nextMap;
 	}
-
 	return timeline;
 }
 
@@ -805,7 +805,6 @@ Timeline *SkeletonJson::readTimeline(Json *keyMap, CurveTimeline2 *timeline, con
 		value2 = nvalue2;
 		keyMap = nextMap;
 	}
-
 	return timeline;
 }
 
@@ -856,7 +855,6 @@ Animation *SkeletonJson::readAnimation(Json *root, SkeletonData *skeletonData) {
 					timeline->setFrame(frame, time, color.r, color.g, color.b, color.a);
 					nextMap = keyMap->_next;
 					if (!nextMap) {
-
 						break;
 					}
 					float time2 = Json::getFloat(nextMap, "time", 0);
@@ -883,7 +881,6 @@ Animation *SkeletonJson::readAnimation(Json *root, SkeletonData *skeletonData) {
 					timeline->setFrame(frame, time, color.r, color.g, color.b);
 					nextMap = keyMap->_next;
 					if (!nextMap) {
-
 						break;
 					}
 					float time2 = Json::getFloat(nextMap, "time", 0);
@@ -914,7 +911,6 @@ Animation *SkeletonJson::readAnimation(Json *root, SkeletonData *skeletonData) {
 					timeline->setFrame(frame, time, color.r, color.g, color.b, color.a, color2.g, color2.g, color2.b);
 					nextMap = keyMap->_next;
 					if (!nextMap) {
-
 						break;
 					}
 					float time2 = Json::getFloat(nextMap, "time", 0);
@@ -947,7 +943,6 @@ Animation *SkeletonJson::readAnimation(Json *root, SkeletonData *skeletonData) {
 					timeline->setFrame(frame, time, color.r, color.g, color.b, color.a, color2.r, color2.g, color2.b);
 					nextMap = keyMap->_next;
 					if (!nextMap) {
-
 						break;
 					}
 					float time2 = Json::getFloat(nextMap, "time", 0);
@@ -1056,7 +1051,6 @@ Animation *SkeletonJson::readAnimation(Json *root, SkeletonData *skeletonData) {
 							   Json::getBoolean(keyMap, "stretch", false));
 			nextMap = keyMap->_next;
 			if (!nextMap) {
-
 				break;
 			}
 
@@ -1099,7 +1093,6 @@ Animation *SkeletonJson::readAnimation(Json *root, SkeletonData *skeletonData) {
 			timeline->setFrame(frame, time, mixRotate, mixX, mixY, mixScaleX, mixScaleY, mixShearY);
 			nextMap = keyMap->_next;
 			if (!nextMap) {
-
 				break;
 			}
 
@@ -1170,7 +1163,6 @@ Animation *SkeletonJson::readAnimation(Json *root, SkeletonData *skeletonData) {
 					timeline->setFrame(frame, time, mixRotate, mixX, mixY);
 					nextMap = keyMap->_next;
 					if (!nextMap) {
-
 						break;
 					}
 					float time2 = Json::getFloat(nextMap, "time", 0);
@@ -1252,7 +1244,6 @@ Animation *SkeletonJson::readAnimation(Json *root, SkeletonData *skeletonData) {
 					timeline->setFrame(frame, time, deformed);
 					nextMap = keyMap->_next;
 					if (!nextMap) {
-
 						break;
 					}
 					float time2 = Json::getFloat(nextMap, "time", 0);
@@ -1293,14 +1284,11 @@ Animation *SkeletonJson::readAnimation(Json *root, SkeletonData *skeletonData) {
 
 					while (originalIndex != (size_t) slotIndex)
 						unchanged[unchangedIndex++] = originalIndex++;
-
 					drawOrder2[originalIndex + Json::getInt(offsetMap, "offset", 0)] = originalIndex;
 					originalIndex++;
 				}
-
 				while (originalIndex < skeletonData->_slots.size())
 					unchanged[unchangedIndex++] = originalIndex++;
-
 				for (ii = (int) skeletonData->_slots.size() - 1; ii >= 0; ii--)
 					if (drawOrder2[ii] == -1) drawOrder2[ii] = unchanged[--unchangedIndex];
 			}

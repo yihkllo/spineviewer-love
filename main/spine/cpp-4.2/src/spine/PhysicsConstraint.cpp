@@ -1,3 +1,4 @@
+
 #include <spine/PhysicsConstraint.h>
 #include <spine/PhysicsConstraintData.h>
 
@@ -293,7 +294,6 @@ void PhysicsConstraint::update(Physics physics) {
 			return;
 		case Physics::Physics_Reset:
 			reset();
-
 		case Physics::Physics_Update: {
 			float delta = MathUtil::max(_skeleton.getTime() - _lastTime, 0.0f);
 			_remaining += delta;

@@ -1,3 +1,4 @@
+
 #ifdef SPINE_UE4
 #include "SpinePluginPrivatePCH.h"
 #endif
@@ -36,7 +37,6 @@ Vector<int> &Triangulator::triangulate(Vector<float> &vertices) {
 	triangles.ensureCapacity(MathUtil::max((int) 0, (int) vertexCount - 2) << 2);
 
 	while (vertexCount > 3) {
-
 		size_t previous = vertexCount - 1, i = 0, next = 1;
 
 		while (true) {

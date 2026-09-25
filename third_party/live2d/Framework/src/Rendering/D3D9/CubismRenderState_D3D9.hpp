@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 
 #include "CubismNativeInclude_D3D9.hpp"
@@ -109,7 +111,9 @@ public:
 
     void Save();
 
+
     void Restore(LPDIRECT3DDEVICE9 device);
+
 
     void SetBlend(LPDIRECT3DDEVICE9 device, bool enable, bool alphaSeparateEnable,
         D3DBLEND srcmul, D3DBLENDOP blendFunc, D3DBLEND destmul,

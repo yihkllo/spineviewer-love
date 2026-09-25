@@ -139,8 +139,10 @@ private:
 class CppRuntimeAdapter final : public IRuntime, public sp::AnimationStateListenerObject
 {
 public:
-	void callback(sp::AnimationState*, sp::EventType type, sp::TrackEntry*, sp::Event* event) override
+	void callback(sp::AnimationState*, sp::EventType type, sp::TrackEntry* entry, sp::Event* event) override
 	{
+		if (m_collectCompletions && type == sp::EventType_Complete && entry && entry->getAnimation())
+			m_pendingCompletions.push_back({ToStdString(entry->getAnimation()->getName()),entry->getTrackIndex(),entry->getTrackTime()});
 		if (type != sp::EventType_Event || event == nullptr)
 			return;
 		AnimationEvent value;
@@ -319,7 +321,6 @@ public:
 	{
 		outFrame.width = width;
 		outFrame.height = height;
-
 		m_drawCursor = 0;
 		if (!m_hasSkeleton || !m_skeleton)
 		{
@@ -377,10 +378,10 @@ public:
 	{
 		if (!m_animationState || name == nullptr || name[0] == '\0')
 			return;
-
 		if (m_skeletonData && m_skeletonData->findAnimation(sp::String(name)) == nullptr)
 			return;
 		m_pendingEvents.clear();
+		m_pendingCompletions.clear();
 		m_animationState->setAnimation(0, sp::String(name), loop);
 	}
 	bool StartMotionWithMix(const char* name, bool loop, float mixSeconds) override
@@ -389,6 +390,7 @@ public:
 			(m_skeletonData && m_skeletonData->findAnimation(sp::String(name)) == nullptr))
 			return false;
 		m_pendingEvents.clear();
+		m_pendingCompletions.clear();
 		sp::TrackEntry* entry = m_animationState->setAnimation(0, sp::String(name), loop);
 		if (entry && mixSeconds >= 0.0f) entry->setMixDuration(mixSeconds);
 		return entry != nullptr;
@@ -449,7 +451,6 @@ public:
 	bool StartMotionOnTrack(int track, const char* name, bool loop, float mix) override
 	{
 		if (!m_animationState || !m_skeletonData || track < 0 || !name || !m_skeletonData->findAnimation(sp::String(name))) return false;
-
 		m_animationState->setEmptyAnimation(track, (std::max)(0.f, mix));
 		auto* entry = m_animationState->addAnimation(track, sp::String(name), loop, .01f);
 		if (entry) entry->setMixDuration((std::max)(0.f, mix));
@@ -459,6 +460,35 @@ public:
 	{
 		if (!m_animationState || track < 0) return false;
 		m_animationState->setEmptyAnimation(track, (std::max)(0.f, mix));
+		return true;
+	}
+	bool SetNativeMotionTrack(const SlNativeMotionTrack& value) override
+	{
+		if (!m_animationState || !m_skeletonData || value.track < 0) return false;
+		if (value.animation.empty() && !value.emptyAnimation) {
+			m_animationState->clearTrack(value.track);
+			return true;
+		}
+		sp::TrackEntry* entry = nullptr;
+		if (value.emptyAnimation) entry = m_animationState->setEmptyAnimation(value.track,(std::max)(0.f,value.mix));
+		else {
+			auto* animation = m_skeletonData->findAnimation(sp::String(value.animation.c_str()));
+			if (!animation) return false;
+			entry = m_animationState->setAnimation(value.track,animation,value.loop);
+		}
+		if (!entry) return false;
+		entry->setTrackTime((std::max)(0.f,value.time));
+		entry->setTimeScale(value.speed);
+		entry->setEventThreshold(value.eventThreshold);
+#if defined(SL_SPINE_WORLD_TRANSFORM_HAS_PHYSICS)
+		entry->setMixAttachmentThreshold(value.attachmentThreshold);
+		entry->setMixDrawOrderThreshold(value.drawOrderThreshold);
+#else
+		entry->setAttachmentThreshold(value.attachmentThreshold);
+		entry->setDrawOrderThreshold(value.drawOrderThreshold);
+#endif
+		entry->setHoldPrevious(value.holdPrevious);
+		if (value.mix >= 0) entry->setMixDuration(value.mix);
 		return true;
 	}
 	bool HoldMotionTrack(int track, float time) override
@@ -486,6 +516,16 @@ public:
 		events.clear();
 		events.swap(m_pendingEvents);
 	}
+	void EnableMotionCompletions(bool enabled) override
+	{
+		m_collectCompletions = enabled;
+		m_pendingCompletions.clear();
+	}
+	void DrainMotionCompletions(std::vector<AnimationCompletion>& events) override
+	{
+		events.clear();
+		events.swap(m_pendingCompletions);
+	}
 
 	void ComposeLooks(const std::vector<std::string>& names) override
 	{
@@ -512,6 +552,23 @@ public:
 		m_compositeContainsFace = containsFaceSkin;
 	}
 
+	bool SetNativeSkinMix(const std::vector<std::string>& names) override
+	{
+		if (!m_skeleton || !m_skeletonData) return false;
+		std::unique_ptr<sp::Skin> combined(new sp::Skin(sp::String("__spinelove_native_composite")));
+		for (const auto& name : names)
+		{
+			if (auto* skin = m_skeletonData->findSkin(sp::String(name.c_str()))) combined->addSkin(skin);
+		}
+		m_skeleton->setSkin(combined.get());
+		m_skeleton->setSlotsToSetupPose();
+		if (m_animationState) m_animationState->apply(*m_skeleton);
+		m_compositeSkin = std::move(combined);
+		m_compositeContainsFace = false;
+		ApplySlotOverrides();
+		UpdateWorldTransform();
+		return true;
+	}
 	bool SetSlotOverride(const char* slotName, float alpha,
 		SlotAttachmentMode attachmentMode) override
 	{
@@ -562,7 +619,6 @@ private:
 		sp::Skin* oldSkin = m_skeleton->getSkin();
 		const bool wasFaceSkin = wasCompositeFaceSkin ||
 			(oldSkin && IsFaceSkinName(ToStdString(oldSkin->getName())));
-
 		const bool preserveConvertedFacePose =
 			RuntimeKindValue() == RuntimeKind::Cpp42 && (wasFaceSkin || isFaceSkin);
 		sp::Vector<sp::Slot*>& slots = m_skeleton->getSlots();
@@ -574,7 +630,6 @@ private:
 		if (preserveConvertedFacePose)
 		{
 			ReconcileFaceAttachments(oldSkin, newSkin, previousAttachments, wasFaceSkin, isFaceSkin);
-
 		}
 		else
 		{
@@ -941,7 +996,6 @@ private:
 			outCommand.premultipliedAlpha = TexturePremultipliedFromRegion(atlasRegion);
 			outCommand.vertices.resize(vertexCount);
 			outCommand.indices.assign(indices.buffer(), indices.buffer() + indices.size());
-
 			const Color color;
 			for (size_t vertex = 0; vertex < vertexCount; ++vertex)
 			{
@@ -1001,6 +1055,7 @@ private:
 		m_worldVertices.clear();
 		m_maskWorldVertices.clear();
 		m_pendingEvents.clear();
+		m_pendingCompletions.clear();
 	}
 
 	bool m_hasSkeleton = false;
@@ -1026,6 +1081,8 @@ private:
 	std::unique_ptr<sp::AnimationStateData> m_animationStateData;
 	std::unique_ptr<sp::AnimationState> m_animationState;
 	std::vector<AnimationEvent> m_pendingEvents;
+	bool m_collectCompletions = false;
+	std::vector<AnimationCompletion> m_pendingCompletions;
 };
 
 }

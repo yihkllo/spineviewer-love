@@ -1,3 +1,4 @@
+
 #ifdef SPINE_UE4
 #include "SpinePluginPrivatePCH.h"
 #endif
@@ -46,11 +47,9 @@ void ScaleTimeline::apply(Skeleton &skeleton, float lastTime, float time, Vector
 
 	float x, y;
 	if (time >= _frames[_frames.size() - ENTRIES]) {
-
 		x = _frames[_frames.size() + PREV_X] * bone._data._scaleX;
 		y = _frames[_frames.size() + PREV_Y] * bone._data._scaleY;
 	} else {
-
 		int frame = Animation::binarySearch(_frames, time, ENTRIES);
 		x = _frames[frame + PREV_X];
 		y = _frames[frame + PREV_Y];
@@ -71,7 +70,6 @@ void ScaleTimeline::apply(Skeleton &skeleton, float lastTime, float time, Vector
 			bone._scaleY = y;
 		}
 	} else {
-
 		float bx, by;
 		if (direction == MixDirection_Out) {
 			switch (blend) {

@@ -1,3 +1,4 @@
+
 #ifndef Spine_IkConstraint_h
 #define Spine_IkConstraint_h
 
@@ -20,7 +21,6 @@ class SP_API IkConstraint : public Updatable {
 RTTI_DECL
 
 public:
-
 	static void apply(Bone &bone, float targetX, float targetY, bool compress, bool stretch, bool uniform, float alpha);
 
 	static void apply(Bone &parent, Bone &child, float targetX, float targetY, int bendDir, bool stretch, float softness, float alpha);

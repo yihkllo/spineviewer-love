@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 #include <stdio.h>
 #include "CubismFramework.hpp"
@@ -12,6 +14,7 @@ class NullValue;
 
 #define CSM_JSON_ERROR_TYPE_MISMATCH            "Error:type mismatch"
 #define CSM_JSON_ERROR_INDEX_OUT_OF_BOUNDS      "Error:index out of bounds"
+
 
 class Value
 {
@@ -112,12 +115,12 @@ private:
 
     static void StaticReleaseNotForClientCall();
 
+
 };
 
 class CubismJson
 {
 public:
-
     static CubismJson* Create(const csmByte* buffer, csmSizeInt size);
 
     static void Delete(CubismJson* instance);
@@ -129,10 +132,10 @@ public:
     csmBool CheckEndOfFile() const { return (*_root)[1].Equals("EOF"); }
 
 protected:
-
     csmBool ParseBytes(const csmByte* buffer, csmInt32 size);
 
     csmString ParseString(const csmChar* string, csmInt32 length, csmInt32 begin, csmInt32* outEndPos);
+
 
     Value* ParseObject(const csmChar* buffer, csmInt32 length, csmInt32 begin, csmInt32* outEndPos);
 
@@ -141,7 +144,6 @@ protected:
     Value* ParseValue(const csmChar* buffer, csmInt32 length, csmInt32 begin, csmInt32* outEndPos);
 
 private:
-
     CubismJson();
 
     CubismJson(const csmByte* buffer, csmInt32 length);
@@ -153,10 +155,10 @@ private:
     Value*          _root;
 };
 
+
 class Float : public Value
 {
 public:
-
     Float(csmFloat32 v) : Value()
     {
         this->_value = v;
@@ -174,7 +176,6 @@ public:
         _stringBuffer = csmString(strbuf);
         return _stringBuffer;
 #else
-
         csmChar strbuf[32] = { '\0' };
         snprintf(strbuf, 32, "%f", this->_value);
         _stringBuffer = csmString(strbuf);
@@ -199,6 +200,7 @@ public:
 private:
     csmFloat32 _value;
 };
+
 
 class Boolean : public Value
 {
@@ -233,15 +235,14 @@ public:
     virtual csmBool IsStatic() { return true; }
 
 private:
-
     Boolean(csmBool v) : Value() { this->_boolValue = v; }
     csmBool _boolValue;
 };
 
+
 class String : public Value
 {
 public:
-
     String(const csmString& s) : Value() { this->_stringBuffer = s; }
 
     String(const csmChar* s) : Value() { this->_stringBuffer = s; }
@@ -266,6 +267,7 @@ public:
     virtual csmBool Equals(csmBool v) { return false; }
 };
 
+
 class Error : public String
 {
     friend class Value;
@@ -273,7 +275,6 @@ class Error : public String
     friend class CubismJson;
 
 public:
-
     virtual csmBool IsStatic() { return _isStatic; }
 
     virtual Value* SetErrorNotForClientCall(const csmChar* s)
@@ -283,7 +284,6 @@ public:
     }
 
 protected:
-
     Error(const csmString& s, csmBool isStatic) : String(s)
                                                 , _isStatic(isStatic) {}
 
@@ -294,13 +294,13 @@ protected:
     csmBool _isStatic;
 };
 
+
 class NullValue : public Value
 {
     friend class Value;
     friend class CubismJson;
 
 public:
-
     virtual ~NullValue() {}
 
     virtual csmBool IsNull() { return true; }
@@ -313,14 +313,13 @@ public:
     virtual csmBool IsStatic() { return true; }
 
 private:
-
     NullValue() : Value() { _stringBuffer = "NullValue"; }
 };
+
 
 class Array : public Value
 {
 public:
-
     Array() : Value()
             , _array() {}
 
@@ -372,10 +371,10 @@ private:
     csmVector<Value*> _array;
 };
 
+
 class Map : public Value
 {
 public:
-
     Map() : Value()
           , _keys(NULL) {}
 
@@ -464,3 +463,4 @@ private:
     csmVector<csmString>* _keys;
 };
 }}}}
+

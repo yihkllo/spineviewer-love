@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 
 #include "Type/CubismBasicType.hpp"
@@ -7,7 +9,6 @@ namespace Live2D { namespace Cubism { namespace Framework {
 class CubismMatrix44
 {
 public:
-
     CubismMatrix44();
 
     virtual ~CubismMatrix44();

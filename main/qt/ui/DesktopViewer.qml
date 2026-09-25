@@ -8,7 +8,18 @@ Item {
     objectName: "desktopViewer"
     property var viewer: null
     readonly property var state: viewer ? viewer.state : ({})
-
+    readonly property var lists: viewer && viewer.lists ? viewer.lists : null
+    function listValue(key) { return lists ? lists[key] : (state ? state[key] : undefined); }
+    readonly property var animationsList: listValue("animations")
+    readonly property var skinsList: listValue("skins")
+    readonly property var filesList: listValue("files")
+    readonly property var slotsList: listValue("slots")
+    readonly property var queueList: listValue("queue")
+    readonly property var loadedSpinesList: listValue("loadedSpines")
+    readonly property var capabilitiesMap: listValue("capabilities")
+    readonly property var languagesList: listValue("languages")
+    readonly property var expressionsList: listValue("expressions")
+    readonly property var pluginTitleState: viewer && viewer.plugins && viewer.plugins.module ? viewer.plugins.module.titleState : ({})
     property alias metrics: metricsObject
     property alias theme: themeObject
     default property alias canvasData: stage.data
@@ -20,20 +31,43 @@ Item {
     readonly property bool loaded: read("loaded", false)
     readonly property bool spineAvailable: !live2d && read("spineRuntimeAvailable", true)
     readonly property bool controlsAvailable: spineAvailable || loaded
+    readonly property bool pluginActive: read("pluginActive", false)
     readonly property bool petMode: read("petMode", false)
     readonly property real topInset: read("fullscreen", false) || petMode ? 0 : metrics.titleHeight
-    readonly property real leftPanelEndX: panelsHidden || petMode ? 0 : metrics.panelBoundary
+    readonly property real leftPanelEndX: panelsHidden || petMode || pluginActive ? 0 : metrics.panelBoundary
     readonly property real canvasLeft: leftPanelEndX
+    readonly property real renderPanelUnits: leftPanelEndX > 0 ? metrics.panelBoundary / metrics.scale : 0
     readonly property real titleHeight: topInset
     signal command(string name, var value)
     signal viewportChanged(real leftInset, real topInset)
     function read(key, fallback) {
-        return state && state[key] !== undefined ? state[key] : fallback;
+        let value;
+        switch (key) {
+        case "animations": value = animationsList; break;
+        case "skins": value = skinsList; break;
+        case "files": value = filesList; break;
+        case "slots": value = slotsList; break;
+        case "queue": value = queueList; break;
+        case "loadedSpines": value = loadedSpinesList; break;
+        case "capabilities": value = capabilitiesMap; break;
+        case "languages": value = languagesList; break;
+        case "expressions": value = expressionsList; break;
+        case "parameters": case "parts": case "gazeChannels": value = listValue(key); break;
+        default:
+            if (key === "currentFileName" && pluginTitleState.titleSubtitle !== undefined) return pluginTitleState.titleSubtitle;
+            if (key === "centerSubtitle" && pluginTitleState.centerSubtitle !== undefined) return pluginTitleState.centerSubtitle;
+            value = state ? state[key] : undefined;
+        }
+        return value !== undefined ? value : fallback;
     }
-    function can(name) { const capabilities = read("capabilities", {}); return capabilities[name] === true; }
+    function can(name) { const capabilities = capabilitiesMap; return !!capabilities && capabilities[name] === true; }
     function send(name, value) { command(name, value); if (viewer) viewer.dispatch(name, value); }
     function toggleExport() { exportOpen = !exportOpen; if (exportOpen) exportEverOpened = true; }
-    function openSettings() { settings.open(); }
+    function openSettings(page, customSize) {
+        if (page !== undefined) settings.page = page;
+        if (customSize !== undefined) settings.customSizeOpen = customSize;
+        settings.open();
+    }
     onLeftPanelEndXChanged: viewportChanged(leftPanelEndX, topInset)
     onTopInsetChanged: viewportChanged(leftPanelEndX, topInset)
     onLoadedChanged: if (!loaded) exportOpen = false
@@ -57,7 +91,6 @@ Item {
         id: stage
         objectName: "viewerCanvasHost"
         anchors.fill: parent
-
     }
     TitleBar { width: parent.width; visible: desktop.topInset > 0; shell: desktop }
     Rectangle {
@@ -66,13 +99,11 @@ Item {
         width: desktop.metrics.panelWidth * 2 + desktop.metrics.gap
         height: Math.max(0, desktop.height - y)
         color: desktop.theme.window
-        visible: !desktop.panelsHidden && !desktop.petMode
-
+        visible: !desktop.panelsHidden && !desktop.petMode && !desktop.pluginActive
         MouseArea { anchors.fill: parent; acceptedButtons: Qt.AllButtons; onWheel: function(wheel) { wheel.accepted = true; } }
         Flickable {
             id: left
             objectName: "leftPanel"
-
             x: 0; y: 0
             width: desktop.metrics.panelWidth
             height: parent.height - y
@@ -91,7 +122,7 @@ Item {
                         {key:"mode.toggle",label:"Live2D"},
                         {key:"settings",label:qsTr("Setting")},
                         {key:"pet.enter",label:qsTr("Desktop Pet")},
-                        {key:"reserved",label:"Pro"}
+                        {key:"plugins",label:qsTr("Pro")}
                     ]
                     delegate: SlButton {
                         required property var modelData
@@ -100,7 +131,7 @@ Item {
                         metrics: desktop.metrics; theme: desktop.theme
                         text: modelData.label
                         highlighted: modelData.key === "mode.toggle" && desktop.live2d
-                        enabled: modelData.key !== "reserved" && (modelData.key === "settings" || (desktop.can(modelData.key) && (modelData.key !== "pet.enter" || desktop.loaded)))
+                        enabled: modelData.key === "settings" || (desktop.can(modelData.key) && (modelData.key !== "pet.enter" || desktop.loaded))
                         tip: ""
                         onClicked: modelData.key === "settings" ? settings.open() : desktop.send(modelData.key, null)
                     }
@@ -187,7 +218,7 @@ Item {
     MouseArea {
         id: splitter
         objectName: "panelSplitter"
-        visible: !desktop.panelsHidden && !desktop.petMode
+        visible: !desktop.panelsHidden && !desktop.petMode && !desktop.pluginActive
         x: panel.width - width / 2; y: desktop.topInset
         width: desktop.metrics.s(10); height: desktop.height - y
         cursorShape: Qt.SizeHorCursor
@@ -202,7 +233,7 @@ Item {
     }
     MouseArea {
         id: leftEdge
-        visible: desktop.panelsHidden && !desktop.petMode
+        visible: desktop.panelsHidden && !desktop.petMode && !desktop.pluginActive
         x: 0; y: desktop.topInset; width: desktop.metrics.s(200); height: desktop.height - y
         hoverEnabled: true
         acceptedButtons: Qt.NoButton
@@ -217,15 +248,15 @@ Item {
     SlButton {
         id: returnButton
         objectName: "showPanels"
-        visible: desktop.panelsHidden && !desktop.petMode
+        visible: desktop.panelsHidden && !desktop.petMode && !desktop.pluginActive
         x: returnSlide.value
         y: desktop.topInset + desktop.metrics.s(4)
         width: desktop.metrics.s(200); height: desktop.metrics.s(33.3)
         metrics: desktop.metrics; theme: desktop.theme; text: ">>"
         onClicked: desktop.panelsHidden = false
     }
-    ViewerLayers { shell: desktop; visible: desktop.read("showLoadedSpines", false) && !desktop.live2d && !desktop.petMode }
-    ExportPanel { shell: desktop; visible: !desktop.petMode }
+    ViewerLayers { shell: desktop; visible: desktop.read("showLoadedSpines", false) && !desktop.live2d && !desktop.petMode && !desktop.pluginActive }
+    ExportPanel { shell: desktop; visible: !desktop.petMode && !desktop.pluginActive }
     SettingsDialog { id: settings; shell: desktop }
     ReplaceConfirmation { shell: desktop }
     WindowChrome { shell: desktop; visible: !desktop.petMode }

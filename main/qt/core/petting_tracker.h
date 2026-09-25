@@ -3,7 +3,6 @@
 #include <cstdint>
 
 namespace slqt::detail {
-
 class PettingTracker {
 public:
     void reset() noexcept { *this = PettingTracker{}; }

@@ -1,3 +1,5 @@
+﻿
+
 #include "CubismRenderer.hpp"
 #include "CubismFramework.hpp"
 #include "Model/CubismModel.hpp"
@@ -16,7 +18,6 @@ CubismRenderer::CubismRenderer()
     , _model(NULL)
     , _useHighPrecisionMask(false)
 {
-
     _mvpMatrix4x4.LoadIdentity();
 }
 
@@ -36,6 +37,7 @@ void CubismRenderer::Initialize(Framework::CubismModel* model, csmInt32 maskBuff
 void CubismRenderer::DrawModel()
 {
     if (GetModel() == NULL) return;
+
 
     SaveProfile();
 
@@ -139,7 +141,6 @@ csmBool CubismRenderer::IsUsingHighPrecisionMask()
 
 CubismClippingContext::CubismClippingContext(const csmInt32* clippingDrawableIndices, csmInt32 clipCount)
 {
-
     _clippingIdList = clippingDrawableIndices;
 
     _clippingIdCount = clipCount;
@@ -179,3 +180,4 @@ void CubismClippingContext::AddClippedDrawable(csmInt32 drawableIndex)
 }
 
 }}}}
+

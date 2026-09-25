@@ -1,3 +1,4 @@
+
 #ifndef Spine_VertexEffect_h
 #define Spine_VertexEffect_h
 

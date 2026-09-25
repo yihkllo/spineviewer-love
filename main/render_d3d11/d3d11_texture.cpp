@@ -1,8 +1,13 @@
 #include "d3d11_texture.h"
 
 #include <Windows.h>
+#include <chrono>
 #include <cstdio>
 #include <cwchar>
+#include <iterator>
+#include <memory>
+#include <mutex>
+#include <unordered_map>
 #include <vector>
 
 #include <wincodec.h>
@@ -75,7 +80,6 @@ bool CreateTextureFromRgba(ID3D11Device* device, const unsigned char* pixels, in
 	desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
 	if (generateMips)
 	{
-
 		desc.BindFlags |= D3D11_BIND_RENDER_TARGET;
 		desc.MiscFlags = D3D11_RESOURCE_MISC_GENERATE_MIPS;
 	}
@@ -224,7 +228,51 @@ bool TryApplyUnitySplitAlpha(const wchar_t* path, unsigned char* pixels, int wid
 
 }
 
-bool LoadTextureFromFile(ID3D11Device* device, const wchar_t* path, D3D11Texture& outTexture, bool premultiplyAlpha, std::string* outError, bool generateMips)
+namespace {
+
+struct PixelRelease
+{
+	bool stb = true;
+	void operator()(unsigned char* pixels) const noexcept
+	{
+		if (stb) stbi_image_free(pixels);
+		else delete[] pixels;
+	}
+};
+
+struct DecodedPixels
+{
+	std::unique_ptr<unsigned char, PixelRelease> pixels;
+	int width = 0;
+	int height = 0;
+	FILETIME written{};
+	std::chrono::steady_clock::time_point parked;
+};
+
+std::mutex g_prefetchMutex;
+std::unordered_map<std::wstring, DecodedPixels> g_prefetched;
+constexpr auto kPrefetchLifetime = std::chrono::seconds(30);
+
+std::wstring PrefetchKey(const wchar_t* path)
+{
+	wchar_t full[MAX_PATH * 4];
+	const DWORD length = ::GetFullPathNameW(path, static_cast<DWORD>(std::size(full)), full, nullptr);
+	std::wstring key = length > 0 && length < std::size(full) ? std::wstring(full, length) : std::wstring(path);
+	if (!key.empty())
+		::CharLowerBuffW(key.data(), static_cast<DWORD>(key.size()));
+	return key;
+}
+
+bool LastWriteTime(const wchar_t* path, FILETIME& outTime)
+{
+	WIN32_FILE_ATTRIBUTE_DATA data{};
+	if (!::GetFileAttributesExW(path, GetFileExInfoStandard, &data))
+		return false;
+	outTime = data.ftLastWriteTime;
+	return true;
+}
+
+bool DecodeTexturePixels(const wchar_t* path, DecodedPixels& out, std::string* outError)
 {
 	std::vector<unsigned char> fileBytes;
 	if (!ReadFileBytes(path, fileBytes, outError))
@@ -247,6 +295,53 @@ bool LoadTextureFromFile(ID3D11Device* device, const wchar_t* path, D3D11Texture
 
 	TryApplyUnitySplitAlpha(path, pixels, width, height);
 
+	out.pixels = std::unique_ptr<unsigned char, PixelRelease>(pixels, PixelRelease{ usingStb });
+	out.width = width;
+	out.height = height;
+	return true;
+}
+
+bool TakePrefetchedPixels(const wchar_t* path, DecodedPixels& out)
+{
+	FILETIME written{};
+	const bool known = LastWriteTime(path, written);
+	const auto key = PrefetchKey(path);
+	std::lock_guard<std::mutex> lock(g_prefetchMutex);
+	const auto found = g_prefetched.find(key);
+	if (found == g_prefetched.end())
+		return false;
+	const bool current = known && ::CompareFileTime(&found->second.written, &written) == 0;
+	if (current)
+		out = std::move(found->second);
+	g_prefetched.erase(found);
+	return current;
+}
+
+}
+
+bool PrefetchTexturePixels(const wchar_t* path)
+{
+	DecodedPixels decoded;
+	if (path == nullptr || !LastWriteTime(path, decoded.written) || !DecodeTexturePixels(path, decoded, nullptr))
+		return false;
+	decoded.parked = std::chrono::steady_clock::now();
+	const auto key = PrefetchKey(path);
+	std::lock_guard<std::mutex> lock(g_prefetchMutex);
+	for (auto it = g_prefetched.begin(); it != g_prefetched.end();)
+		it = decoded.parked - it->second.parked > kPrefetchLifetime ? g_prefetched.erase(it) : std::next(it);
+	g_prefetched[key] = std::move(decoded);
+	return true;
+}
+
+bool LoadTextureFromFile(ID3D11Device* device, const wchar_t* path, D3D11Texture& outTexture, bool premultiplyAlpha, std::string* outError, bool generateMips)
+{
+	DecodedPixels decoded;
+	if (!TakePrefetchedPixels(path, decoded) && !DecodeTexturePixels(path, decoded, outError))
+		return false;
+	unsigned char* pixels = decoded.pixels.get();
+	const int width = decoded.width;
+	const int height = decoded.height;
+
 	if (premultiplyAlpha)
 	{
 		const int pixelCount = width * height;
@@ -261,10 +356,6 @@ bool LoadTextureFromFile(ID3D11Device* device, const wchar_t* path, D3D11Texture
 	}
 
 	const bool ok = CreateTextureFromRgba(device, pixels, width, height, outTexture, generateMips);
-	if (usingStb)
-		stbi_image_free(pixels);
-	else
-		delete[] pixels;
 	if (!ok && outError)
 		*outError = "CreateTexture2D failed";
 	return ok;

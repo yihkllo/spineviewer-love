@@ -1,7 +1,10 @@
+﻿
+
 #include "ACubismMotion.hpp"
 #include "Model/CubismModel.hpp"
 #include "CubismMotionQueueEntry.hpp"
 #include "Math/CubismMath.hpp"
+
 
 namespace Live2D { namespace Cubism { namespace Framework {
 
@@ -61,9 +64,7 @@ void ACubismMotion::SetupMotionQueueEntry(CubismMotionQueueEntry* motionQueueEnt
 
     if (motionQueueEntry->GetEndTime() < 0)
     {
-
         motionQueueEntry->SetEndTime((duration <= 0) ? -1 : motionQueueEntry->GetStartTime() + duration);
-
     }
 }
 
@@ -92,6 +93,7 @@ csmFloat32 ACubismMotion::UpdateFadeWeight(CubismMotionQueueEntry* motionQueueEn
 
     return fadeWeight;
 }
+
 
 void ACubismMotion::SetFadeInTime(csmFloat32 fadeInSeconds)
 {

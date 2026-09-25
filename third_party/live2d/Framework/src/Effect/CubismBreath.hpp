@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 
 #include "Model/CubismModel.hpp"
@@ -9,10 +11,8 @@ namespace Live2D { namespace Cubism { namespace Framework {
 class CubismBreath
 {
 public:
-
     struct BreathParameterData
     {
-
         BreathParameterData()
                              : ParameterId(NULL)
                              , Offset(0.0f)
@@ -38,16 +38,18 @@ public:
 
     static CubismBreath* Create();
 
+
     static void Delete(CubismBreath* instance);
 
     void SetParameters(const csmVector<BreathParameterData>& breathParameters);
 
+
     const csmVector<BreathParameterData>& GetParameters() const;
+
 
     void UpdateParameters(CubismModel* model, csmFloat32 deltaTimeSeconds);
 
 private:
-
     CubismBreath();
 
     virtual ~CubismBreath();

@@ -1,4 +1,4 @@
-#include "sl_skeleton_probe.h"
+#include "spinelove/sl_skeleton_probe.h"
 
 #include <cctype>
 #include <cstdint>

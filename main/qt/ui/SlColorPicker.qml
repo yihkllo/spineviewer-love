@@ -15,7 +15,6 @@ Column {
     function sync(color) {
         const max=Math.max(color.r,color.g,color.b),min=Math.min(color.r,color.g,color.b),delta=max-min;
         brightness=max;
-
         if (max>0) saturation=delta/max;
         if (delta>0) {
             let h=max===color.r ? (color.g-color.b)/delta : max===color.g ? (color.b-color.r)/delta+2 : (color.r-color.g)/delta+4;

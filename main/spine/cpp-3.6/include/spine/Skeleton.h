@@ -1,3 +1,4 @@
+
 #ifndef SPINE_SKELETON_H_
 #define SPINE_SKELETON_H_
 
@@ -72,26 +73,20 @@ SP_API void spSkeleton_updateCache (spSkeleton* self);
 SP_API void spSkeleton_updateWorldTransform (const spSkeleton* self);
 
 SP_API void spSkeleton_setToSetupPose (const spSkeleton* self);
-
 SP_API void spSkeleton_setBonesToSetupPose (const spSkeleton* self);
 SP_API void spSkeleton_setSlotsToSetupPose (const spSkeleton* self);
 
 SP_API spBone* spSkeleton_findBone (const spSkeleton* self, const char* boneName);
-
 SP_API int spSkeleton_findBoneIndex (const spSkeleton* self, const char* boneName);
 
 SP_API spSlot* spSkeleton_findSlot (const spSkeleton* self, const char* slotName);
-
 SP_API int spSkeleton_findSlotIndex (const spSkeleton* self, const char* slotName);
 
 SP_API void spSkeleton_setSkin (spSkeleton* self, spSkin* skin);
-
 SP_API int spSkeleton_setSkinByName (spSkeleton* self, const char* skinName);
 
 SP_API spAttachment* spSkeleton_getAttachmentForSlotName (const spSkeleton* self, const char* slotName, const char* attachmentName);
-
 SP_API spAttachment* spSkeleton_getAttachmentForSlotIndex (const spSkeleton* self, int slotIndex, const char* attachmentName);
-
 SP_API int spSkeleton_setAttachment (spSkeleton* self, const char* slotName, const char* attachmentName);
 
 SP_API spIkConstraint* spSkeleton_findIkConstraint (const spSkeleton* self, const char* constraintName);

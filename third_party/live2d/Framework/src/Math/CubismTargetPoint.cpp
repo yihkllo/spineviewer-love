@@ -1,3 +1,5 @@
+﻿
+
 #include "CubismTargetPoint.hpp"
 #include "Math/CubismMath.hpp"
 
@@ -22,7 +24,6 @@ CubismTargetPoint::~CubismTargetPoint()
 
 void CubismTargetPoint::Update(csmFloat32 deltaTimeSeconds)
 {
-
     _userTimeSeconds += deltaTimeSeconds;
 
     const csmFloat32 FaceParamMaxV = 40.0 / 10.0f;
@@ -75,7 +76,6 @@ void CubismTargetPoint::Update(csmFloat32 deltaTimeSeconds)
 
         if (curV > maxV)
         {
-
             _faceVX *= maxV / curV;
             _faceVY *= maxV / curV;
         }

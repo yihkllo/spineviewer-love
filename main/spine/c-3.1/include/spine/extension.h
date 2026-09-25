@@ -1,3 +1,14 @@
+
+
+
+
+
+
+
+
+
+
+
 #ifndef SPINE_EXTENSION_H_
 #define SPINE_EXTENSION_H_
 
@@ -58,6 +69,7 @@
 extern "C" {
 #endif
 
+
 void _spAtlasPage_createTexture (spAtlasPage* self, const char* path);
 void _spAtlasPage_disposeTexture (spAtlasPage* self);
 char* _spUtil_readFile (const char* path, int* length);
@@ -68,6 +80,7 @@ char* _spUtil_readFile (const char* path, int* length);
 #define _Util_readFile(...) _spUtil_readFile(__VA_ARGS__)
 #endif
 
+
 void* _malloc (size_t size, const char* file, int line);
 void* _calloc (size_t num, size_t size, const char* file, int line);
 void _free (void* ptr);
@@ -77,6 +90,7 @@ void _setDebugMalloc (void* (*_malloc) (size_t size, const char* file, int line)
 void _setFree (void (*_free) (void* ptr));
 
 char* _readFile (const char* path, int* length);
+
 
 typedef struct _spAnimationState {
 	spAnimationState super;
@@ -98,6 +112,7 @@ typedef struct _spAnimationState {
 spTrackEntry* _spTrackEntry_create (spAnimationState* self);
 void _spTrackEntry_dispose (spTrackEntry* self);
 
+
 void _spAttachmentLoader_init (spAttachmentLoader* self,
 	void (*dispose) (spAttachmentLoader* self),
 	spAttachment* (*createAttachment) (spAttachmentLoader* self, spSkin* skin, spAttachmentType type, const char* name,
@@ -106,7 +121,6 @@ void _spAttachmentLoader_init (spAttachmentLoader* self,
 	void (*disposeAttachment) (spAttachmentLoader* self, spAttachment*)
 );
 void _spAttachmentLoader_deinit (spAttachmentLoader* self);
-
 void _spAttachmentLoader_setError (spAttachmentLoader* self, const char* error1, const char* error2);
 void _spAttachmentLoader_setUnknownTypeError (spAttachmentLoader* self, spAttachmentType type);
 
@@ -117,6 +131,7 @@ void _spAttachmentLoader_setUnknownTypeError (spAttachmentLoader* self, spAttach
 #define _AttachmentLoader_setUnknownTypeError(...) _spAttachmentLoader_setUnknownTypeError(__VA_ARGS__)
 #endif
 
+
 void _spAttachment_init (spAttachment* self, const char* name, spAttachmentType type,
 void (*dispose) (spAttachment* self));
 void _spAttachment_deinit (spAttachment* self);
@@ -125,6 +140,7 @@ void _spAttachment_deinit (spAttachment* self);
 #define _Attachment_init(...) _spAttachment_init(__VA_ARGS__)
 #define _Attachment_deinit(...) _spAttachment_deinit(__VA_ARGS__)
 #endif
+
 
 void _spTimeline_init (spTimeline* self, spTimelineType type,
 	void (*dispose) (spTimeline* self),
@@ -136,6 +152,7 @@ void _spTimeline_deinit (spTimeline* self);
 #define _Timeline_init(...) _spTimeline_init(__VA_ARGS__)
 #define _Timeline_deinit(...) _spTimeline_deinit(__VA_ARGS__)
 #endif
+
 
 void _spCurveTimeline_init (spCurveTimeline* self, spTimelineType type, int framesCount,
 	void (*dispose) (spTimeline* self),

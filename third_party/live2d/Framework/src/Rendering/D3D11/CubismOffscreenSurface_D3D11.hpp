@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 
 #include "CubismNativeInclude_D3D11.hpp"
@@ -5,6 +7,7 @@
 #include "Math/CubismMatrix44.hpp"
 
 namespace Live2D { namespace Cubism { namespace Framework { namespace Rendering {
+
 
 class CubismOffscreenSurface_D3D11
 {
@@ -32,6 +35,7 @@ public:
 
     csmBool IsValid() const;
 
+
 private:
     ID3D11Texture2D*            _texture;
     ID3D11ShaderResourceView*   _textureView;
@@ -47,4 +51,6 @@ private:
 
 };
 
+
 }}}}
+

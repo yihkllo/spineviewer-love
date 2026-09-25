@@ -1,3 +1,4 @@
+
 #ifndef Spine_ClippingAttachment_h
 #define Spine_ClippingAttachment_h
 

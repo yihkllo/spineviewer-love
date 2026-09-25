@@ -1,3 +1,4 @@
+
 #ifndef SPINE_COLOR_H
 #define SPINE_COLOR_H
 
@@ -76,5 +77,6 @@ namespace spine {
 		float r, g, b, a;
 	};
 }
+
 
 #endif

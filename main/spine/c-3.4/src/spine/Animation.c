@@ -1,3 +1,4 @@
+
 #include <spine/Animation.h>
 #include <spine/IkConstraint.h>
 #include <limits.h>
@@ -46,6 +47,7 @@ void spAnimation_mix (const spAnimation* self, spSkeleton* skeleton, float lastT
 		spTimeline_apply(self->timelines[i], skeleton, lastTime, time, events, eventsCount, alpha);
 }
 
+
 typedef struct _spTimelineVtable {
 	void (*apply) (const spTimeline* self, spSkeleton* skeleton, float lastTime, float time, spEvent** firedEvents,
 			int* eventsCount, float alpha);
@@ -74,6 +76,7 @@ void spTimeline_apply (const spTimeline* self, spSkeleton* skeleton, float lastT
 		int* eventsCount, float alpha) {
 	VTABLE(spTimeline, self)->apply(self, skeleton, lastTime, time, firedEvents, eventsCount, alpha);
 }
+
 
 static const float CURVE_LINEAR = 0, CURVE_STEPPED = 1, CURVE_BEZIER = 2;
 static const int BEZIER_SIZE = 10 * 2 - 1;
@@ -180,6 +183,7 @@ static int binarySearch1 (float *values, int valuesLength, float target) {
 	return 0;
 }
 
+
 void _spBaseTimeline_dispose (spTimeline* timeline) {
 	struct spBaseTimeline* self = SUB_CAST(struct spBaseTimeline, timeline);
 	_spCurveTimeline_deinit(SUPER(self));
@@ -198,6 +202,7 @@ struct spBaseTimeline* _spBaseTimeline_create (int framesCount, spTimelineType t
 
 	return self;
 }
+
 
 static const int ROTATE_PREV_TIME = -2, ROTATE_PREV_ROTATION = -1;
 static const int ROTATE_ROTATION = 1;
@@ -256,6 +261,7 @@ void spRotateTimeline_setFrame (spRotateTimeline* self, int frameIndex, float ti
 	self->frames[frameIndex + ROTATE_ROTATION] = degrees;
 }
 
+
 static const int TRANSLATE_PREV_TIME = -3, TRANSLATE_PREV_X = -2, TRANSLATE_PREV_Y = -1;
 static const int TRANSLATE_X = 1, TRANSLATE_Y = 2;
 
@@ -302,6 +308,7 @@ void spTranslateTimeline_setFrame (spTranslateTimeline* self, int frameIndex, fl
 	self->frames[frameIndex + TRANSLATE_Y] = y;
 }
 
+
 void _spScaleTimeline_apply (const spTimeline* timeline, spSkeleton* skeleton, float lastTime, float time, spEvent** firedEvents,
 		int* eventsCount, float alpha) {
 	spBone *bone;
@@ -340,6 +347,7 @@ spScaleTimeline* spScaleTimeline_create (int framesCount) {
 void spScaleTimeline_setFrame (spScaleTimeline* self, int frameIndex, float time, float x, float y) {
 	spTranslateTimeline_setFrame(self, frameIndex, time, x, y);
 }
+
 
 void _spShearTimeline_apply (const spTimeline* timeline, spSkeleton* skeleton, float lastTime, float time, spEvent** firedEvents,
 							 int* eventsCount, float alpha) {
@@ -380,6 +388,7 @@ void spShearTimeline_setFrame (spShearTimeline* self, int frameIndex, float time
 	spTranslateTimeline_setFrame(self, frameIndex, time, x, y);
 }
 
+
 static const int COLOR_PREV_TIME = -5, COLOR_PREV_R = -4, COLOR_PREV_G = -3, COLOR_PREV_B = -2, COLOR_PREV_A = -1;
 static const int COLOR_R = 1, COLOR_G = 2, COLOR_B = 3, COLOR_A = 4;
 
@@ -400,7 +409,6 @@ void _spColorTimeline_apply (const spTimeline* timeline, spSkeleton* skeleton, f
 		b = self->frames[i + COLOR_PREV_B];
 		a = self->frames[i + COLOR_PREV_A];
 	} else {
-
 		frame = binarySearch(self->frames, self->framesCount, time, COLOR_ENTRIES);
 
 		r = self->frames[frame + COLOR_PREV_R];
@@ -447,6 +455,7 @@ void spColorTimeline_setFrame (spColorTimeline* self, int frameIndex, float time
 	self->frames[frameIndex + COLOR_B] = b;
 	self->frames[frameIndex + COLOR_A] = a;
 }
+
 
 void _spAttachmentTimeline_apply (const spTimeline* timeline, spSkeleton* skeleton, float lastTime, float time,
 		spEvent** firedEvents, int* eventsCount, float alpha) {
@@ -504,6 +513,7 @@ void spAttachmentTimeline_setFrame (spAttachmentTimeline* self, int frameIndex, 
 	else
 		self->attachmentNames[frameIndex] = 0;
 }
+
 
 void _spEventTimeline_apply (const spTimeline* timeline, spSkeleton* skeleton, float lastTime, float time, spEvent** firedEvents,
 		int* eventsCount, float alpha) {
@@ -565,6 +575,7 @@ void spEventTimeline_setFrame (spEventTimeline* self, int frameIndex, spEvent* e
 	FREE(self->events[frameIndex]);
 	self->events[frameIndex] = event;
 }
+
 
 void _spDrawOrderTimeline_apply (const spTimeline* timeline, spSkeleton* skeleton, float lastTime, float time,
 		spEvent** firedEvents, int* eventsCount, float alpha) {
@@ -631,6 +642,7 @@ void spDrawOrderTimeline_setFrame (spDrawOrderTimeline* self, int frameIndex, fl
 	}
 }
 
+
 void _spDeformTimeline_apply (const spTimeline* timeline, spSkeleton* skeleton, float lastTime, float time, spEvent** firedEvents,
 		int* eventsCount, float alpha) {
 	int frame, i, vertexCount;
@@ -668,7 +680,6 @@ void _spDeformTimeline_apply (const spTimeline* timeline, spSkeleton* skeleton, 
 	slot->attachmentVerticesCount = vertexCount;
 
 	if (time >= self->frames[self->framesCount - 1]) {
-
 		const float* lastVertices = self->frameVertices[self->framesCount - 1];
 		if (alpha < 1) {
 			for (i = 0; i < vertexCount; ++i)
@@ -736,6 +747,8 @@ void spDeformTimeline_setFrame (spDeformTimeline* self, int frameIndex, float ti
 		memcpy(CONST_CAST(float*, self->frameVertices[frameIndex]), vertices, self->frameVerticesCount * sizeof(float));
 	}
 }
+
+
 
 static const int IKCONSTRAINT_PREV_TIME = -3, IKCONSTRAINT_PREV_MIX = -2, IKCONSTRAINT_PREV_BEND_DIRECTION = -1;
 static const int IKCONSTRAINT_MIX = 1, IKCONSTRAINT_BEND_DIRECTION = 2;
@@ -842,6 +855,7 @@ void spTransformConstraintTimeline_setFrame (spTransformConstraintTimeline* self
 	self->frames[frameIndex + TRANSFORMCONSTRAINT_SHEAR] = shearMix;
 }
 
+
 static const int PATHCONSTRAINTPOSITION_PREV_TIME = -2;
 static const int PATHCONSTRAINTPOSITION_PREV_VALUE = -1;
 static const int PATHCONSTRAINTPOSITION_VALUE = 1;
@@ -927,6 +941,7 @@ void spPathConstraintSpacingTimeline_setFrame (spPathConstraintSpacingTimeline* 
 	self->frames[frameIndex] = time;
 	self->frames[frameIndex + PATHCONSTRAINTSPACING_VALUE] = value;
 }
+
 
 static const int PATHCONSTRAINTMIX_PREV_TIME = -3;
 static const int PATHCONSTRAINTMIX_PREV_ROTATE = -2;

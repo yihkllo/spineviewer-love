@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 
 #include "CubismNativeInclude_D3D11.hpp"
@@ -112,6 +114,7 @@ public:
 
     void Save();
 
+
     void Restore(ID3D11DeviceContext* renderContext);
 
     void SetBlend(ID3D11DeviceContext* renderContext, Blend blendState, DirectX::XMFLOAT4 blendFactor, UINT mask,
@@ -138,6 +141,7 @@ private:
     Stored  _stored;
 
     csmVector<Stored> _pushed;
+
 
     csmVector<ID3D11BlendState*>        _blendStateObjects;
     csmVector<ID3D11RasterizerState*>   _rasterizeStateObjects;

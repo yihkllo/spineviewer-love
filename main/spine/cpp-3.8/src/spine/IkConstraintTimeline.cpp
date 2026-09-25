@@ -1,3 +1,4 @@
+
 #ifdef SPINE_UE4
 #include "SpinePluginPrivatePCH.h"
 #endif
@@ -66,7 +67,6 @@ void IkConstraintTimeline::apply(Skeleton &skeleton, float lastTime, float time,
 	}
 
 	if (time >= _frames[_frames.size() - ENTRIES]) {
-
 		if (blend == MixBlend_Setup) {
 			constraint._mix =
 					constraint._data._mix + (_frames[_frames.size() + PREV_MIX] - constraint._data._mix) * alpha;

@@ -1,3 +1,4 @@
+
 #include <spine/SkeletonJson.h>
 #include <stdio.h>
 #include <locale.h>
@@ -337,17 +338,13 @@ static spAnimation* _spSkeletonJson_readAnimation (spSkeletonJson* self, Json* r
 						_spSkeletonJson_setError(self, 0, "Slot not found: ", Json_getString(offsetMap, "slot", 0));
 						return 0;
 					}
-
 					while (originalIndex != slotIndex)
 						unchanged[unchangedIndex++] = originalIndex++;
-
 					drawOrder[originalIndex + Json_getInt(offsetMap, "offset", 0)] = originalIndex;
 					originalIndex++;
 				}
-
 				while (originalIndex < skeletonData->slotsCount)
 					unchanged[unchangedIndex++] = originalIndex++;
-
 				for (ii = skeletonData->slotsCount - 1; ii >= 0; ii--)
 					if (drawOrder[ii] == -1) drawOrder[ii] = unchanged[--unchangedIndex];
 				FREE(unchanged);

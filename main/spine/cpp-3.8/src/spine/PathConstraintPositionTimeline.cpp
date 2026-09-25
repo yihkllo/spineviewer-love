@@ -1,3 +1,4 @@
+
 #ifdef SPINE_UE4
 #include "SpinePluginPrivatePCH.h"
 #endif
@@ -58,10 +59,8 @@ void PathConstraintPositionTimeline::apply(Skeleton &skeleton, float lastTime, f
 
 	float position;
 	if (time >= _frames[_frames.size() - ENTRIES]) {
-
 		position = _frames[_frames.size() + PREV_VALUE];
 	} else {
-
 		int frame = Animation::binarySearch(_frames, time, ENTRIES);
 		position = _frames[frame + PREV_VALUE];
 		float frameTime = _frames[frame];

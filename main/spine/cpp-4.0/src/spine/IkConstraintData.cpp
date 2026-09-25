@@ -1,3 +1,4 @@
+
 #ifdef SPINE_UE4
 #include "SpinePluginPrivatePCH.h"
 #endif
@@ -61,6 +62,7 @@ bool IkConstraintData::getCompress() {
 void IkConstraintData::setCompress(bool inValue) {
 	_compress = inValue;
 }
+
 
 bool IkConstraintData::getUniform() {
 	return _uniform;

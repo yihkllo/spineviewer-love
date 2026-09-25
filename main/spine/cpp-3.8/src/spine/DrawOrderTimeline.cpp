@@ -1,3 +1,4 @@
+
 #ifdef SPINE_UE4
 #include "SpinePluginPrivatePCH.h"
 #endif
@@ -59,7 +60,6 @@ void DrawOrderTimeline::apply(Skeleton &skeleton, float lastTime, float time, Ve
 
 	size_t frame;
 	if (time >= _frames[_frames.size() - 1]) {
-
 		frame = _frames.size() - 1;
 	} else
 		frame = (size_t)Animation::binarySearch(_frames, time) - 1;

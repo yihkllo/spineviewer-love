@@ -1,8 +1,14 @@
-#include "live2d_bridge.h"
-#include "interaction_rules.h"
+#include "spinelove/live2d_bridge.h"
+#include "spinelove/interaction_rules.h"
 #include "petting_tracker.h"
 
+#include <QDir>
 #include <QElapsedTimer>
+#include <QFile>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <cstdio>
 #include <QFileInfo>
 #include <QJSValue>
 #include <QMutex>
@@ -18,6 +24,7 @@
 #if defined(Q_OS_WIN)
 #include "../../live2d/live2d_module.h"
 #include "../../render_d3d11/d3d11_renderer.h"
+#include "../../render_d3d11/d3d11_texture.h"
 #include <objbase.h>
 #include <wrl/client.h>
 #endif
@@ -26,7 +33,6 @@ namespace {
 struct Command { QString name; QVariant value; };
 constexpr std::array<const char*, 6> GazeKeys{"angleX", "angleY", "angleZ", "bodyX", "eyeX", "eyeY"};
 QVariant CommandData(const QVariant& value) {
-
     if (value.metaType() == QMetaType::fromType<QJSValue>())
         return CommandData(value.value<QJSValue>().toVariant(QJSValue::ConvertJSObjects));
     switch (value.typeId()) {
@@ -71,6 +77,8 @@ struct Live2DBridge::Impl {
     QString lastManifest;
     QElapsedTimer publishClock;
     quint64 revision = 0;
+    quint64 publishedRevision = 0;
+    QVariantList nativeHitResults;
     QVariant exportAckId;
     bool exportRequestSuccess = false;
     QString exportError;
@@ -115,6 +123,7 @@ struct Live2DBridge::Impl {
     }
 
     bool open(const QString& path) {
+        nativeHitResults.clear();
         recovery = {};
         stopQueue();
         petting.reset();
@@ -206,8 +215,9 @@ struct Live2DBridge::Impl {
         const QVariantMap map = value.toMap();
         const QString key = map.value("key").toString();
         if (name == "live2d.open" || name == "file.play") { open(value.toString()); return; }
-        if (name == "live2d.clear") { stopQueue(); queue.clear(); petting.reset(); recovery = {}; module.Clear(); lastManifest.clear(); return; }
+        if (name == "live2d.clear") { stopQueue(); queue.clear(); petting.reset(); recovery = {}; nativeHitResults.clear(); module.Clear(); lastManifest.clear(); return; }
         if (name == "live2d.suspend") { stopQueue(); module.EndDrag(); petting.reset(); return; }
+        if (name == "live2d.pausePreview") { module.StopVoice(); module.EndDrag(); petting.reset(); return; }
         if (name == "view.scale") module.SetModelScale(Number(value, 1));
         else if (name == "view.zoom") {
             bool validSteps = false;
@@ -243,10 +253,50 @@ struct Live2DBridge::Impl {
             if (petting.update(area.startsWith("head", Qt::CaseInsensitive), map.value("dragging").toBool(),
                 Number(map.value("screenX")), Number(map.value("screenY")), nowMs)) module.PlayRandomExpression();
         }
+        else if(name=="native.raycast"){
+            std::vector<live2d::NativeHitCandidate> candidates;
+            for(const auto& value:map.value("candidates").toList()){const auto row=value.toMap();live2d::NativeHitCandidate item;item.drawableId=row.value("drawableId").toString().toStdString();item.index=row.value("index",row.value("drawableIndex",-1)).toInt();item.precision=row.value("precision").toInt();item.partType=row.value("partType").toInt();item.enabled=row.value("enabled",true).toBool();candidates.push_back(std::move(item));}
+            QVariantList hits;for(const auto& hit:module.NativeRaycast(Number(map.value("x")),Number(map.value("y")),candidates))hits.append(QVariantMap{{"drawableId",QString::fromStdString(hit.drawableId)},{"index",hit.index},{"partType",hit.partType}});
+            nativeHitResults.append(QVariantMap{{"token",map.value("token")},{"epoch",map.value("epoch")},{"hits",hits}});while(nativeHitResults.size()>64)nativeHitResults.removeFirst();
+        }
         else if (name == "live2d.tap") { stopQueue(); module.TapAt(Number(map.value("x")), Number(map.value("y"))); }
         else if (name == "animation.play") {
             const int index = Index(value, module.MotionNames().size());
             if (index >= 0 && !module.ExportSessionActive()) { stopQueue(); module.PlayMotion(index); }
+        }
+        else if (name == "animation.native") {
+            const auto motion = map.value("name").toString().toUtf8().toStdString();
+            const auto& names = module.MotionNames();
+            const auto found = std::find_if(names.begin(), names.end(), [&motion](const std::string& name){
+                return name == motion || name.rfind(motion + " / ", 0) == 0;
+            });
+            if (found != names.end()) {
+                stopQueue(); const auto index = std::size_t(found - names.begin());
+                module.SetLoopAll(map.value("loop", true).toBool());
+                module.PlayNativeMotion(index,map.value("loop",true).toBool(),map.value("mix").toDouble(),map.value("time",-1).toDouble());
+            }
+        }
+        else if(name=="animation.nativeTime")module.SeekNativeMotion(value.toDouble());
+        else if(name=="animation.nativeLayers"){
+            std::vector<std::string> names;for(const auto& v:value.toList())names.push_back(v.toString().toUtf8().toStdString());stopQueue();module.SetNativeLayers(names);
+        }
+        else if(name=="animation.nativeLayerStates"){
+            std::vector<live2d::NativeLayerState> layers;std::unordered_map<std::string,float> overrides,parts;
+            for(const auto& value:map.value("layers").toList()){
+                const auto row=value.toMap();live2d::NativeLayerState layer;
+                layer.name=row.value("name").toString().toStdString();layer.previousName=row.value("previousName").toString().toStdString();
+                layer.time=row.value("time").toDouble();layer.previousTime=row.value("previousTime").toDouble();
+                layer.weight=Number(row.value("weight"),1);layer.mixWeight=Number(row.value("mixWeight"),1);
+                layer.loop=row.value("loop",true).toBool();layer.previousLoop=row.value("previousLoop",true).toBool();
+                layer.writeDefaults=row.value("writeDefaults",true).toBool();layer.previousWriteDefaults=row.value("previousWriteDefaults",true).toBool();
+                layers.push_back(std::move(layer));
+            }
+            const auto values=map.value("overrides").toMap();for(auto it=values.cbegin();it!=values.cend();++it)overrides[it.key().toStdString()]=Number(it.value());
+            const auto partValues=map.value("parts").toMap();for(auto it=partValues.cbegin();it!=partValues.cend();++it)parts[it.key().toStdString()]=Number(it.value());
+            stopQueue();module.SetNativeLayerStates(layers,overrides,parts);
+        }
+        else if(name=="view.nativeMatrix"){
+            const auto v=value.toList();if(v.size()==6){std::array<float,6> matrix;for(int i=0;i<6;++i)matrix[i]=Number(v[i]);module.SetSceneTransform(matrix);}
         }
         else if (name == "animation.step") {
             bool valid = false;
@@ -290,7 +340,6 @@ struct Live2DBridge::Impl {
             else if (key == "lipSync") effects.lipSync = enabled;
             else if (key == "gazeFollow") {
                 effects.gazeFollow = enabled;
-
                 auto pose = module.GetGazePose(); pose.enabled = false; module.SetGazePose(pose);
             }
             module.SetEffects(effects);
@@ -408,6 +457,7 @@ struct Live2DBridge::Impl {
         capabilities.insert("queue.stop", queuePlaying && !module.ExportSessionActive());
         capabilities.insert("queue.clear", !queue.empty() && !module.ExportSessionActive());
         QVariantMap result{{"mode", "live2d"}, {"loaded", loaded}, {"backendAvailable", module.RenderingBackendAvailable()},
+            {"nativeHitResults",nativeHitResults},
             {"exportAckId", exportAckId}, {"exportRequestId", exportAckId}, {"exportRequestSuccess", exportRequestSuccess},
             {"exportError", exportError}, {"exportFrameSerial", QVariant::fromValue(exportFrameSerial)},
             {"live2dRevision", QVariant::fromValue(++revision)}, {"live2dDeviceGeneration", QVariant::fromValue(deviceGeneration)},
@@ -417,7 +467,8 @@ struct Live2DBridge::Impl {
             {"loopAll", module.LoopAll()}, {"offsetX", module.ViewOffsetX()}, {"offsetY", module.ViewOffsetY()},
             {"canvasWidth", size.width()}, {"canvasHeight", size.height()}, {"animations", animationCatalog},
             {"currentAnimation", module.CurrentMotionIndex()}, {"expressions", expressionCatalog}, {"currentExpression", module.CurrentExpressionIndex()},
-            {"parts", parts}, {"parameters", parameters}, {"queue", queueRows}, {"queuePlaying", queuePlaying},
+            {"parts", parts}, {"parameters", parameters}, {"partCount", parts.size()}, {"parameterCount", parameters.size()},
+            {"queue", queueRows}, {"queuePlaying", queuePlaying},
             {"queueIndex", queuePlaying ? static_cast<int>(queueIndex) : 0}, {"queueExporting", module.ExportSessionActive()},
             {"effects", QVariantMap{{"eyeBlink", effects.eyeBlink}, {"breath", effects.breath}, {"physics", effects.physics},
                 {"lipSync", effects.lipSync}, {"gazeFollow", effects.gazeFollow}}},
@@ -429,10 +480,40 @@ struct Live2DBridge::Impl {
             result.insert("renderBounds", QVariantMap{{"x", bounds.x}, {"y", bounds.y}, {"width", bounds.width}, {"height", bounds.height}});
         QMutexLocker lock(&mutex);
         snapshot = std::move(result);
+        publishedRevision = revision;
     }
 #endif
 
     bool onRenderThread() const { return renderThread == QThread::currentThreadId(); }
+#if defined(Q_OS_WIN)
+    bool drawTarget(float advance, bool exporting, int width, int height, float centerOffsetX, float centerOffsetY) {
+        if (size != QSize(width, height) || !target) {
+            if (target) textures->ReleaseTexture(target);
+            target = textures->CreateRenderTarget(width, height);
+            size = target ? QSize(width, height) : QSize{};
+        }
+        if (!target) { error = "Unable to allocate the Live2D render target."; return false; }
+        Microsoft::WRL::ComPtr<ID3D11RenderTargetView> previousTarget;
+        Microsoft::WRL::ComPtr<ID3D11DepthStencilView> previousDepth;
+        context->OMGetRenderTargets(1, &previousTarget, &previousDepth);
+        D3D11_VIEWPORT previousViewports[D3D11_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE]{};
+        UINT count = D3D11_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE;
+        context->RSGetViewports(&count, previousViewports);
+        float remaining = advance;
+        bool ok = true;
+        do {
+            const float step = exporting ? (std::min)(0.1f, remaining) : remaining;
+            const bool bound = textures->BeginRenderTarget(target, SlVec4(0, 0, 0, 0));
+            ok = bound && module.TickAndRender(step, width, height, centerOffsetX, centerOffsetY, true);
+            remaining = exporting ? remaining - step : 0;
+        } while (ok && remaining > 0.000001f);
+        textures->EndFrame();
+        ID3D11RenderTargetView* previous = previousTarget.Get();
+        context->OMSetRenderTargets(1, &previous, previousDepth.Get());
+        if (count) context->RSSetViewports(count, previousViewports);
+        return ok;
+    }
+#endif
 };
 
 Live2DBridge::Live2DBridge() : m(std::make_unique<Impl>()) {}
@@ -441,9 +522,8 @@ Live2DBridge::~Live2DBridge() { shutdown(); }
 void Live2DBridge::command(const QString& name, const QVariant& value) {
     QVariant data = CommandData(value);
     QMutexLocker lock(&m->mutex);
-
     const bool continuous = name == "live2d.gaze" || name == "live2d.gazePose" || name == "live2d.drag"
-        || name == "live2d.parameterValue" || name == "live2d.partValue";
+        || name == "live2d.parameterValue" || name == "live2d.partValue" || name == "animation.nativeLayerStates";
     if (!m->pending.empty() && continuous) {
         Command& last = m->pending.back();
         const bool sameGazeKey = (name != "live2d.gaze" && name != "live2d.gazePose")
@@ -455,10 +535,23 @@ void Live2DBridge::command(const QString& name, const QVariant& value) {
             return;
         }
     }
-
     m->pending.push_back({name, std::move(data)});
 }
 QVariantMap Live2DBridge::state() const { QMutexLocker lock(&m->mutex); return m->snapshot; }
+quint64 Live2DBridge::revision() const { QMutexLocker lock(&m->mutex); return m->publishedRevision; }
+
+void Live2DBridge::prefetchTextures(const QString& manifestPath) {
+#if defined(Q_OS_WIN)
+    QFile file(manifestPath);
+    if (!file.open(QIODevice::ReadOnly)) return;
+    const auto textures = QJsonDocument::fromJson(file.readAll()).object().value("FileReferences").toObject().value("Textures").toArray();
+    const QDir directory = QFileInfo(manifestPath).absoluteDir();
+    for (const auto& texture : textures)
+        if (!texture.toString().isEmpty()) sl_d3d11::PrefetchTexturePixels(QDir::toNativeSeparators(directory.filePath(texture.toString())).toStdWString().c_str());
+#else
+    Q_UNUSED(manifestPath);
+#endif
+}
 
 bool Live2DBridge::initialize(ID3D11Device* device, ID3D11DeviceContext* context, const QString& shaderPath) {
 #if defined(Q_OS_WIN)
@@ -481,7 +574,6 @@ bool Live2DBridge::initialize(ID3D11Device* device, ID3D11DeviceContext* context
         m->error = QString::fromUtf8(m->module.LastError().c_str()); m->publish(true); return false;
     }
     m->error.clear();
-
     ++m->deviceGeneration;
     if (m->recovery.valid) m->restoreAfterDeviceRecovery();
     else if (!m->lastManifest.isEmpty()) m->open(m->lastManifest);
@@ -521,7 +613,6 @@ bool Live2DBridge::render(float deltaSeconds, int width, int height, float cente
     const bool sessionAtEntry = m->module.ExportSessionActive();
     {
         QMutexLocker lock(&m->mutex);
-
         while (!m->pending.empty()) {
             auto next = m->pending.begin();
             if (sessionAtEntry) {
@@ -543,14 +634,12 @@ bool Live2DBridge::render(float deltaSeconds, int width, int height, float cente
         if (!command.name.startsWith("export.")) { m->apply(command); continue; }
         const auto data = command.value.toMap();
         const auto id = data.value("requestId");
-
         if (id.isValid() && id == m->exportAckId && command.name == m->acknowledgedExportCommand) continue;
         transaction = true; transactionId = id; transactionName = command.name;
         if (!id.isValid() || id.isNull()) { transactionError = "Export requestId is required."; continue; }
         const auto motionValue = data.contains("motionIndex") ? data.value("motionIndex") : data.value("motion");
         const int index = Index(motionValue, m->module.MotionNames().size());
         if (command.name == "export.sync") {
-
             transactionSuccess = true;
         } else if (command.name == "export.begin") {
             const float fps = Number(data.value("fps"), -1);
@@ -584,36 +673,13 @@ bool Live2DBridge::render(float deltaSeconds, int width, int height, float cente
         acknowledge(false); m->publish(!commands.empty()); return false;
     }
     if (m->module.ExportSessionActive() && !transactionNeedsFrame && !m->forceExportFrame && m->target) {
-
         acknowledge(true); m->publish(!commands.empty()); return true;
     }
-    if (m->size != QSize(width, height) || !m->target) {
-        if (m->target) m->textures->ReleaseTexture(m->target);
-        m->target = m->textures->CreateRenderTarget(width, height);
-        m->size = m->target ? QSize(width, height) : QSize{};
-    }
-    if (!m->target) { m->error = "Unable to allocate the Live2D render target."; acknowledge(false); m->publish(true); return false; }
-    Microsoft::WRL::ComPtr<ID3D11RenderTargetView> previousTarget;
-    Microsoft::WRL::ComPtr<ID3D11DepthStencilView> previousDepth;
-    m->context->OMGetRenderTargets(1, &previousTarget, &previousDepth);
-    D3D11_VIEWPORT previousViewports[D3D11_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE]{};
-    UINT count = D3D11_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE;
-    m->context->RSGetViewports(&count, previousViewports);
     const bool exporting = m->module.ExportSessionActive();
-    float remaining = exporting || sessionAtEntry || transaction ? fixedDelta
+    const float advance = exporting || sessionAtEntry || transaction ? fixedDelta
         : (std::isfinite(deltaSeconds) ? (std::max)(0.0f, deltaSeconds) : 0.0f);
-    bool ok = true;
-    do {
-
-        const float step = exporting ? (std::min)(0.1f, remaining) : remaining;
-        const bool bound = m->textures->BeginRenderTarget(m->target, SlVec4(0, 0, 0, 0));
-        ok = bound && m->module.TickAndRender(step, width, height, centerOffsetX, centerOffsetY, true);
-        remaining = exporting ? remaining - step : 0;
-    } while (ok && remaining > 0.000001f);
-    m->textures->EndFrame();
-    ID3D11RenderTargetView* previous = previousTarget.Get();
-    m->context->OMSetRenderTargets(1, &previous, previousDepth.Get());
-    if (count) m->context->RSSetViewports(count, previousViewports);
+    const bool ok = m->drawTarget(advance, exporting, width, height, centerOffsetX, centerOffsetY);
+    if (!m->target) { acknowledge(false); m->publish(true); return false; }
     m->advanceQueue();
     if (ok && exporting) m->forceExportFrame = false;
     acknowledge(ok);
@@ -640,7 +706,6 @@ QSize Live2DBridge::textureSize() const noexcept { return m->size; }
 
 void Live2DBridge::shutdown() {
 #if defined(Q_OS_WIN)
-
     Q_ASSERT(!m->renderThread || m->onRenderThread());
     m->rememberForDeviceRecovery();
     m->module.Shutdown();
@@ -659,7 +724,6 @@ bool Live2DBridge::beginExportSession(int motionIndex, float fps) {
 #if defined(Q_OS_WIN)
     if (!m->onRenderThread() || motionIndex < 0 || static_cast<std::size_t>(motionIndex) >= m->module.MotionNames().size() || !std::isfinite(fps) || fps <= 0) return false;
     if (m->module.ExportSessionActive()) return false;
-
     m->stopQueue();
     if (!m->module.BeginExportSession(static_cast<std::size_t>(motionIndex), (std::max)(10.0f, fps))) return false;
     m->queuePlaying = false;
@@ -677,6 +741,22 @@ bool Live2DBridge::exportSessionSwitchMotion(int motionIndex) {
     return ok;
 #else
     Q_UNUSED(motionIndex); return false;
+#endif
+}
+bool Live2DBridge::renderExportFrame(int motionIndex, bool advance, float advanceSeconds, int width, int height,
+                                     float centerOffsetX, float centerOffsetY) {
+#if defined(Q_OS_WIN)
+    if (!m->onRenderThread() || !m->module.RenderingBackendAvailable() || !m->module.ExportSessionActive()
+        || !m->module.HasImportedModel() || width <= 0 || height <= 0) return false;
+    if (motionIndex >= 0 && !exportSessionSwitchMotion(motionIndex)) return false;
+    if (!std::isfinite(advanceSeconds) || advanceSeconds < 0 || advanceSeconds > 1) return false;
+    if (!advance && !m->forceExportFrame && m->target && m->size == QSize(width, height)) return true;
+    const bool ok = m->drawTarget(advance ? advanceSeconds : 0.0f, true, width, height, centerOffsetX, centerOffsetY);
+    if (ok) { m->forceExportFrame = false; ++m->exportFrameSerial; }
+    return ok;
+#else
+    Q_UNUSED(motionIndex); Q_UNUSED(advance); Q_UNUSED(advanceSeconds); Q_UNUSED(width); Q_UNUSED(height);
+    Q_UNUSED(centerOffsetX); Q_UNUSED(centerOffsetY); return false;
 #endif
 }
 void Live2DBridge::endExportSession() {

@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 
 #include <MetalKit/MetalKit.h>
@@ -14,7 +16,6 @@ class CubismRenderer_Metal;
 class CubismShader_Metal
 {
 public:
-
     static CubismShader_Metal* GetInstance();
 
     static void DeleteInstance();

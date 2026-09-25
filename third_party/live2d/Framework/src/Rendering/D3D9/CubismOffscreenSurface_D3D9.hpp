@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 
 #include "CubismNativeInclude_D3D9.hpp"
@@ -5,6 +7,7 @@
 #include "Math/CubismMatrix44.hpp"
 
 namespace Live2D { namespace Cubism { namespace Framework { namespace Rendering {
+
 
 class CubismOffscreenSurface_D3D9
 {
@@ -42,4 +45,6 @@ private:
     csmUint32           _bufferHeight;
 };
 
+
 }}}}
+

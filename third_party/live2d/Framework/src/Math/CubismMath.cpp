@@ -1,3 +1,5 @@
+﻿
+
 #include "CubismMath.hpp"
 #include "Utils/CubismDebug.hpp"
 
@@ -118,6 +120,7 @@ csmFloat32 CubismMath::CardanoAlgorithmForBezier(csmFloat32 a, csmFloat32 b, csm
     csmFloat32 ba = b / a;
     csmFloat32 ca = c / a;
     csmFloat32 da = d / a;
+
 
     csmFloat32 p = (3.0f * ca - ba*ba) / 3.0f;
     csmFloat32 p3 = p / 3.0f;

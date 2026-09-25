@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 
 #include "CubismNativeInclude_D3D11.hpp"
@@ -10,7 +12,6 @@
 namespace Live2D { namespace Cubism { namespace Framework {
     enum ShaderNames
     {
-
         ShaderNames_SetupMask,
 
         ShaderNames_Normal,

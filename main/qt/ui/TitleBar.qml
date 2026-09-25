@@ -52,7 +52,6 @@ Rectangle {
         anchors.verticalCenter: parent.verticalCenter
         text: bar.shell.read("currentFileName", "")
         textFormat: Text.PlainText
-
         font.pixelSize: Math.max(1, nominalPixelSize * fittedScale)
         color: bar.theme.subtitle
     }

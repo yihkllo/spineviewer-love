@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 
 #include "csmString.hpp"
@@ -10,11 +12,11 @@
 
 namespace Live2D { namespace Cubism { namespace Framework {
 
+
 template<class T>
 class csmVector
 {
 public:
-
     csmVector();
 
     csmVector(csmInt32 initialCapacity, csmBool zeroClear = false);
@@ -74,11 +76,9 @@ public:
 
     class iterator
     {
-
         friend class csmVector;
 
     public:
-
         iterator() : _index(0)
                    , _vector(NULL) {}
 
@@ -137,11 +137,9 @@ public:
 
     class const_iterator
     {
-
         friend class csmVector;
 
     public:
-
         const_iterator() : _index(0)
                          , _vector(NULL) {}
 
@@ -150,7 +148,6 @@ public:
 
         const_iterator(const csmVector<T>* v, csmInt32 idx) : _index(idx)
                                                             , _vector(v) {}
-
         const_iterator& operator=(const const_iterator& ite)
         {
             this->_index = ite._index;
@@ -296,6 +293,7 @@ private:
     csmInt32 _capacity;
 };
 
+
 template<class T>
 csmVector<T>::csmVector()
     : _ptr(NULL)
@@ -416,7 +414,6 @@ void csmVector<T>::UpdateSize(csmInt32 newSize, T value, csmBool callPlacementNe
         {
             for (csmInt32 i = _size; i < newSize; i++)
             {
-
                 CSM_PLACEMENT_NEW(&_ptr[i]) T(value);
             }
         }
@@ -430,7 +427,6 @@ void csmVector<T>::UpdateSize(csmInt32 newSize, T value, csmBool callPlacementNe
     }
     else
     {
-
         for (csmInt32 i = newSize; i < _size; i++)
         {
             _ptr[i].~T();
@@ -506,3 +502,4 @@ void csmVector<T>::Insert(iterator position, iterator begin, iterator end, csmBo
     this->_size = _size + addcount;
 }
 }}}
+

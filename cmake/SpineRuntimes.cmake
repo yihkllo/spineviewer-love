@@ -2,7 +2,7 @@ include_guard(GLOBAL)
 
 function(sl_spine_common target)
     target_compile_features(${target} PUBLIC cxx_std_17)
-    target_include_directories(${target} PUBLIC "${PROJECT_SOURCE_DIR}/main/runtime_v2")
+    target_include_directories(${target} PUBLIC "${PROJECT_SOURCE_DIR}/main/runtime_v2" "${PROJECT_SOURCE_DIR}/sdk/include")
     set_target_properties(${target} PROPERTIES POSITION_INDEPENDENT_CODE ON)
     if(MSVC)
         target_compile_options(${target} PRIVATE /utf-8)

@@ -1,3 +1,5 @@
+﻿
+
 #include "csmRectF.hpp"
 
 namespace Live2D { namespace Cubism { namespace Framework {

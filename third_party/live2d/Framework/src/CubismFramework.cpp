@@ -1,3 +1,5 @@
+﻿
+
 #include "CubismFramework.hpp"
 #include "Utils/CubismDebug.hpp"
 #include "Utils/CubismJson.hpp"
@@ -9,6 +11,7 @@
 #include <vector>
 
 #endif
+
 
 namespace Live2D { namespace Cubism { namespace Framework {
 
@@ -175,7 +178,6 @@ csmBool CubismFramework::IsInitialized()
 
 void CubismFramework::CoreLogFunction(const csmChar* message)
 {
-
     if (!Core::csmGetLogFunction())
     {
         return;

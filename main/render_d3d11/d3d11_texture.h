@@ -16,6 +16,7 @@ struct D3D11Texture
 };
 
 bool LoadTextureFromFile(ID3D11Device* device, const wchar_t* path, D3D11Texture& outTexture, bool premultiplyAlpha = false, std::string* outError = nullptr, bool generateMips = false);
+bool PrefetchTexturePixels(const wchar_t* path);
 bool CreateSolidTexture(ID3D11Device* device, unsigned char r, unsigned char g, unsigned char b, unsigned char a, D3D11Texture& outTexture);
 
 }

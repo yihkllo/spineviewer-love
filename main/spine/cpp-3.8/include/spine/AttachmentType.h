@@ -1,3 +1,4 @@
+
 #ifndef Spine_AttachmentType_h
 #define Spine_AttachmentType_h
 

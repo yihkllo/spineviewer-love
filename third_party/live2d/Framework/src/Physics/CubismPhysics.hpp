@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 
 #include "Math/CubismVector2.hpp"
@@ -11,7 +13,6 @@ struct CubismPhysicsRig;
 class CubismPhysics
 {
 public:
-
     struct Options
     {
         CubismVector2 Gravity;
@@ -38,7 +39,6 @@ public:
     const Options& GetOptions() const;
 
 private:
-
     CubismPhysics();
 
     virtual ~CubismPhysics();

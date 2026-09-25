@@ -1,3 +1,4 @@
+
 #ifndef Spine_InheritTimeline_h
 #define Spine_InheritTimeline_h
 

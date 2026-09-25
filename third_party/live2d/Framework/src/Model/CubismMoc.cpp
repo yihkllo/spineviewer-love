@@ -1,3 +1,5 @@
+﻿
+
 #include "CubismMoc.hpp"
 #include "CubismModel.hpp"
 
@@ -12,7 +14,6 @@ CubismMoc* CubismMoc::Create(const csmByte* mocBytes, csmSizeInt size, csmBool s
 
     if (shouldCheckMocConsistency)
     {
-
         csmBool consistency = HasMocConsistency(alignedBuffer, size);
         if (!consistency)
         {

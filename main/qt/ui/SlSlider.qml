@@ -14,7 +14,6 @@ Slider {
     property bool draftEdited: false
     signal valueEdited(real newValue)
     onMoved: {
-
         if (localDraft) control.value = control.value;
         valueEdited(value);
     }
@@ -34,7 +33,6 @@ Slider {
         if (commit && draftEdited && Number.isFinite(parsed)) {
             const bounded = Math.max(from, Math.min(to, parsed));
             const submitted = stepSize > 0 ? Math.max(from, Math.min(to, from + Math.round((bounded - from) / stepSize) * stepSize)) : bounded;
-
             if (localDraft) control.value = submitted;
             valueEdited(submitted);
         }
@@ -78,7 +76,6 @@ Slider {
         visible: !control.directEditing
         clip: true
     }
-
     MouseArea {
         anchors.fill: parent
         acceptedButtons: Qt.LeftButton

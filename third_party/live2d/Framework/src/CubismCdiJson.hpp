@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 
 #include "CubismJsonHolder.hpp"
@@ -8,7 +10,6 @@ namespace Live2D {  namespace Cubism {  namespace Framework {
 class CubismCdiJson : public CubismJsonHolder
 {
 public:
-
     CubismCdiJson(const csmByte* buffer, csmSizeInt size);
 
     virtual ~CubismCdiJson();
@@ -35,8 +36,8 @@ public:
 
     const csmChar* GetPartsName(csmInt32 index);
 
-private:
 
+private:
     csmBool IsExistParameters() const;
 
     csmBool IsExistParameterGroups() const;

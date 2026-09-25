@@ -1,13 +1,13 @@
+﻿
+
 #pragma once
 
 #include "Utils/CubismJson.hpp"
 
 namespace Live2D { namespace Cubism { namespace Framework {
-
     class CubismJsonHolder
     {
     public:
-
         CubismJsonHolder()
             : _json(NULL)
         { }

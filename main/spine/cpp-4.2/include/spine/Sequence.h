@@ -1,3 +1,4 @@
+
 #ifndef Spine_Sequence_h
 #define Spine_Sequence_h
 

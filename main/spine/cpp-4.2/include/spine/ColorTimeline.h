@@ -1,3 +1,4 @@
+
 #ifndef Spine_ColorTimeline_h
 #define Spine_ColorTimeline_h
 

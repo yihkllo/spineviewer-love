@@ -1,3 +1,4 @@
+
 #ifdef SPINE_UE4
 #include "SpinePluginPrivatePCH.h"
 #endif
@@ -194,6 +195,7 @@ const String &SkeletonData::getImagesPath() {
 void SkeletonData::setImagesPath(const String &inValue) {
 	_imagesPath = inValue;
 }
+
 
 const String &SkeletonData::getAudioPath() {
 	return _audioPath;

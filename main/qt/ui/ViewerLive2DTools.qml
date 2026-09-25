@@ -65,17 +65,19 @@ Column {
     SlSection {
         id: partsSection
         width: parent.width; metrics: tools.shell.metrics; theme: tools.shell.theme
-        title: qsTr("Parts"); visible: tools.shell.read("parts", []).length > 0
+        title: qsTr("Parts")
+        visible: (tools.shell.read("partCount", -1) >= 0 ? tools.shell.read("partCount", 0) : tools.shell.read("parts", []).length) > 0
         ViewerLive2DValues { width: parent.width; shell: tools.shell; parts: true; syncEnabled: partsSection.expanded }
     }
     SlSection {
         id: gazeSection
         width: parent.width; metrics: tools.shell.metrics; theme: tools.shell.theme
         title: qsTr("Gaze##live2d").split("##")[0]; expanded: false
-        ViewerLive2DGaze { width: parent.width; shell: tools.shell }
+        ViewerLive2DGaze { width: parent.width; shell: tools.shell; active: gazeSection.expanded }
     }
     SlSection {
         id: parametersSection
+        objectName: "live2dParametersSection"
         width: parent.width; metrics: tools.shell.metrics; theme: tools.shell.theme
         title: qsTr("Parameters##live2d").split("##")[0]; expanded: false
         SlLabel { width: parent.width; metrics: tools.shell.metrics; theme: tools.shell.theme; lineHeight: metrics.detailFont; text: qsTr("Offset: (%.0f, %.0f)").replace("%.0f", Number(tools.shell.read("offsetX", 0)).toFixed(0)).replace("%.0f", Number(tools.shell.read("offsetY", 0)).toFixed(0)) }

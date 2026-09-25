@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 
 #include "CubismFramework.hpp"
@@ -32,6 +34,7 @@
 #endif
 
 namespace Live2D { namespace Cubism { namespace Framework { namespace Rendering {
+
 
 class CubismOffscreenSurface_Cocos2dx
 {
@@ -72,4 +75,6 @@ private:
     csmRectF _viewPortSize;
 };
 
+
 }}}}
+

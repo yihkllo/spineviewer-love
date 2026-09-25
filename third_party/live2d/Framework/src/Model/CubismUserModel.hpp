@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 
 #include "Effect/CubismPose.hpp"
@@ -19,7 +21,6 @@ namespace Live2D { namespace Cubism { namespace Framework {
 class CubismUserModel
 {
 public:
-
     CubismUserModel();
 
     virtual ~CubismUserModel();

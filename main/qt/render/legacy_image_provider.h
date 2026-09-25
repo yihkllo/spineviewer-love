@@ -1,9 +1,8 @@
 #pragma once
-#include "texture_loader.h"
+#include "spinelove/texture_loader.h"
 #include <QQuickImageProvider>
 
 namespace slqt {
-
 class LegacyImageProvider final : public QQuickImageProvider {
 public:
     LegacyImageProvider():QQuickImageProvider(QQuickImageProvider::Image){}

@@ -1,3 +1,4 @@
+
 #ifndef SPINE_STRING_H
 #define SPINE_STRING_H
 
@@ -212,5 +213,6 @@ namespace spine {
 		mutable bool _tempowner;
 	};
 }
+
 
 #endif

@@ -1,3 +1,5 @@
+﻿
+
 #include "CubismMotionJson.hpp"
 #include "Id/CubismId.hpp"
 #include "Id/CubismIdManager.hpp"
@@ -5,7 +7,6 @@
 namespace Live2D { namespace Cubism { namespace Framework {
 
 namespace {
-
 const csmChar* Meta = "Meta";
 const csmChar* Duration = "Duration";
 const csmChar* Loop = "Loop";

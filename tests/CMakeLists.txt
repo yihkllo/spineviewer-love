@@ -1,0 +1,17 @@
+if(TARGET spinelove_sdk)
+    get_target_property(SPINELOVE_SDK_BINARY_DIR spinelove_sdk BINARY_DIR)
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${SPINELOVE_SDK_BINARY_DIR}")
+endif()
+
+function(spinelove_test_target target)
+    if(MSVC)
+        target_compile_options(${target} PRIVATE /utf-8)
+    endif()
+endfunction()
+
+set(CMAKE_AUTOMOC ON)
+add_subdirectory(runtime)
+if(TARGET spinelove_qt_controller)
+    add_subdirectory(app)
+    add_subdirectory(qml)
+endif()

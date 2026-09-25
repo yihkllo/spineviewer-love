@@ -1,3 +1,4 @@
+
 #pragma once
 
 #include <MetalKit/MetalKit.h>
@@ -31,7 +32,6 @@ class CubismClippingContext_Metal : public CubismClippingContext
     friend class CubismRenderer_Metal;
 
 public:
-
     CubismClippingContext_Metal(CubismClippingManager<CubismClippingContext_Metal, CubismOffscreenSurface_Metal>* manager, CubismModel& model, const csmInt32* clippingDrawableIndices, csmInt32 clipCount);
 
     virtual ~CubismClippingContext_Metal();
@@ -48,7 +48,6 @@ class CubismRendererProfile_Metal
     friend class CubismRenderer_Metal;
 
 private:
-
     CubismRendererProfile_Metal() {};
 
     virtual ~CubismRendererProfile_Metal() {};
@@ -97,7 +96,6 @@ public:
     }
 
 protected:
-
     CubismRenderer_Metal();
 
     virtual ~CubismRenderer_Metal();

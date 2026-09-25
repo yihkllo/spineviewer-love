@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 
 #include "Type/csmString.hpp"
@@ -18,7 +20,6 @@ struct CubismId
     csmBool operator!=(const CubismId& c) const;
 
 private:
-
     CubismId();
 
     CubismId(const csmChar* id);

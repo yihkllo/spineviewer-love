@@ -1,10 +1,13 @@
-#ifndef _DEFAULT_SOURCE
 
+
+
+
+
+#ifndef _DEFAULT_SOURCE
 #define _DEFAULT_SOURCE
 #endif
 
 #ifndef _BSD_SOURCE
-
 #define _BSD_SOURCE
 #endif
 
@@ -121,7 +124,6 @@ Json::~Json() {
 
 const char *Json::skip(const char *inValue) {
 	if (!inValue) {
-
 		return NULL;
 	}
 
@@ -133,10 +135,8 @@ const char *Json::skip(const char *inValue) {
 }
 
 const char *Json::parseValue(Json *item, const char *value) {
-
 #ifdef SPINE_JSON_DEBUG
 	if (!value) {
-
 		return NULL;
 	}
 #endif
@@ -152,7 +152,6 @@ const char *Json::parseValue(Json *item, const char *value) {
 		case 'f': {
 			if (!strncmp(value + 1, "alse", 4)) {
 				item->_type = JSON_FALSE;
-
 				return value + 5;
 			}
 			break;
@@ -200,7 +199,6 @@ const char *Json::parseString(Json *item, const char *str) {
 	int len = 0;
 	unsigned uc, uc2;
 	if (*str != '\"') {
-
 		_error = str;
 		return 0;
 	}
@@ -240,7 +238,6 @@ const char *Json::parseString(Json *item, const char *str) {
 					*ptr2++ = '\t';
 					break;
 				case 'u': {
-
 					sscanf(ptr + 1, "%4x", &uc);
 					ptr += 4;
 
@@ -274,15 +271,12 @@ const char *Json::parseString(Json *item, const char *str) {
 						case 4:
 							*--ptr2 = ((uc | 0x80) & 0xBF);
 							uc >>= 6;
-
 						case 3:
 							*--ptr2 = ((uc | 0x80) & 0xBF);
 							uc >>= 6;
-
 						case 2:
 							*--ptr2 = ((uc | 0x80) & 0xBF);
 							uc >>= 6;
-
 						case 1:
 							*--ptr2 = (uc | firstByteMark[len]);
 					}
@@ -366,13 +360,11 @@ const char *Json::parseNumber(Json *item, const char *num) {
 	}
 
 	if (ptr != num) {
-
 		item->_valueFloat = (float) result;
 		item->_valueInt = (int) result;
 		item->_type = JSON_NUMBER;
 		return ptr;
 	} else {
-
 		_error = num;
 		return NULL;
 	}
@@ -509,7 +501,6 @@ const char *Json::parseObject(Json *item, const char *value) {
 }
 
 int Json::json_strcasecmp(const char *s1, const char *s2) {
-
 	if (s1 && s2) {
 #if defined(_WIN32)
 		return _stricmp(s1, s2);

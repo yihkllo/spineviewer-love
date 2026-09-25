@@ -53,7 +53,6 @@ Column {
                     text: qsTr("Reset")
                     enabled: playback.shell.can(group.modelData.key)
                     onClicked: {
-
                         if (group.modelData.state === "scale" && playback.shell.live2d) playback.shell.send("view.reset", null);
                         else playback.shell.send(group.modelData.key, group.modelData.reset);
                     }

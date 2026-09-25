@@ -1,3 +1,5 @@
+﻿
+
 #include "CubismOffscreenSurface_D3D9.hpp"
 
 #include "CubismRenderer_D3D9.hpp"
@@ -16,6 +18,7 @@ CubismOffscreenSurface_D3D9::CubismOffscreenSurface_D3D9()
 {
 }
 
+
 void CubismOffscreenSurface_D3D9::BeginDraw(LPDIRECT3DDEVICE9 device)
 {
     if(_depthSurface==NULL || _texture==NULL)
@@ -31,14 +34,13 @@ void CubismOffscreenSurface_D3D9::BeginDraw(LPDIRECT3DDEVICE9 device)
     _backupDepth = NULL;
 
     device->GetRenderTarget(0, &_backupRender);
-
     device->GetDepthStencilSurface(&_backupDepth);
+
 
     LPDIRECT3DSURFACE9 surface;
     _textureSurface = NULL;
     if (SUCCEEDED(_texture->GetSurfaceLevel(0, &surface)))
     {
-
         _textureSurface = surface;
 
         device->SetRenderTarget(0, surface);
@@ -59,7 +61,6 @@ void CubismOffscreenSurface_D3D9::EndDraw(LPDIRECT3DDEVICE9 device)
     {
         device->SetRenderTarget(0, _backupRender);
         device->SetDepthStencilSurface(_backupDepth);
-
         {
             _textureSurface->Release();
             _textureSurface = NULL;
@@ -82,14 +83,12 @@ void CubismOffscreenSurface_D3D9::EndDraw(LPDIRECT3DDEVICE9 device)
 
 void CubismOffscreenSurface_D3D9::Clear(LPDIRECT3DDEVICE9 device,  float r, float g, float b, float a)
 {
-
     device->Clear(0, NULL, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER,
         D3DCOLOR_COLORVALUE(r, g, b, a), 1.0f, 0);
 }
 
 csmBool CubismOffscreenSurface_D3D9::CreateOffscreenSurface(LPDIRECT3DDEVICE9 device, csmUint32 displayBufferWidth, csmUint32 displayBufferHeight)
 {
-
     DestroyOffscreenSurface();
 
     if (FAILED(D3DXCreateTexture(
@@ -131,7 +130,6 @@ csmBool CubismOffscreenSurface_D3D9::CreateOffscreenSurface(LPDIRECT3DDEVICE9 de
 
 void CubismOffscreenSurface_D3D9::DestroyOffscreenSurface()
 {
-
     if(_backupDepth)
     {
         _backupDepth->Release();
@@ -147,6 +145,7 @@ void CubismOffscreenSurface_D3D9::DestroyOffscreenSurface()
         _textureSurface->Release();
         _textureSurface = NULL;
     }
+
 
     if(_depthSurface)
     {
@@ -186,3 +185,4 @@ csmBool CubismOffscreenSurface_D3D9::IsValid() const
 }
 
 }}}}
+

@@ -1,3 +1,15 @@
+
+
+
+
+
+
+
+
+
+
+
+
 #ifndef SPINE_EXTENSION_H_
 #define SPINE_EXTENSION_H_
 
@@ -80,6 +92,7 @@
 extern "C" {
 #endif
 
+
 void _spAtlasPage_createTexture (spAtlasPage* self, const char* path);
 void _spAtlasPage_disposeTexture (spAtlasPage* self);
 char* _spUtil_readFile (const char* path, int* length);
@@ -89,6 +102,7 @@ char* _spUtil_readFile (const char* path, int* length);
 #define _AtlasPage_disposeTexture(...) _spAtlasPage_disposeTexture(__VA_ARGS__)
 #define _Util_readFile(...) _spUtil_readFile(__VA_ARGS__)
 #endif
+
 
 void* _spMalloc (size_t size, const char* file, int line);
 void* _spCalloc (size_t num, size_t size, const char* file, int line);
@@ -104,12 +118,14 @@ SP_API void _spSetRandom(float (*_random) ());
 
 char* _spReadFile (const char* path, int* length);
 
+
 float _spMath_random(float min, float max);
 float _spMath_randomTriangular(float min, float max);
 float _spMath_randomTriangularWith(float min, float max, float mode);
 float _spMath_interpolate(float (*apply) (float a), float start, float end, float a);
 float _spMath_pow2_apply(float a);
 float _spMath_pow2out_apply(float a);
+
 
 typedef union _spEventQueueItem {
 	int type;
@@ -165,6 +181,8 @@ struct _spAnimationState {
 #endif
 };
 
+
+
 void _spAttachmentLoader_init (spAttachmentLoader* self,
 	void (*dispose) (spAttachmentLoader* self),
 	spAttachment* (*createAttachment) (spAttachmentLoader* self, spSkin* skin, spAttachmentType type, const char* name,
@@ -173,7 +191,6 @@ void _spAttachmentLoader_init (spAttachmentLoader* self,
 	void (*disposeAttachment) (spAttachmentLoader* self, spAttachment*)
 );
 void _spAttachmentLoader_deinit (spAttachmentLoader* self);
-
 void _spAttachmentLoader_setError (spAttachmentLoader* self, const char* error1, const char* error2);
 void _spAttachmentLoader_setUnknownTypeError (spAttachmentLoader* self, spAttachmentType type);
 
@@ -183,6 +200,7 @@ void _spAttachmentLoader_setUnknownTypeError (spAttachmentLoader* self, spAttach
 #define _AttachmentLoader_setError(...) _spAttachmentLoader_setError(__VA_ARGS__)
 #define _AttachmentLoader_setUnknownTypeError(...) _spAttachmentLoader_setUnknownTypeError(__VA_ARGS__)
 #endif
+
 
 void _spAttachment_init (spAttachment* self, const char* name, spAttachmentType type,
 void (*dispose) (spAttachment* self));
@@ -196,6 +214,7 @@ void _spVertexAttachment_deinit (spVertexAttachment* self);
 #define _VertexAttachment_deinit(...) _spVertexAttachment_deinit(__VA_ARGS__)
 #endif
 
+
 void _spTimeline_init (spTimeline* self, spTimelineType type,
 	void (*dispose) (spTimeline* self),
 	void (*apply) (const spTimeline* self, spSkeleton* skeleton, float lastTime, float time, spEvent** firedEvents,
@@ -207,6 +226,7 @@ void _spTimeline_deinit (spTimeline* self);
 #define _Timeline_init(...) _spTimeline_init(__VA_ARGS__)
 #define _Timeline_deinit(...) _spTimeline_deinit(__VA_ARGS__)
 #endif
+
 
 void _spCurveTimeline_init (spCurveTimeline* self, spTimelineType type, int framesCount,
 	void (*dispose) (spTimeline* self),

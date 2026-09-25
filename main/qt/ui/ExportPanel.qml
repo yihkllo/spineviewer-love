@@ -31,10 +31,37 @@ Item {
             spacing: exporter.shell.metrics.spacing
             SlButton { width: parent.width; metrics: exporter.shell.metrics; theme: exporter.shell.theme; text: ">>"; onClicked: exporter.shell.exportOpen = false }
             SlLabel { width: parent.width; metrics: exporter.shell.metrics; theme: exporter.shell.theme; lineHeight: metrics.detailFont; visible: text.length > 0; text: exporter.shell.read("exportStatus", ""); wrapMode: Text.Wrap }
-            ProgressBar {
+            Rectangle {
+                id: progress
+                readonly property real fraction: exporter.shell.read("exportTotal", 0) > 0
+                    ? Math.max(0, Math.min(1, exporter.shell.read("exportDone", 0) / exporter.shell.read("exportTotal", 1))) : 0
+                property real shown: 0
+                Component.onCompleted: shown = fraction
+                onFractionChanged: {
+                    glide.stop();
+                    if (fraction > shown) { glide.from = shown; glide.to = fraction; glide.start(); }
+                    else shown = fraction;
+                }
+                NumberAnimation { id: glide; target: progress; property: "shown"; duration: 250 }
                 width: parent.width; height: exporter.shell.metrics.s(18)
                 visible: exporter.shell.read("exportRunning", false) || exporter.shell.read("exportStatus", "").length > 0
-                value: exporter.shell.read("exportTotal", 0) > 0 ? exporter.shell.read("exportDone", 0) / exporter.shell.read("exportTotal", 1) : 0
+                radius: exporter.shell.metrics.frameRadius
+                color: exporter.shell.theme.frame
+                Rectangle {
+                    width: parent.width * progress.shown; height: parent.height
+                    radius: parent.radius
+                    visible: width > 0
+                    color: Qt.rgba(0.90, 0.70, 0.00, 1)
+                }
+                Text {
+                    text: Math.round(progress.shown * 100) + "%"
+                    textFormat: Text.PlainText
+                    font.pixelSize: exporter.shell.metrics.detailFont * exporter.shell.metrics.fontEmScale
+                    color: exporter.shell.theme.text
+                    anchors.verticalCenter: parent.verticalCenter
+                    x: Math.max(0, Math.min(parent.width * progress.shown + exporter.shell.metrics.spacingX,
+                                            parent.width - width - exporter.shell.metrics.framePaddingY))
+                }
             }
             SlSeparatorText { width: parent.width; metrics: exporter.shell.metrics; theme: exporter.shell.theme; text: qsTr("Snapshot") }
             Row {
@@ -115,6 +142,17 @@ Item {
                         onClicked: exporter.shell.send(modelData.key, {alpha:modelData.alpha && exporter.shell.read("exportAlpha", true)})
                     }
                 }
+            }
+            SlSeparatorText { width: parent.width; metrics: exporter.shell.metrics; theme: exporter.shell.theme; text: qsTr("Render window size") }
+            WindowSizeEditor {
+                objectName: "exportRenderSizeEditor"
+                width: parent.width
+                shell: exporter.shell; metrics: exporter.shell.metrics; theme: exporter.shell.theme
+                textSize: exporter.shell.metrics.detailFont * exporter.shell.metrics.fontEmScale
+                widthKey: "canvasWidth"; heightKey: "canvasHeight"
+                commandName: "settings.renderSize"
+                minWidth: 64; minHeight: 64; maxDimension: 8192; maxPixelCount: 33554432
+                enabled: !exporter.shell.read("exportRunning", false)
             }
         }
     }

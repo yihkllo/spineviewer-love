@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 
 #include "../CubismRenderer.hpp"
@@ -10,6 +12,7 @@
 #include "Type/csmVector.hpp"
 #include "Type/csmRectF.hpp"
 #include "Type/csmMap.hpp"
+
 
 #ifdef CSM_TARGET_ANDROID_ES2
 #include <jni.h>
@@ -54,7 +57,6 @@ class CubismClippingContext_Cocos2dx : public CubismClippingContext
     friend class CubismRenderer_Cocos2dx;
 
 public:
-
     CubismClippingContext_Cocos2dx(CubismClippingManager<CubismClippingContext_Cocos2dx, CubismOffscreenSurface_Cocos2dx>* manager, CubismModel& model, const csmInt32* clippingDrawableIndices, csmInt32 clipCount);
 
     virtual ~CubismClippingContext_Cocos2dx();
@@ -71,7 +73,6 @@ class CubismRendererProfile_Cocos2dx
     friend class CubismRenderer_Cocos2dx;
 
 private:
-
     CubismRendererProfile_Cocos2dx() {};
 
     virtual ~CubismRendererProfile_Cocos2dx() {};
@@ -100,7 +101,6 @@ class CubismRenderer_Cocos2dx : public CubismRenderer
     friend class CubismShader_Cocos2dx;
 
 public:
-
     void Initialize(Framework::CubismModel* model) override;
 
     void Initialize(Framework::CubismModel* model, csmInt32 maskBufferCount) override;
@@ -124,7 +124,6 @@ public:
     static void EndFrame(CubismCommandBuffer_Cocos2dx* commandBuffer);
 
 protected:
-
     CubismRenderer_Cocos2dx();
 
     virtual ~CubismRenderer_Cocos2dx();
@@ -138,14 +137,12 @@ protected:
 
 #ifdef CSM_TARGET_ANDROID_ES2
 public:
-
     static void SetExtShaderMode(csmBool extMdoe, csmBool extPAMode = false);
 
     static void ReloadShader();
 #endif
 
 private:
-
     CubismRenderer_Cocos2dx(const CubismRenderer_Cocos2dx&);
     CubismRenderer_Cocos2dx& operator=(const CubismRenderer_Cocos2dx&);
 
@@ -170,6 +167,7 @@ private:
     const csmBool inline IsGeneratingMask() const;
 
     cocos2d::Texture2D* GetBindedTexture(csmInt32 textureIndex);
+
 
     csmMap<csmInt32, cocos2d::Texture2D*> _textures;
     csmVector<csmInt32> _sortedDrawableIndexList;

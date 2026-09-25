@@ -1,5 +1,7 @@
+
 #ifndef Spine_Extension_h
 #define Spine_Extension_h
+
 
 #include <stdlib.h>
 #include <spine/dll.h>
@@ -35,7 +37,7 @@ public:
 	static void beforeFree(T *ptr) {
 		getInstance()->_beforeFree((void *) ptr);
 	}
-
+	
 	static char *readFile(const String &path, int *length) {
 		return getInstance()->_readFile(path, length);
 	}

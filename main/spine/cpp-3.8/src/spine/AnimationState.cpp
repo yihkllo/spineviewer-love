@@ -1,3 +1,4 @@
+
 #ifdef SPINE_UE4
 #include "SpinePluginPrivatePCH.h"
 #endif
@@ -234,7 +235,6 @@ void EventQueue::drain() {
 			else trackEntry->_listenerObject->callback(&state, queueEntry->_type, trackEntry, NULL);
 			if (!state._listenerObject) state._listener(&state, queueEntry->_type, trackEntry, NULL);
 			else state._listenerObject->callback(&state, queueEntry->_type, trackEntry, NULL);
-
 		case EventType_Dispose:
 			if (!trackEntry->_listenerObject) trackEntry->_listener(&state, EventType_Dispose, trackEntry, NULL);
 			else trackEntry->_listenerObject->callback(&state, EventType_Dispose, trackEntry, NULL);
@@ -315,7 +315,6 @@ void AnimationState::update(float delta) {
 
 		TrackEntry *next = current._next;
 		if (next != NULL) {
-
 			float nextTime = current._trackLast - next->_delay;
 			if (nextTime >= 0) {
 				next->_delay = 0;
@@ -329,7 +328,6 @@ void AnimationState::update(float delta) {
 				continue;
 			}
 		} else if (current._trackLast >= current._trackEnd && current._mixingFrom == NULL) {
-
 			_tracks[i] = NULL;
 
 			_queue->end(currentP);
@@ -338,7 +336,6 @@ void AnimationState::update(float delta) {
 		}
 
 		if (current._mixingFrom != NULL && updateMixingFrom(currentP, delta)) {
-
 			TrackEntry *from = current._mixingFrom;
 			current._mixingFrom = NULL;
 			if (from != NULL) from->_mixingTo = NULL;
@@ -481,7 +478,6 @@ TrackEntry *AnimationState::setAnimation(size_t trackIndex, Animation *animation
 	TrackEntry *current = expandToIndex(trackIndex);
 	if (current != NULL) {
 		if (current->_nextTrackLast == -1) {
-
 			_tracks[trackIndex] = current->_mixingFrom;
 			_queue->interrupt(current);
 			_queue->end(current);
@@ -635,6 +631,7 @@ void AnimationState::applyAttachmentTimeline(AttachmentTimeline* attachmentTimel
     if (slot->getAttachmentState() <= _unkeyedState) slot->setAttachmentState(_unkeyedState + Setup);
 }
 
+
 void AnimationState::applyRotateTimeline(RotateTimeline *rotateTimeline, Skeleton &skeleton, float time, float alpha,
 	MixBlend blend, Vector<float> &timelinesRotation, size_t i, bool firstFrame
 ) {
@@ -662,10 +659,8 @@ void AnimationState::applyRotateTimeline(RotateTimeline *rotateTimeline, Skeleto
 	} else {
 		r1 = blend == MixBlend_Setup ? bone->_data._rotation : bone->_rotation;
 		if (time >= frames[frames.size() - RotateTimeline::ENTRIES]) {
-
 			r2 = bone->_data._rotation + frames[frames.size() + RotateTimeline::PREV_ROTATION];
 		} else {
-
 			int frame = Animation::binarySearch(frames, time, RotateTimeline::ENTRIES);
 			float prevRotation = frames[frame + RotateTimeline::PREV_ROTATION];
 			float frameTime = frames[frame];
@@ -693,9 +688,7 @@ void AnimationState::applyRotateTimeline(RotateTimeline *rotateTimeline, Skeleto
 		}
 
 		bool current = diff > 0, dir = lastTotal >= 0;
-
 		if (MathUtil::sign(lastDiff) != MathUtil::sign(diff) && MathUtil::abs(lastDiff) <= 90) {
-
 			if (MathUtil::abs(lastTotal) > 180) lastTotal += 360 * MathUtil::sign(lastTotal);
 			dir = current;
 		}
@@ -723,7 +716,6 @@ bool AnimationState::updateMixingFrom(TrackEntry *to, float delta) {
 	from->_trackLast = from->_nextTrackLast;
 
 	if (to->_mixTime > 0 && to->_mixTime >= to->_mixDuration) {
-
 		if (from->_totalAlpha == 0 || to->_mixDuration == 0) {
 			to->_mixingFrom = from->_mixingFrom;
 			if (from->_mixingFrom != NULL) from->_mixingFrom->_mixingTo = to;
@@ -745,7 +737,6 @@ float AnimationState::applyMixingFrom(TrackEntry *to, Skeleton &skeleton, MixBle
 
 	float mix;
 	if (to->_mixDuration == 0) {
-
 		mix = 1;
 		if (blend == MixBlend_First) blend = MixBlend_Setup;
 	} else {

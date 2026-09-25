@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 
 #include "CubismFramework.hpp"
@@ -37,7 +39,6 @@ class CubismClippingContext_Cocos2dx;
 class CubismShader_Cocos2dx
 {
 public:
-
     static CubismShader_Cocos2dx* GetInstance();
 
     static void DeleteInstance();
@@ -49,7 +50,6 @@ public:
                                 ,const CubismModel& model, const csmInt32 index);
 
 private:
-
     struct CubismShaderSet
     {
         cocos2d::backend::Program* ShaderProgram;
@@ -88,7 +88,6 @@ private:
 
 #ifdef CSM_TARGET_ANDROID_ES2
 public:
-
     static void SetExtShaderMode(csmBool extMode, csmBool extPAMode);
 
 private:

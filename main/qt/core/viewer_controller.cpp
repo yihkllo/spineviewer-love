@@ -1,8 +1,12 @@
 #include "viewer_controller.h"
-#include "interaction_rules.h"
+#include "spinelove/asset_path.h"
+#include "../render/scene_hit_test.h"
+#include "../plugin_api/plugin_host.h"
+#include "spinelove/plugin_module.h"
+#include "spinelove/interaction_rules.h"
 #include "../render/slot_outline.h"
-#include "../render/texture_loader.h"
-#include "../../window_resolution_presets.h"
+#include "spinelove/texture_loader.h"
+#include "window_resolution_presets.h"
 #include <QApplication>
 #include <QFileDialog>
 #include <QColorDialog>
@@ -15,6 +19,7 @@
 #include <QScreen>
 #include <QCursor>
 #include <QCloseEvent>
+#include <QRegularExpression>
 #include <algorithm>
 #include <cmath>
 
@@ -25,47 +30,156 @@ QString modelName(const QString& path){auto name=QFileInfo(path).fileName();if(n
 QVariantList indexes(const QSet<int>& s){auto list=s.values();std::sort(list.begin(),list.end());QVariantList v;for(int i:list)v.append(i);return v;}
 std::string utf8(const QString& s){const auto b=s.toUtf8();return std::string(b.constData(),size_t(b.size()));}
 float zoom(float scale,int steps,bool up,float low,float high){float f=std::pow(1.05f,float(std::abs(steps)));return std::clamp(up?scale*f:scale/f,low,high);}
-QString assetPath(const QString& relative){const QDir app(QCoreApplication::applicationDirPath());const QString packaged=app.filePath("ttf/"+relative);return QFileInfo::exists(packaged)?packaged:app.filePath(relative);}
+struct UiLanguage{const char* id;const char* name;const char* code;};
+constexpr UiLanguage uiLanguages[]{{"zh_CN","简体中文","zh-CN"},{"en","English","en-US"}};
+QString supportedLanguage(const QString& requested){
+    for(const auto& language:uiLanguages)
+        if(requested==QLatin1String(language.id)||requested==QLatin1String(language.code))return QString::fromLatin1(language.id);
+    return {};
 }
-ViewerController::ViewerController(QObject* parent):QObject(parent),m_settings(QSettings::defaultFormat(),QSettings::UserScope,"SpineLoveEX","Viewer") {
+QString startupLanguage(const QString& saved){const auto language=supportedLanguage(saved);return language.isEmpty()?QStringLiteral("zh_CN"):language;}
+const QStringList& listKeys(){
+    static const QStringList keys{"animations","skins","files","slots","queue","loadedSpines","capabilities",
+        "languages","parameters","parts","expressions","gazeChannels"};
+    return keys;
+}
+const QStringList& internalKeys(){
+    static const QStringList keys{"live2dRevision","live2dDeviceGeneration","live2dRecoveryCount","exportFrameSerial",
+        "exportAckId","exportRequestId","exportRequestSuccess","exportError","nativeHitResults","renderBounds"};
+    return keys;
+}
+}
+ViewerController::ViewerController(QObject* parent):QObject(parent),m_settings(QSettings::defaultFormat(),QSettings::UserScope,"SpineLoveEX","QtMigration") {
+    m_lists=new QQmlPropertyMap(this);
+    for(const auto& key:listKeys())m_lists->insert(key,key=="capabilities"?QVariant(QVariantMap{}):QVariant(QVariantList{}));
     m_hub.RebuildRuntimePool();
     m_live2d=std::make_shared<Live2DBridge>();
+    m_plugins=new PluginHost(this);
+    connect(m_plugins,&PluginHost::failure,this,&ViewerController::fail);
+    connect(m_plugins,&PluginHost::settingsRequested,this,&ViewerController::applyPluginSettings);
+    connect(m_plugins,&PluginHost::stateChanged,this,[this]{
+        const bool open=m_plugins->isOpen();
+        if(open&&!m_pluginsWasOpen){
+            m_live2d->command("live2d.pausePreview");m_pointerMode=0;m_dragged=true;m_filePreviewPending=false;
+        }
+        windowCommand("plugin.portrait",m_plugins->state().value("portrait").toBool());
+        m_pluginsWasOpen=open;syncPluginSuspension();m_clock.restart();refresh();record();
+    });
+    connect(qApp,&QGuiApplication::applicationStateChanged,this,[this]{syncPluginSuspension();});
     const double uiScale=m_settings.value("uiScale",1.0).toDouble();
     m_favorites=m_settings.value("favorites").toStringList();
     m_favorites.removeDuplicates();
     m_favorites.erase(std::remove_if(m_favorites.begin(),m_favorites.end(),[](const QString& path){return !QFileInfo::exists(path);}),m_favorites.end());
     std::sort(m_favorites.begin(),m_favorites.end());
-    m_state={{"mode","spine"},{"baseFontPixels",16.0*uiScale},{"titleScale",uiScale},{"windowTitle","spinelove"},
+    m_state={{"mode","spine"},{"uiScale",uiScale},{"baseFontPixels",16.0*uiScale},{"titleScale",uiScale},{"windowTitle","spinelove"},
         {"windowIcon",QUrl("qrc:/app.png")},{"exportAlpha",true},{"exportQueue",false},{"exportImageFps",30},{"exportVideoFps",60},
-        {"language",(m_settings.value("language","zh_CN").toString()=="en"?QString("en"):QString("zh_CN"))},{"themeHue",0.74},{"themeSaturation",0.83},{"themeBrightness",1.0},{"darkTheme",false},{"themeCustomized",false},
+        {"language",startupLanguage(m_settings.value("language").toString())},{"themeHue",0.74},{"themeSaturation",0.83},{"themeBrightness",1.0},{"darkTheme",false},{"themeCustomized",false},
         {"resolutionPreset",m_settings.value("resolutionPreset",0)},{"spineRuntimeAvailable",true},{"slotHoverColor","#00ff00"},{"slotBoundsVisible",false}};
-    QVariantList languages;for(const auto& p:std::vector<std::pair<QString,QString>>{{"zh_CN","简体中文"},{"en","English"}})
-        languages.append(QVariantMap{{"id",p.first},{"name",p.second}});
+    QVariantList languages;for(const auto& language:uiLanguages)
+        languages.append(QVariantMap{{"id",QString::fromLatin1(language.id)},{"name",QString::fromUtf8(language.name)}});
     m_state["languages"]=languages;
+    m_settings.remove("renderSizeCustom");
+    m_settings.remove("renderWindowWidth");
+    m_settings.remove("renderWindowHeight");
+    m_petMoveTimer.setSingleShot(true);m_petMoveTimer.setInterval(8);
+    connect(&m_petMoveTimer,&QTimer::timeout,this,&ViewerController::applyDesktopPetMove);
     m_clock.start();refresh();record();
+}
+QObject* ViewerController::plugins()const{return m_plugins;}
+void ViewerController::syncPluginSettings(){
+    if(!m_plugins||m_state.isEmpty())return;
+    const QString language=m_state.value("language",QStringLiteral("zh_CN")).toString();
+    const int width=m_window?qRound(m_window->width()*m_window->devicePixelRatio()):m_state.value("windowWidth").toInt();
+    const int height=m_window?qRound(m_window->height()*m_window->devicePixelRatio()):m_state.value("windowHeight").toInt();
+    const QString resolution=QString::number(width)+"x"+QString::number(height);
+    QVariantList resolutions;QSet<QString> resolutionKeys;
+    const auto addResolution=[&](int w,int h){
+        if(w<=0||h<=0)return;
+        const QString value=QString::number(w)+"x"+QString::number(h);
+        if(resolutionKeys.contains(value))return;
+        resolutionKeys.insert(value);resolutions.append(QVariantMap{{"value",value},{"text",QString::number(w)+QStringLiteral(" × ")+QString::number(h)}});
+    };
+    addResolution(width,height);
+    for(int i=1;i<window_resolution_presets::Count();++i){const auto* preset=window_resolution_presets::Get(i);addResolution(preset->width,preset->height);}
+    QVariantList languages;
+    for(const auto& language:uiLanguages)
+        languages.append(QVariantMap{{"value",QString::fromLatin1(language.code)},{"text",QString::fromUtf8(language.name)}});
+    int mode=3;
+    if(m_window&&m_window->visibility()==QWindow::FullScreen){
+        mode=m_settings.value("pluginFullscreenMode",1).toInt();if(mode!=0&&mode!=1)mode=1;
+    }
+    const bool english=language.startsWith("en",Qt::CaseInsensitive);
+    const QVariantList modes{
+        QVariantMap{{"value",0},{"text",english?QStringLiteral("Full screen"):QStringLiteral("全屏")}},
+        QVariantMap{{"value",1},{"text",english?QStringLiteral("Borderless full screen"):QStringLiteral("无边框全屏")}},
+        QVariantMap{{"value",3},{"text",english?QStringLiteral("Windowed"):QStringLiteral("窗口")}}
+    };
+    m_plugins->setHostSettings({{"language",language},{"languageOptions",languages},{"resolution",resolution},
+        {"resolutionOptions",resolutions},{"windowMode",mode},{"windowModeOptions",modes}});
+}
+void ViewerController::applyPluginSettings(const QString& action,const QVariant& value){
+    if(m_petMode||m_exportActive)return;
+    if(action=="reset"){
+        const auto defaults=value.toMap();
+        for(const auto& key:{QStringLiteral("language"),QStringLiteral("resolution"),QStringLiteral("windowMode")})
+            if(defaults.contains(key))applyPluginSettings(key,defaults.value(key));
+        return;
+    }
+    if(action=="language"){
+        const QString language=supportedLanguage(value.toString());
+        if(!language.isEmpty()&&language!=m_state.value("language").toString()){
+            m_state["language"]=language;savePreferences();emit languageRequested(language);refresh();
+        }
+    }else if(action=="resolution"&&m_window){
+        const auto match=QRegularExpression(QStringLiteral("^\\s*(\\d{3,5})\\s*[xX×]\\s*(\\d{3,5})\\s*$")).match(value.toString());
+        if(match.hasMatch())windowCommand("settings.resolution.custom",QVariantMap{{"width",match.captured(1).toInt()},{"height",match.captured(2).toInt()}});
+    }else if(action=="windowMode"&&m_window){
+        bool valid=false;const int mode=value.toInt(&valid);
+        if(valid&&(mode==0||mode==1||mode==3)){
+            if(mode==3){
+                if(m_window->visibility()==QWindow::FullScreen)windowCommand("window.fullscreen",{});
+                if(m_window->visibility()!=QWindow::Windowed)m_window->showNormal();
+            }else{
+                m_settings.setValue("pluginFullscreenMode",mode);
+                if(m_window->visibility()!=QWindow::FullScreen)windowCommand("window.fullscreen",{});
+            }
+            refresh();
+        }
+    }
+    syncPluginSettings();
+}
+void ViewerController::syncPluginSuspension(){
+    m_plugins->setSuspended(modalOpen()||(m_window&&(!m_window->isVisible()||m_window->visibility()==QWindow::Minimized))||
+        QGuiApplication::applicationState()==Qt::ApplicationSuspended||QGuiApplication::applicationState()==Qt::ApplicationHidden);
 }
 void ViewerController::setWindow(QQuickWindow* window){
     if(m_window)m_window->removeEventFilter(this);m_window=window;
-    if(window){window->installEventFilter(this);m_defaultWindowSize=window->size();connect(window,&QWindow::visibilityChanged,this,[this]{m_clock.restart();refresh();});}
+    if(window){
+        window->installEventFilter(this);m_defaultWindowSize=window->size();
+        connect(window,&QWindow::visibilityChanged,this,[this]{syncPluginSuspension();m_clock.restart();refresh();});
+        connect(window,&QWindow::widthChanged,this,[this]{syncPluginSettings();});
+        connect(window,&QWindow::heightChanged,this,[this]{syncPluginSettings();});
+    }
+    syncPluginSettings();
 }
 void ViewerController::setViewport(QSizeF logical,qreal dpr){
     if(logical.isEmpty()||!std::isfinite(dpr)||dpr<=0)return;
+    if(m_petMode&&!live2dMode()){m_dpr=dpr;return;}
     const QSize next(qMax(1,int(std::ceil(logical.width()*dpr))),qMax(1,int(std::ceil(logical.height()*dpr))));
     if(m_viewportInitialized&&next==m_viewport&&dpr==m_dpr)return;
     m_viewportInitialized=true;m_dpr=dpr;m_viewport=next;
     runtime()->SetViewportSize(m_viewport.width(),m_viewport.height());fit();refresh(false);record();
-
     if(!m_viewportNotificationPending){
         m_viewportNotificationPending=true;
         QTimer::singleShot(0,this,[this]{
             if(!m_viewportNotificationPending)return;
-            m_viewportNotificationPending=false;emit stateChanged();
+            publishState();
         });
     }
 }
-void ViewerController::fail(const QString& error){m_state["lastError"]=error;emit stateChanged();emit errorOccurred(error);}
-void ViewerController::savePreferences(){m_settings.setValue("favorites",m_favorites);m_settings.setValue("language",m_state.value("language"));}
-bool ViewerController::inputBlocked()const{return modalOpen()||m_exportActive||m_state.value("replaceConfirmation").toMap().value("open").toBool();}
+void ViewerController::fail(const QString& error){m_state["lastError"]=error;publishState();emit errorOccurred(error);}
+void ViewerController::savePreferences(){m_settings.setValue("favorites",m_favorites);m_settings.setValue("language",m_state.value("language"));m_settings.sync();}
+bool ViewerController::inputBlocked()const{return modalOpen()||m_exportActive||m_plugins->isOpen()||m_state.value("replaceConfirmation").toMap().value("open").toBool();}
 void ViewerController::openUrls(const QList<QUrl>& urls){if(inputBlocked())return;if(urls.isEmpty())return;QString error;const auto path=AssetLibrary::localPath(urls.front(),&error);if(path.isEmpty()){fail(error);return;}openPaths({path});}
 void ViewerController::setMode(bool live){
     if(live==live2dMode())return;
@@ -78,6 +192,7 @@ void ViewerController::setMode(bool live){
     m_hoverPosition={-1,-1};m_hoveredSlot.clear();m_listHoveredSlot.clear();m_clock.restart();
 }
 void ViewerController::openPaths(const QStringList& paths,bool confirmed){
+    if(m_plugins->isOpen())return;
     if(m_exportActive){fail(tr("An export is in progress."));return;}
     if(paths.isEmpty())return;
     m_filePreviewPending=false;
@@ -90,8 +205,7 @@ void ViewerController::openPaths(const QStringList& paths,bool confirmed){
         m_files=m_live2dFiles;m_live2d->command("live2d.open",entry.path);m_lastLiveError.clear();
         m_clock.restart();refresh();record();return;
     }
-    if(!confirmed&&m_layers.size()>1){m_pendingPaths=paths;m_state["replaceConfirmation"]=QVariantMap{{"open",true},{"title",tr("Warning")},{"message",tr("Replace the currently loaded Spine layers?")}};emit stateChanged();return;}
-
+    if(!confirmed&&m_layers.size()>1){m_pendingPaths=paths;m_state["replaceConfirmation"]=QVariantMap{{"open",true},{"title",tr("Warning")},{"message",tr("Replace the currently loaded Spine layers?")}};publishState();return;}
     const bool profile=QCoreApplication::instance()->property("qaProfileLoads").toBool();
     QElapsedTimer loadClock;if(profile)loadClock.start();
     auto stamp=[&]{return profile?loadClock.nsecsElapsed()/1e6:0.;};
@@ -114,7 +228,6 @@ void ViewerController::openPaths(const QStringList& paths,bool confirmed){
         const auto error=from(r->LastRuntimeIssue());
         if(lane!=previousLane)m_hub.ActivateLane(previousLane);
         else {
-
             m_layerControls.clear();m_layers.clear();
             for(int i=0;i<qMin(int(r->LoadedSkeletonCount()),int(bundle.items.size()));++i)m_layers.append(bundle.items[i].path);
             r->ChooseSkeleton(0);m_currentPath=m_layers.isEmpty()?QString{}:m_layers.front();m_showLayers=false;
@@ -132,7 +245,6 @@ void ViewerController::openPaths(const QStringList& paths,bool confirmed){
     m_layerControls.clear();m_layers.clear();for(const auto& i:bundle.items)m_layers.append(i.path);
     m_currentPath=m_layers.front();m_version=bundle.items.front().spineVersion;m_queue.clear();m_queuePlaying=false;m_queueIndex=0;
     m_selectedSkins.clear();m_tracks.clear();m_hiddenSlots.clear();m_hoveredSlot.clear();m_listHoveredSlot.clear();m_pinnedSlot.clear();
-
     const auto names=r->LookNames();std::vector<std::string> cached;
     if(m_cachedWasMix){for(const auto& name:m_cachedMixSkins)cached.push_back(utf8(name));}
     else if(!m_cachedSkin.isEmpty())cached.push_back(utf8(m_cachedSkin));
@@ -141,7 +253,6 @@ void ViewerController::openPaths(const QStringList& paths,bool confirmed){
     for(const auto& name:restored){const auto found=std::find(names.begin(),names.end(),name);if(found!=names.end()){const int index=int(found-names.begin());m_selectedSkins.insert(index);if(m_skinMix)m_lastMixedSkin=index;}}
     if(restored.size()>1)r->ComposeLooks(restored);else if(restored.size()==1&&restored.front()!=r->ActiveLookName())r->ApplyLookByName(restored.front().c_str());
     m_showLayers=false;
-
     m_previewIndex=qMax(0,int(m_files.indexOf(m_currentPath)));m_state["mode"]="spine";m_state["lastError"]="";
     updateSlotFilter();fit();m_clock.restart();
     const double restoreMs=stamp();refresh();const double stateMs=stamp();record();
@@ -158,12 +269,11 @@ void ViewerController::scanFolder(const QString& folder,bool openAll,bool allowM
     m_previewIndex=qMax(0,int(m_files.indexOf(m_currentPath)));m_favoritesOnly=false;
     if(live2dMode()){m_live2dFiles=m_files;if(m_files.size()==1){openPaths({m_files.front()});return;}}
     else m_spineFiles=m_files;
-
     if(openAll)openPaths(m_files);else {refresh();record();}
 }
 void ViewerController::fit(){
+    if(m_plugins->isOpen())return;
     auto* r=runtime();if(!r->ContainsDrawableContent())return;
-
     if(!m_window||m_petMode||m_window->visibility()==QWindow::FullScreen)return;
     const auto b=r->BaseSize();const float scale=r->CanvasScale();
     if(b.x<=0||b.y<=0||!std::isfinite(scale)||scale<=0)return;
@@ -233,7 +343,8 @@ void ViewerController::updateSlotFilter(){
 }
 void ViewerController::tick(){
     const float dt=std::min(0.1f,float(m_clock.nsecsElapsed()/1e9));m_clock.restart();
-    if(modalOpen()||m_exportActive||!m_window||!m_window->isVisible()||m_window->visibility()==QWindow::Minimized)return;
+    if(m_plugins->isOpen()||modalOpen()||m_exportActive||!m_window||!m_window->isVisible()||m_window->visibility()==QWindow::Minimized)return;
+    if(m_petMode&&m_pointerMode==5)return;
     m_animationTime+=dt;
     if(m_petMode)updateDesktopPet();
     if(!live2dMode())runtime()->TickPlayback(dt);
@@ -242,10 +353,8 @@ void ViewerController::tick(){
         if(interaction::queueReachedEnd(track,end)){m_queueIndex=(m_queueIndex+1)%m_queue.size();playQueueItem();refresh();}
     }
     if(live2dMode()){
-        const auto previousRevision=m_state.value("live2dRevision");
-        refresh(false);
-
-        if(previousRevision!=m_state.value("live2dRevision"))emit stateChanged();
+        const quint64 revision=m_live2d->revision();
+        if(revision!=m_live2dSeenRevision){m_live2dSeenRevision=revision;refresh();}
     }
     else if(m_hoverEnabled&&!m_petMode)hover(m_hoverPosition);
     record();
@@ -268,19 +377,24 @@ void ViewerController::recordSlotOverlay(){
     }
 }
 void ViewerController::record(){
+    if(m_petMode&&m_pointerMode==5&&m_snapshot)return;
     m_recorder.begin(m_viewport,(m_captureAlpha||m_petMode)?QColor(Qt::transparent):m_clearColor);
     if(m_background&&!m_captureAlpha&&!m_petMode){const auto img=m_recorder.texture(m_background);m_recorder.sprite(m_background,{float(m_bgOffset.x()),float(m_bgOffset.y()),img.width()*m_bgScale,img.height()*m_bgScale});}
-    if(!live2dMode()){m_hub.RenderCurrentRuntime(m_recorder);recordSlotOverlay();}
+    if(!m_plugins->isOpen()&&!live2dMode()){m_hub.RenderCurrentRuntime(m_recorder);recordSlotOverlay();}
     auto snapshot=std::const_pointer_cast<SceneSnapshot>(m_recorder.finish());
     snapshot->capture=m_captureRequest;
     snapshot->animationTime=m_animationTime;
-    if(live2dMode()){
+    if(live2dMode()&&!m_plugins->isOpen()){
         snapshot->live2d=m_live2d;snapshot->titleHeight=(m_petMode||m_state.value("fullscreen").toBool())?0:float(37.3*m_state.value("titleScale",1).toDouble());
-        snapshot->live2dShaderPath=assetPath("render_d3d11/shaders/sprite.hlsl");
+        snapshot->live2dShaderPath=packagedAssetPath("render_d3d11/shaders/sprite.hlsl");
     }
-    m_snapshot=std::move(snapshot);emit frameChanged();
+    if(m_petMode&&!live2dMode())updateDesktopPetCanvas(*snapshot);
+    m_snapshot=std::move(snapshot);
+    if(m_petMode)updateDesktopPetRegion();
+    emit frameChanged();
 }
 void ViewerController::refresh(bool notify){
+    m_state["pluginsOpen"]=m_plugins->isOpen();m_state["pluginActive"]=m_plugins->isActive();
     const auto live=live2dMode()?m_live2d->state():QVariantMap{};
     auto* r=runtime();m_state["loaded"]=r->ContainsDrawableContent();m_state["devicePixelRatio"]=m_dpr;
     m_state["currentFileName"]=modelName(m_currentPath);m_state["scale"]=r->SkeletonScale();m_state["timeScale"]=r->TimeScale();m_state["defaultMix"]=m_mix;
@@ -289,9 +403,7 @@ void ViewerController::refresh(bool notify){
     QVariantList motions;int active=-1;const auto& names=r->MotionNames();for(int i=0;i<int(names.size());++i){motions.append(QVariantMap{{"name",from(names[i])},{"duration",r->MotionDuration(names[i].c_str())}});if(names[i]==r->ActiveMotionName())active=i;}
     m_state["animations"]=motions;m_state["currentAnimation"]=active;
     QStringList skins;for(const auto& s:r->LookNames())skins.append(from(s));m_state["skins"]=skins;m_state["skinMix"]=m_skinMix;m_state["selectedSkins"]=indexes(m_selectedSkins);m_state["selectedTracks"]=indexes(m_tracks);
-    const auto livePath=QDir::fromNativeSeparators(live.value("currentModelPath").toString());
-    QVariantList files;for(const auto& p:visibleFiles())files.append(QVariantMap{{"path",p},{"name",modelName(p)},{"parent",QFileInfo(p).absolutePath()},{"favorite",m_favorites.contains(p)},{"current",p==m_currentPath},{"loaded",live2dMode()?(live.value("loaded").toBool()&&p==livePath):m_layers.contains(p)}});
-    m_state["files"]=files;m_state["favoritesOnly"]=m_favoritesOnly;
+    m_state["files"]=fileRows(live);m_state["favoritesOnly"]=m_favoritesOnly;
     QVariantList layers;for(int i=0;i<m_layers.size();++i)layers.append(QVariantMap{{"name",QFileInfo(m_layers[i]).completeBaseName()},{"visible",r->SkeletonLayerVisible(size_t(i))},{"selected",r->ActiveSkeletonIndex()==size_t(i)}});
     m_state["loadedSpines"]=layers;m_state["showLoadedSpines"]=m_showLayers;
     QVariantList slotRows;for(int i=0;i<int(r->SlotCatalog().size());++i)slotRows.append(QVariantMap{{"name",from(r->SlotCatalog()[i])},{"visible",!m_hiddenSlots.contains(i)}});
@@ -302,13 +414,18 @@ void ViewerController::refresh(bool notify){
     m_state["queue"]=queue;m_state["queuePlaying"]=m_queuePlaying;m_state["queueIndex"]=m_queueIndex;
     m_state["renderBackground"]=(m_petMode?QColor(Qt::transparent):m_clearColor).name(QColor::HexArgb);m_state["fullscreen"]=m_window&&m_window->visibility()==QWindow::FullScreen;
     m_state["petMode"]=m_petMode;m_state["petRandom"]=m_petRandom;m_state["resizeEnabled"]=m_resizeEnabled;m_state["wheelInverted"]=m_invertWheel;m_state["clickThrough"]=m_clickThrough;m_state["resizeBorderPhysical"]=8;
+    m_state["petDragging"]=m_petMode&&m_pointerMode==5;
+    m_state["windowWidth"]=m_window?qRound(m_window->width()*m_window->devicePixelRatio()):m_viewport.width();
+    m_state["windowHeight"]=m_window?qRound(m_window->height()*m_window->devicePixelRatio()):m_viewport.height();
     if(r->ContainsDrawableContent()){m_cachedWasMix=m_skinMix;if(m_skinMix){m_cachedMixSkins.clear();for(int i=0;i<int(r->LookNames().size());++i)if(m_selectedSkins.contains(i))m_cachedMixSkins.append(from(r->LookNames()[i]));}else m_cachedSkin=from(r->ActiveLookName());}
     QVariantMap capabilities;
     const QStringList global={"file.open","file.folder","file.play","file.favorite","file.reveal","file.addSpine","file.favoritesView","background.open","background.color","title.background","settings.language","settings.resolution","theme.hue","theme.saturation","theme.brightness","theme.fontSize","theme.dark","theme.reset","window.move","window.minimize","window.maximize","window.close","window.fullscreen","spine.pma","spine.resetOnLoad"};
     for(const auto& c:global)capabilities[c]=true;
+    capabilities["settings.resolution.custom"]=!m_petMode;
+    capabilities["settings.renderSize"]=!m_petMode;
+    capabilities["settings.renderSize.reset"]=!m_petMode;
     const QStringList loaded={"view.scale","view.reset","playback.speed","playback.mix","animation.play","skin.mixMode","skin.select","skin.toggle","spine.mirror","spine.rotate","track.toggle","track.apply","track.clear","slot.toggle","slot.clear","slot.excludeQuery","slot.hoverEnabled","slot.hoverRow","slot.pickColor","slot.bounds","queue.add","queue.remove","queue.play","queue.stop","queue.clear","layer.select","layer.up","layer.down","layer.visible"};
     for(const auto& c:loaded)capabilities[c]=r->ContainsDrawableContent();
-
     for(const auto& c:QStringList{"view.scale","view.reset","playback.speed","playback.mix"})capabilities[c]=true;
     capabilities["mode.toggle"]=true;
     capabilities["background.setColor"]=true;capabilities["background.resetColor"]=true;capabilities["slot.setColor"]=true;
@@ -328,22 +445,61 @@ void ViewerController::refresh(bool notify){
     capabilities["pet.enter"]=drawable&&!m_petMode;capabilities["pet.exit"]=m_petMode;capabilities["pet.next"]=m_petMode;capabilities["pet.random"]=m_petMode;
     for(const auto& command:QStringList{"export.alpha","export.queue","export.imageFps","export.videoFps","export.png","export.jpg"})capabilities[command]=drawable&&!m_exportActive;
     for(const auto& command:QStringList{"export.pngFrames","export.jpgFrames","export.mp4","export.webm","export.gif"})capabilities[command]=drawable&&!m_exportActive;
+    capabilities["plugins"]=!m_exportActive&&!m_petMode&&m_plugins->hasModules();
+    if(m_plugins->isOpen()){
+        for(auto it=capabilities.begin();it!=capabilities.end();++it)it.value()=false;
+        for(const auto& command:QStringList{"window.move","window.close","window.minimize","window.maximize","window.fullscreen","window.resize"})capabilities[command]=true;
+    }
     if(m_exportActive){
         for(auto it=capabilities.begin();it!=capabilities.end();++it)it.value()=false;
         for(const auto& command:QStringList{"window.move","window.close","window.minimize","export.cancel"})capabilities[command]=true;
     }
     m_state["capabilities"]=capabilities;
-    if(notify){m_viewportNotificationPending=false;emit stateChanged();}
+    syncPluginSettings();
+    if(notify)publishState();
+}
+void ViewerController::publishState(){
+    m_viewportNotificationPending=false;
+    QVariantMap scalars=m_state;
+    for(const auto& key:internalKeys())scalars.remove(key);
+    for(const auto& key:listKeys()){
+        const auto it=scalars.constFind(key);if(it==scalars.cend())continue;
+        if(m_lists->value(key)!=it.value())m_lists->insert(key,it.value());
+        scalars.erase(it);
+    }
+    if(scalars==m_publishedState)return;
+    m_publishedState=std::move(scalars);emit stateChanged();
+}
+QVariantList ViewerController::fileRows(const QVariantMap& live){
+    const bool liveMode=live2dMode();
+    const auto livePath=QDir::fromNativeSeparators(live.value("currentModelPath").toString());
+    const bool liveLoaded=live.value("loaded").toBool();
+    auto& c=m_fileRows;
+    if(c.valid&&c.live==liveMode&&c.favoritesOnly==m_favoritesOnly&&c.current==m_currentPath&&c.files==m_files
+        &&c.favorites==m_favorites&&c.layers==m_layers&&(!liveMode||(c.livePath==livePath&&c.liveLoaded==liveLoaded)))return c.rows;
+    QVariantList rows;
+    for(const auto& p:visibleFiles())rows.append(QVariantMap{{"path",p},{"name",modelName(p)},{"parent",QFileInfo(p).absolutePath()},{"favorite",m_favorites.contains(p)},{"current",p==m_currentPath},{"loaded",liveMode?(liveLoaded&&p==livePath):m_layers.contains(p)}});
+    c.files=m_files;c.favorites=m_favorites;c.layers=m_layers;c.current=m_currentPath;c.livePath=livePath;
+    c.live=liveMode;c.liveLoaded=liveLoaded;c.favoritesOnly=m_favoritesOnly;c.rows=rows;c.valid=true;
+    return rows;
 }
 void ViewerController::dispatch(const QString& c,const QVariant& v){
     if(c=="settings.modal"){
         const auto panel=v.toMap();const QString source=panel.isEmpty()?QStringLiteral("settings"):panel.value("source","settings").toString();
         const bool open=panel.isEmpty()?v.toBool():panel.value("open").toBool();
         if(open)m_modalPanels.insert(source);else m_modalPanels.remove(source);
-        m_clock.restart();return;
+        syncPluginSuspension();m_clock.restart();return;
     }
     if(c=="export.cancel"){m_exportService.cancel();return;}
     if(m_exportActive&&c!="window.close"&&c!="window.minimize"&&c!="window.move")return;
+    if(c=="plugins"||c.startsWith("plugins.")){
+        if(m_petMode)return;
+        if(c.startsWith("plugins.module.")){
+            if(auto* module=qobject_cast<PluginModule*>(m_plugins->module()))module->dispatch(c.mid(15),v);
+        }else m_plugins->dispatch(c=="plugins"?QStringLiteral("open"):c.mid(8),v);
+        return;
+    }
+    if(m_plugins->isOpen()&&c!="window.move"&&c!="window.close"&&c!="window.minimize"&&c!="window.maximize"&&c!="window.fullscreen"&&c!="window.resize")return;
     if(windowCommand(c,v))return;
     auto* r=runtime();const int index=v.toInt();const float f=v.toFloat();
     if(c=="mode.toggle"){
@@ -352,7 +508,6 @@ void ViewerController::dispatch(const QString& c,const QVariant& v){
     }
     if(live2dMode()&&(c.startsWith("live2d.")||c.startsWith("queue.")||c=="view.scale"||c=="view.reset"||c=="playback.speed"||c=="animation.play")){
         m_live2d->command(c,v);
-
         if(c!="live2d.gaze"&&c!="live2d.gazePose"&&c!="live2d.parameterValue"&&c!="live2d.partValue"&&c!="live2d.drag")record();
         return;
     }
@@ -429,7 +584,7 @@ void ViewerController::dispatch(const QString& c,const QVariant& v){
     else if(c=="background.color"){m_modal=true;auto color=QColorDialog::getColor(m_clearColor);m_modal=false;if(color.isValid())m_clearColor=color;}
     else if(c=="background.setColor"){const QColor color(v.toString());if(color.isValid())m_clearColor=color;}
     else if(c=="background.resetColor")m_clearColor=Qt::black;
-    else if(c=="settings.language"){const auto language=v.toString();if(language!="en"&&language!="zh_CN")return;m_state["language"]=language;savePreferences();emit languageRequested(language);}
+    else if(c=="settings.language"){const auto language=supportedLanguage(v.toString());if(language.isEmpty())return;m_state["language"]=language;savePreferences();emit languageRequested(language);}
     else if(c=="settings.resolution"){
         const auto* preset=window_resolution_presets::Get(index);if(preset&&m_window){m_state["resolutionPreset"]=index;if(preset->width>0)m_window->resize(qRound(preset->width/m_dpr),qRound(preset->height/m_dpr));}
     }
@@ -453,21 +608,42 @@ void ViewerController::dispatch(const QString& c,const QVariant& v){
     if(c.startsWith("theme."))m_state["themeCustomized"]=true;
     refresh();record();
 }
+bool ViewerController::petHitTest(qreal x,qreal y) const{
+    if(!m_petMode)return true;
+    const QPointF point=QPointF(x,y)*m_dpr;
+    if(live2dMode()){
+        const auto bounds=m_live2d->state().value("renderBounds").toMap();
+        return QRectF(bounds.value("x").toDouble(),bounds.value("y").toDouble(),
+            bounds.value("width").toDouble(),bounds.value("height").toDouble()).contains(point);
+    }
+    return m_snapshot&&sceneHitTest(*m_snapshot,point);
+}
 void ViewerController::pointerPress(QPointF p,Qt::MouseButton button,Qt::KeyboardModifiers mods){
     if(inputBlocked())return;
+    if(m_petMode&&!petHitTest(p.x(),p.y())){m_pointerMode=0;m_dragged=true;return;}
     if(!m_petMode&&!live2dMode()&&m_hoverEnabled&&button==Qt::LeftButton){hover(p);m_pinnedSlot=m_hoveredSlot;refresh();}
     p*=m_dpr;m_pointerStart=p;m_pointerLast=p;m_dragged=false;m_pointerMode=0;
-    if(m_petMode&&button==Qt::LeftButton){m_pointerMode=5;m_pointerLast=QCursor::pos();return;}
+    if(m_petMode&&button==Qt::LeftButton&&m_window){
+        m_pointerMode=5;m_petDragCursor=QCursor::pos();m_petDragWindow=m_window->position();
+        m_state["petDragging"]=true;publishState();return;
+    }
     if(live2dMode()&&button==Qt::LeftButton&&m_state.value("loaded").toBool())m_pointerMode=4;
 }
 void ViewerController::pointerMove(QPointF p,Qt::MouseButtons buttons,Qt::KeyboardModifiers mods){
-    if(m_petMode&&!inputBlocked()&&(buttons&Qt::LeftButton)&&m_window){
-        const QPoint global=QCursor::pos(),delta=global-m_pointerLast.toPoint();m_pointerLast=global;
-        if(!delta.isNull()){
-            m_dragged=true;QRect desktop;for(auto* screen:QGuiApplication::screens())desktop=desktop.united(screen->geometry());
-            QPoint next=m_window->position()+delta;const int margin=qMax(1,qRound(80/m_dpr));
-            next.setX(std::clamp(next.x(),desktop.left()-m_window->width()+margin,desktop.right()+1-margin));
-            next.setY(std::clamp(next.y(),desktop.top()-m_window->height()+margin,desktop.bottom()+1-margin));m_window->setPosition(next);
+    if(m_petMode){
+        if(inputBlocked()||m_pointerMode!=5||!(buttons&Qt::LeftButton)||!m_window)return;
+        const QPoint delta=QCursor::pos()-m_petDragCursor;
+        if(!delta.isNull())m_dragged=true;
+        if(m_dragged){
+            QRect desktop;for(auto* screen:QGuiApplication::screens())desktop=desktop.united(screen->geometry());
+            QPoint next=m_petDragWindow+delta;
+            const QRect body=m_petCurrentRegion.isEmpty()?QRect(QPoint{},m_window->size()):m_petCurrentRegion.boundingRect();
+            const int marginX=std::max(1,std::min(body.width(),qRound(80/m_dpr)));
+            const int marginY=std::max(1,std::min(body.height(),qRound(80/m_dpr)));
+            next.setX(std::clamp(next.x(),desktop.left()-body.right()-1+marginX,desktop.right()+1-body.left()-marginX));
+            next.setY(std::clamp(next.y(),desktop.top()-body.bottom()-1+marginY,desktop.bottom()+1-body.top()-marginY));
+            m_petMoveTarget=next;m_petMoveQueued=true;
+            if(!m_petMoveTimer.isActive())m_petMoveTimer.start();
         }
         return;
     }
@@ -485,8 +661,9 @@ void ViewerController::pointerMove(QPointF p,Qt::MouseButtons buttons,Qt::Keyboa
 void ViewerController::pointerRelease(QPointF p,Qt::MouseButton button,Qt::KeyboardModifiers mods){
     if(inputBlocked())return;
     if(m_petMode){
-        if(button==Qt::LeftButton&&!m_dragged){if(live2dMode()){p*=m_dpr;m_live2d->command("live2d.tap",QVariantMap{{"x",p.x()/m_viewport.width()*2-1},{"y",1-p.y()/m_viewport.height()*2}});}else runtime()->StepToNextMotion();}
-        m_pointerMode=0;refresh();record();return;
+        m_petMoveTimer.stop();applyDesktopPetMove();
+        if(button==Qt::LeftButton&&m_pointerMode==5&&!m_dragged){if(live2dMode()){p*=m_dpr;m_live2d->command("live2d.tap",QVariantMap{{"x",p.x()/m_viewport.width()*2-1},{"y",1-p.y()/m_viewport.height()*2}});}else runtime()->StepToNextMotion();}
+        m_pointerMode=0;m_clock.restart();refresh();record();return;
     }
     if(live2dMode()){
         if(button==Qt::MiddleButton)m_live2d->command("view.reset");
@@ -502,6 +679,7 @@ void ViewerController::pointerRelease(QPointF p,Qt::MouseButton button,Qt::Keybo
     refresh();record();
 }
 void ViewerController::wheel(QPointF p,int delta,Qt::MouseButtons buttons,Qt::KeyboardModifiers mods){
+    if(m_petMode&&!petHitTest(p.x(),p.y()))return;
     if(inputBlocked()||(!m_petMode&&(buttons&Qt::LeftButton)))return;p*=m_dpr;
     const int target=m_petMode?4:((mods&Qt::ControlModifier)&&m_background?1:(live2dMode()?3:2));
     if(m_wheelTarget!=target){m_wheelRemainder=0;m_wheelTarget=target;}
@@ -534,9 +712,11 @@ void ViewerController::hover(QPointF p){
         return;
     }
     m_hoverPosition=p;
-    if(!m_hoverEnabled||inputBlocked())return;p*=m_dpr;m_hoveredSlot.clear();
-    if(p.x()<0||p.y()<0||p.x()>=m_viewport.width()||p.y()>=m_viewport.height()){refresh();return;}
-    SlMatrix4 inverse{};if(!SlMatrixInverse(runtime()->ViewTransform(),inverse)){refresh();return;}
+    if(!m_hoverEnabled||inputBlocked())return;p*=m_dpr;
+    const QString previous=std::exchange(m_hoveredSlot,QString{});
+    const auto done=[&]{if(m_hoveredSlot!=previous)refresh();};
+    if(p.x()<0||p.y()<0||p.x()>=m_viewport.width()||p.y()>=m_viewport.height()){done();return;}
+    SlMatrix4 inverse{};if(!SlMatrixInverse(runtime()->ViewTransform(),inverse)){done();return;}
     const SlVec3 local=SlVec3Transform(SlVec3(float(p.x()),float(p.y()),0.f),inverse);
     const auto& names=runtime()->SlotCatalog();
     for(int i=int(names.size())-1;i>=0;--i){
@@ -544,14 +724,16 @@ void ViewerController::hover(QPointF p){
         if(runtime()->ReadSlotMesh(name,mesh)&&mesh.worldVertices.size()>=2){if(interaction::slotMeshContains(local.x,local.y,mesh)){m_hoveredSlot=from(name);break;}}
         else{const auto b=runtime()->MeasureSlotBounds(name);if(b.z!=0&&QRectF(b.x,b.y,b.z,b.w).normalized().contains(QPointF(local.x,local.y))){m_hoveredSlot=from(name);break;}}
     }
-    refresh();
+    done();
 }
 bool ViewerController::eventFilter(QObject* watched,QEvent* e){
+    if(m_petMode&&(e->type()==QEvent::KeyPress||e->type()==QEvent::KeyRelease||e->type()==QEvent::ShortcutOverride||e->type()==QEvent::Shortcut)){
+        e->accept();return true;
+    }
     if(watched==m_window&&e->type()==QEvent::Close&&m_exportActive){
         static_cast<QCloseEvent*>(e)->ignore();
         if(!m_exportClosing){
             m_exportClosing=true;m_exportService.cancel();
-
             auto* closing=new QTimer(this);closing->setInterval(50);
             connect(closing,&QTimer::timeout,this,[this,closing]{
                 if(m_exportActive||m_exportService.isBusy())return;
@@ -561,12 +743,16 @@ bool ViewerController::eventFilter(QObject* watched,QEvent* e){
         return true;
     }
     if(watched==m_window&&(e->type()==QEvent::WindowDeactivate||e->type()==QEvent::UngrabMouse)){
+        const bool petDrag=m_petMode&&m_pointerMode==5;
+        if(petDrag){m_petMoveTimer.stop();applyDesktopPetMove();}
         m_dragged=true;m_pointerMode=0;m_filePreviewPending=false;
+        if(petDrag){m_state["petDragging"]=false;m_clock.restart();publishState();}
+        if(auto* module=qobject_cast<PluginModule*>(m_plugins->module()))module->dispatch("input.cancel");
     }
+    if(watched==m_window&&m_plugins->isOpen()&&!modalOpen()&&e->type()==QEvent::KeyPress&&static_cast<QKeyEvent*>(e)->key()==Qt::Key_F11){dispatch("window.fullscreen");return true;}
     if(watched!=m_window||inputBlocked())return false;
     if(e->type()!=QEvent::KeyPress&&e->type()!=QEvent::KeyRelease)return false;
     auto* focus=m_window->activeFocusItem();
-
     if(focus&&focus!=m_window->contentItem()&&focus->objectName()!="spineScene"){m_filePreviewPending=false;return false;}
     auto* key=static_cast<QKeyEvent*>(e);const bool press=e->type()==QEvent::KeyPress;
     if(key->key()==Qt::Key_F11&&press){dispatch("window.fullscreen");return true;}

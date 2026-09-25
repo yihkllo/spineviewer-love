@@ -1,3 +1,4 @@
+
 #ifndef Spine_SlotData_h
 #define Spine_SlotData_h
 

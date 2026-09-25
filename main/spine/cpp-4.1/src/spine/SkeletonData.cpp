@@ -1,3 +1,4 @@
+
 #include <spine/SkeletonData.h>
 
 #include <spine/Animation.h>
@@ -177,6 +178,7 @@ const String &SkeletonData::getImagesPath() {
 void SkeletonData::setImagesPath(const String &inValue) {
 	_imagesPath = inValue;
 }
+
 
 const String &SkeletonData::getAudioPath() {
 	return _audioPath;

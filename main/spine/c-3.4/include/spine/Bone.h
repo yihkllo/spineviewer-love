@@ -1,3 +1,4 @@
+
 #ifndef SPINE_BONE_H_
 #define SPINE_BONE_H_
 
@@ -37,7 +38,7 @@ struct spBone {
 		a(0), b(0), worldX(0),
 		c(0), d(0), worldY(0),
 		worldSignX(0), worldSignY(0),
-
+		
 		sorted(0) {
 	}
 #endif

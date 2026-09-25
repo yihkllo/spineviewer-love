@@ -1,3 +1,5 @@
+﻿
+
 #include "CubismUserModel.hpp"
 #include "Motion/CubismMotion.hpp"
 #include "Physics/CubismPhysics.hpp"
@@ -30,7 +32,6 @@ CubismUserModel::CubismUserModel()
     , _debugMode(false)
     , _renderer(NULL)
 {
-
     _motionManager = CSM_NEW CubismMotionManager();
     _motionManager->SetEventCallback(CubismDefaultMotionEventCallback, this);
 

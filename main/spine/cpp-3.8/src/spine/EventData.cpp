@@ -1,3 +1,4 @@
+
 #ifdef SPINE_UE4
 #include "SpinePluginPrivatePCH.h"
 #endif
@@ -52,6 +53,7 @@ const spine::String &spine::EventData::getAudioPath() const {
 void spine::EventData::setAudioPath(const spine::String &inValue) {
 	_audioPath = inValue;
 }
+
 
 float spine::EventData::getVolume() const {
 	return _volume;

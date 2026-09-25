@@ -1,3 +1,4 @@
+
 #include <spine/AnimationState.h>
 #include <spine/extension.h>
 #include <limits.h>
@@ -31,6 +32,7 @@ int* _spAnimationState_resizeTimelinesFirst(spTrackEntry* entry, int newSize);
 void _spAnimationState_ensureCapacityPropertyIDs(spAnimationState* self, int capacity);
 int _spAnimationState_addPropertyID(spAnimationState* self, int id);
 spTrackEntry* _spTrackEntry_setTimelineData(spTrackEntry* self, spTrackEntry* to, spTrackEntryArray* mixingToArray, spAnimationState* state);
+
 
 _spEventQueue* _spEventQueue_create (_spAnimationState* state) {
 	_spEventQueue *self = CALLOC(_spEventQueue, 1);
@@ -128,7 +130,6 @@ void _spEventQueue_drain (_spEventQueue* self) {
 			case SP_ANIMATION_END:
 				if (entry->listener) entry->listener(SUPER(self->state), type, entry, 0);
 				if (self->state->super.listener) self->state->super.listener(SUPER(self->state), type, entry, 0);
-
 			case SP_ANIMATION_DISPOSE:
 				if (entry->listener) entry->listener(SUPER(self->state), SP_ANIMATION_DISPOSE, entry, 0);
 				if (self->state->super.listener) self->state->super.listener(SUPER(self->state), SP_ANIMATION_DISPOSE, entry, 0);
@@ -245,7 +246,6 @@ void spAnimationState_update (spAnimationState* self, float delta) {
 
 		next = current->next;
 		if (next) {
-
 			float nextTime = current->trackLast - next->delay;
 			if (nextTime >= 0) {
 				next->delay = 0;
@@ -259,7 +259,6 @@ void spAnimationState_update (spAnimationState* self, float delta) {
 				continue;
 			}
 		} else {
-
 			if (current->trackLast >= current->trackEnd && current->mixingFrom == 0) {
 				self->tracks[i] = 0;
 				_spEventQueue_end(internal->queue, current);
@@ -268,7 +267,6 @@ void spAnimationState_update (spAnimationState* self, float delta) {
 			}
 		}
 		if (current->mixingFrom != 0 && _spAnimationState_updateMixingFrom(self, current, delta)) {
-
 			spTrackEntry* from = current->mixingFrom;
 			current->mixingFrom = 0;
 			while (from != 0) {
@@ -295,7 +293,6 @@ int   _spAnimationState_updateMixingFrom (spAnimationState* self, spTrackEntry* 
 	from->trackLast = from->nextTrackLast;
 
 	if (to->mixTime > 0 && (to->mixTime >= to->mixDuration || to->timeScale == 0)) {
-
 		if (from->totalAlpha == 0 || to->mixDuration == 0) {
 			to->mixingFrom = from->mixingFrom;
 			to->interruptAlpha = from->interruptAlpha;
@@ -450,6 +447,7 @@ float _spAnimationState_applyMixingFrom (spAnimationState* self, spTrackEntry* t
 		}
 	}
 
+
 	if (to->mixDuration > 0) _spAnimationState_queueEvents(self, from, animationTime);
 	internal->eventsCount = 0;
 	from->nextAnimationLast = animationTime;
@@ -490,7 +488,6 @@ void _spAnimationState_applyRotateTimeline (spAnimationState* self, spTimeline* 
 	if (time >= frames[rotateTimeline->framesCount - ROTATE_ENTRIES])
 		r2 = bone->data->rotation + frames[rotateTimeline->framesCount + ROTATE_PREV_ROTATION];
 	else {
-
 		frame = _spCurveTimeline_binarySearch(frames, rotateTimeline->framesCount, time, ROTATE_ENTRIES);
 		prevRotation = frames[frame + ROTATE_PREV_ROTATION];
 		frameTime = frames[frame];
@@ -519,9 +516,7 @@ void _spAnimationState_applyRotateTimeline (spAnimationState* self, spTimeline* 
 		}
 		current = diff > 0;
 		dir = lastTotal >= 0;
-
 		if (SIGNUM(lastDiff) != SIGNUM(diff) && ABS(lastDiff) <= 90) {
-
 			if (ABS(lastTotal) > 180) lastTotal += 360 * SIGNUM(lastTotal);
 			dir = current;
 		}
@@ -635,7 +630,6 @@ spTrackEntry* spAnimationState_setAnimation (spAnimationState* self, int trackIn
 	spTrackEntry* current = _spAnimationState_expandToIndex(self, trackIndex);
 	if (current) {
 		if (current->nextTrackLast == -1) {
-
 			self->tracks[trackIndex] = current->mixingFrom;
 			_spEventQueue_interrupt(internal->queue, current);
 			_spEventQueue_end(internal->queue, current);

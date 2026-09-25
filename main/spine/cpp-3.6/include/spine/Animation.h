@@ -1,3 +1,4 @@
+
 #ifndef SPINE_ANIMATION_H_
 #define SPINE_ANIMATION_H_
 
@@ -53,6 +54,7 @@ typedef spAnimation Animation;
 #define Animation_apply(...) spAnimation_apply(__VA_ARGS__)
 #endif
 
+
 typedef enum {
 	SP_TIMELINE_ROTATE,
 	SP_TIMELINE_TRANSLATE,
@@ -101,6 +103,7 @@ typedef spTimeline Timeline;
 #define Timeline_apply(...) spTimeline_apply(__VA_ARGS__)
 #endif
 
+
 typedef struct spCurveTimeline {
 	spTimeline super;
 	float* curves;
@@ -127,6 +130,7 @@ typedef spCurveTimeline CurveTimeline;
 #define CurveTimeline_getCurvePercent(...) spCurveTimeline_getCurvePercent(__VA_ARGS__)
 #endif
 
+
 typedef struct spBaseTimeline {
 	spCurveTimeline super;
 	int const framesCount;
@@ -142,6 +146,7 @@ typedef struct spBaseTimeline {
 	}
 #endif
 } spBaseTimeline;
+
 
 static const int ROTATE_PREV_TIME = -2, ROTATE_PREV_ROTATION = -1;
 static const int ROTATE_ROTATION = 1;
@@ -159,6 +164,7 @@ typedef spRotateTimeline RotateTimeline;
 #define RotateTimeline_setFrame(...) spRotateTimeline_setFrame(__VA_ARGS__)
 #endif
 
+
 static const int TRANSLATE_ENTRIES = 3;
 
 typedef struct spBaseTimeline spTranslateTimeline;
@@ -173,6 +179,7 @@ typedef spTranslateTimeline TranslateTimeline;
 #define TranslateTimeline_setFrame(...) spTranslateTimeline_setFrame(__VA_ARGS__)
 #endif
 
+
 typedef struct spBaseTimeline spScaleTimeline;
 
 SP_API spScaleTimeline* spScaleTimeline_create (int framesCount);
@@ -185,6 +192,7 @@ typedef spScaleTimeline ScaleTimeline;
 #define ScaleTimeline_setFrame(...) spScaleTimeline_setFrame(__VA_ARGS__)
 #endif
 
+
 typedef struct spBaseTimeline spShearTimeline;
 
 SP_API spShearTimeline* spShearTimeline_create (int framesCount);
@@ -196,6 +204,7 @@ typedef spShearTimeline ShearTimeline;
 #define ShearTimeline_create(...) spShearTimeline_create(__VA_ARGS__)
 #define ShearTimeline_setFrame(...) spShearTimeline_setFrame(__VA_ARGS__)
 #endif
+
 
 static const int COLOR_ENTRIES = 5;
 
@@ -225,6 +234,7 @@ typedef spColorTimeline ColorTimeline;
 #define ColorTimeline_setFrame(...) spColorTimeline_setFrame(__VA_ARGS__)
 #endif
 
+
 static const int TWOCOLOR_ENTRIES = 8;
 
 typedef struct spTwoColorTimeline {
@@ -252,6 +262,7 @@ typedef spTwoColorTimeline TwoColorTimeline;
 #define TwoColorTimeline_create(...) spTwoColorTimeline_create(__VA_ARGS__)
 #define TwoColorTimeline_setFrame(...) spTwoColorTimeline_setFrame(__VA_ARGS__)
 #endif
+
 
 typedef struct spAttachmentTimeline {
 	spTimeline super;
@@ -281,6 +292,7 @@ typedef spAttachmentTimeline AttachmentTimeline;
 #define AttachmentTimeline_setFrame(...) spAttachmentTimeline_setFrame(__VA_ARGS__)
 #endif
 
+
 typedef struct spEventTimeline {
 	spTimeline super;
 	int const framesCount;
@@ -306,6 +318,7 @@ typedef spEventTimeline EventTimeline;
 #define EventTimeline_create(...) spEventTimeline_create(__VA_ARGS__)
 #define EventTimeline_setFrame(...) spEventTimeline_setFrame(__VA_ARGS__)
 #endif
+
 
 typedef struct spDrawOrderTimeline {
 	spTimeline super;
@@ -334,6 +347,7 @@ typedef spDrawOrderTimeline DrawOrderTimeline;
 #define DrawOrderTimeline_create(...) spDrawOrderTimeline_create(__VA_ARGS__)
 #define DrawOrderTimeline_setFrame(...) spDrawOrderTimeline_setFrame(__VA_ARGS__)
 #endif
+
 
 typedef struct spDeformTimeline {
 	spCurveTimeline super;
@@ -366,6 +380,7 @@ typedef spDeformTimeline DeformTimeline;
 #define DeformTimeline_setFrame(...) spDeformTimeline_setFrame(__VA_ARGS__)
 #endif
 
+
 static const int IKCONSTRAINT_ENTRIES = 3;
 
 typedef struct spIkConstraintTimeline {
@@ -393,6 +408,7 @@ typedef spIkConstraintTimeline IkConstraintTimeline;
 #define IkConstraintTimeline_create(...) spIkConstraintTimeline_create(__VA_ARGS__)
 #define IkConstraintTimeline_setFrame(...) spIkConstraintTimeline_setFrame(__VA_ARGS__)
 #endif
+
 
 static const int TRANSFORMCONSTRAINT_ENTRIES = 5;
 
@@ -422,6 +438,7 @@ typedef spTransformConstraintTimeline TransformConstraintTimeline;
 #define TransformConstraintTimeline_setFrame(...) spTransformConstraintTimeline_setFrame(__VA_ARGS__)
 #endif
 
+
 static const int PATHCONSTRAINTPOSITION_ENTRIES = 2;
 
 typedef struct spPathConstraintPositionTimeline {
@@ -449,6 +466,7 @@ typedef spPathConstraintPositionTimeline PathConstraintPositionTimeline;
 #define PathConstraintPositionTimeline_create(...) spPathConstraintPositionTimeline_create(__VA_ARGS__)
 #define PathConstraintPositionTimeline_setFrame(...) spPathConstraintPositionTimeline_setFrame(__VA_ARGS__)
 #endif
+
 
 static const int PATHCONSTRAINTSPACING_ENTRIES = 2;
 
@@ -478,6 +496,7 @@ typedef spPathConstraintSpacingTimeline PathConstraintSpacingTimeline;
 #define PathConstraintSpacingTimeline_setFrame(...) spPathConstraintSpacingTimeline_setFrame(__VA_ARGS__)
 #endif
 
+
 static const int PATHCONSTRAINTMIX_ENTRIES = 3;
 
 typedef struct spPathConstraintMixTimeline {
@@ -505,6 +524,7 @@ typedef spPathConstraintMixTimeline PathConstraintMixTimeline;
 #define PathConstraintMixTimeline_create(...) spPathConstraintMixTimeline_create(__VA_ARGS__)
 #define PathConstraintMixTimeline_setFrame(...) spPathConstraintMixTimeline_setFrame(__VA_ARGS__)
 #endif
+
 
 #ifdef __cplusplus
 }

@@ -1,3 +1,4 @@
+
 #ifndef Spine_Vector_h
 #define Spine_Vector_h
 
@@ -67,7 +68,6 @@ public:
 
 	inline void add(const T &inValue) {
 		if (_size == _capacity) {
-
 			T valueCopy = inValue;
 			_capacity = (int) (_size * 1.75f);
 			if (_capacity < 8) _capacity = 8;

@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 
 #include "CubismFramework.hpp"
@@ -32,3 +34,4 @@ public:
     csmFloat32 Height;
 };
 }}}
+

@@ -1,3 +1,5 @@
+﻿
+
 #include "CubismExpressionMotion.hpp"
 #include "CubismMotionQueueEntry.hpp"
 #include "Id/CubismIdManager.hpp"
@@ -9,7 +11,6 @@ const csmFloat32 CubismExpressionMotion::DefaultAdditiveValue = 0.0f;
 const csmFloat32 CubismExpressionMotion::DefaultMultiplyValue = 1.0f;
 
 namespace {
-
 const csmChar* ExpressionKeyFadeIn = "FadeInTime";
 const csmChar* ExpressionKeyFadeOut = "FadeOutTime";
 const csmChar* ExpressionKeyParameters = "Parameters";
@@ -21,6 +22,7 @@ const csmChar* BlendValueMultiply = "Multiply";
 const csmChar* BlendValueOverwrite = "Overwrite";
 const csmFloat32 DefaultFadeTime = 1.0f;
 }
+
 
 CubismExpressionMotion::CubismExpressionMotion()
 { }
@@ -56,7 +58,6 @@ void CubismExpressionMotion::DoUpdateParameters(CubismModel* model, csmFloat32 u
             break;
         }
         default:
-
             break;
         }
     }
@@ -214,7 +215,6 @@ void CubismExpressionMotion::Parse(const csmByte* buffer, csmSizeInt size)
         }
         else
         {
-
             blendType = Additive;
         }
 
@@ -234,5 +234,6 @@ csmFloat32 CubismExpressionMotion::CalculateValue(csmFloat32 source, csmFloat32 
 {
     return (source * (1.0f - fadeWeight)) + (destination * fadeWeight);
 }
+
 
 }}}

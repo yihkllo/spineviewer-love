@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 
 #include <cmath>
@@ -78,8 +80,8 @@ public:
     static csmFloat32 ModF(csmFloat32 dividend, csmFloat32 divisor);
 
 private:
-
     CubismMath();
 };
 
 }}}
+

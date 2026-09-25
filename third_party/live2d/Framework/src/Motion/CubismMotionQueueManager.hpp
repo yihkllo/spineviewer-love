@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 
 #include "ACubismMotion.hpp"
@@ -18,7 +20,6 @@ extern const CubismMotionQueueEntryHandle InvalidMotionQueueEntryHandleValue;
 class CubismMotionQueueManager
 {
 public:
-
     CubismMotionQueueManager();
 
     virtual ~CubismMotionQueueManager();
@@ -40,8 +41,8 @@ public:
     void SetEventCallback(CubismMotionEventFunction callback, void* customData = NULL);
 
 protected:
-
     virtual csmBool     DoUpdateMotion(CubismModel* model, csmFloat32 userTimeSeconds);
+
 
     csmFloat32 _userTimeSeconds;
 

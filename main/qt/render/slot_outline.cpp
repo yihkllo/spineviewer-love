@@ -113,7 +113,6 @@ bool alphaContour(SlotOutlineResult& result,const ReadSlotMeshData& mesh,const Q
 bool triangleBoundary(SlDrawList& draws,const ReadSlotMeshData& mesh,const SlMatrix4& transform,float thickness,const SlColor& color)
 {
     const size_t count=mesh.worldVertices.size()/2;if(count<2||mesh.triangles.size()<3)return false;
-
     struct Edge { unsigned short a,b;int hits; };std::vector<Edge> edges;
     std::map<std::pair<unsigned short,unsigned short>,size_t> lookup;
     const auto add=[&](unsigned short a,unsigned short b){if(a==b)return;if(b<a)std::swap(a,b);const auto key=std::make_pair(a,b);const auto found=lookup.find(key);if(found==lookup.end()){lookup[key]=edges.size();edges.push_back({a,b,1});}else ++edges[found->second].hits;};

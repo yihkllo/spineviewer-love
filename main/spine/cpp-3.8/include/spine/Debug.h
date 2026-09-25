@@ -1,3 +1,4 @@
+
 #ifndef SPINE_DEBUG_H
 #define SPINE_DEBUG_H
 
@@ -79,7 +80,7 @@ public:
 	virtual char *_readFile(const String &path, int *length) {
 		return _extension->_readFile(path, length);
 	}
-
+	
 	size_t getUsedMemory() {
 		return _usedMemory;
 	}
@@ -93,5 +94,6 @@ private:
 	size_t _usedMemory;
 };
 }
+
 
 #endif

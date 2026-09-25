@@ -1,3 +1,4 @@
+
 #ifdef SPINE_UE4
 #include "SpinePluginPrivatePCH.h"
 #endif
@@ -51,7 +52,6 @@ void TwoColorTimeline::apply(Skeleton &skeleton, float lastTime, float time, Vec
 	if (!slot._bone.isActive()) return;
 
 	if (time < _frames[0]) {
-
 		switch (blend) {
 			case MixBlend_Setup:
 				slot.getColor().set(slot.getData().getColor());
@@ -77,7 +77,6 @@ void TwoColorTimeline::apply(Skeleton &skeleton, float lastTime, float time, Vec
 
 	float r, g, b, a, r2, g2, b2;
 	if (time >= _frames[_frames.size() - ENTRIES]) {
-
 		size_t i = _frames.size();
 		r = _frames[i + PREV_R];
 		g = _frames[i + PREV_G];
@@ -87,7 +86,6 @@ void TwoColorTimeline::apply(Skeleton &skeleton, float lastTime, float time, Vec
 		g2 = _frames[i + PREV_G2];
 		b2 = _frames[i + PREV_B2];
 	} else {
-
 		size_t frame = (size_t)Animation::binarySearch(_frames, time, ENTRIES);
 		r = _frames[frame + PREV_R];
 		g = _frames[frame + PREV_G];

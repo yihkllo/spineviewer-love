@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 #include <string>
 #include "../CubismRenderer.hpp"
@@ -23,7 +25,6 @@ class CubismClippingManager_Vulkan : public CubismClippingManager<
             CubismClippingContext_Vulkan, CubismOffscreenSurface_Vulkan>
 {
 public:
-
     void SetupClippingContext(CubismModel& model, VkCommandBuffer commandBuffer, VkCommandBuffer updateCommandBuffer,
                               CubismRenderer_Vulkan* renderer);
 };
@@ -34,7 +35,6 @@ class CubismClippingContext_Vulkan : public CubismClippingContext
     friend class CubismRenderer_Vulkan;
 
 public:
-
     CubismClippingContext_Vulkan(
         CubismClippingManager<CubismClippingContext_Vulkan, CubismOffscreenSurface_Vulkan>* manager, CubismModel& model,
         const csmInt32* clippingDrawableIndices, csmInt32 clipCount);
@@ -44,12 +44,10 @@ public:
     CubismClippingManager<CubismClippingContext_Vulkan, CubismOffscreenSurface_Vulkan>* GetClippingManager();
 
     CubismClippingManager<CubismClippingContext_Vulkan, CubismOffscreenSurface_Vulkan>* _owner;
-
 };
 
 enum ShaderNames
 {
-
     ShaderNames_SetupMask,
 
     ShaderNames_Normal,
@@ -114,14 +112,12 @@ struct ModelVertex
 class CubismPipeline_Vulkan
 {
 public:
-
     CubismPipeline_Vulkan();
 
     ~CubismPipeline_Vulkan();
 
     struct PipelineResource
     {
-
         VkShaderModule CreateShaderModule(VkDevice device, std::string filename);
 
         void CreateGraphicsPipeline(std::string vertFileName, std::string fragFileName,
@@ -180,7 +176,6 @@ class CubismRenderer_Vulkan : public CubismRenderer
     };
 
 protected:
-
     CubismRenderer_Vulkan();
 
     ~CubismRenderer_Vulkan() override;
@@ -210,6 +205,7 @@ public:
     static void UpdateRendererSettings(VkImage image, VkImageView imageView);
 
     void CreateCommandBuffer();
+
 
     void CreateVertexBuffer();
 
@@ -300,3 +296,4 @@ private:
     VkCommandBuffer drawCommandBuffer;
 };
 }}}}
+

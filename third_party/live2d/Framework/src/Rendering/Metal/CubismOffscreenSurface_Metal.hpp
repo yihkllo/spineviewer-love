@@ -1,3 +1,4 @@
+
 #pragma once
 
 #include <MetalKit/MetalKit.h>
@@ -45,3 +46,4 @@ private:
 };
 
 }}}}
+

@@ -1,3 +1,4 @@
+
 #ifndef SPINE_ANIMATION_H_
 #define SPINE_ANIMATION_H_
 
@@ -45,6 +46,7 @@ typedef spAnimation Animation;
 #define Animation_mix(...) spAnimation_mix(__VA_ARGS__)
 #endif
 
+
 typedef enum {
 	SP_TIMELINE_SCALE,
 	SP_TIMELINE_ROTATE,
@@ -86,6 +88,7 @@ typedef spTimeline Timeline;
 #define Timeline_apply(...) spTimeline_apply(__VA_ARGS__)
 #endif
 
+
 typedef struct spCurveTimeline {
 	spTimeline super;
 	float* curves;
@@ -112,6 +115,7 @@ typedef spCurveTimeline CurveTimeline;
 #define CurveTimeline_getCurvePercent(...) spCurveTimeline_getCurvePercent(__VA_ARGS__)
 #endif
 
+
 typedef struct spBaseTimeline {
 	spCurveTimeline super;
 	int const framesCount;
@@ -128,6 +132,7 @@ typedef struct spBaseTimeline {
 #endif
 } spBaseTimeline;
 
+
 typedef struct spBaseTimeline spRotateTimeline;
 
 spRotateTimeline* spRotateTimeline_create (int framesCount);
@@ -139,6 +144,7 @@ typedef spRotateTimeline RotateTimeline;
 #define RotateTimeline_create(...) spRotateTimeline_create(__VA_ARGS__)
 #define RotateTimeline_setFrame(...) spRotateTimeline_setFrame(__VA_ARGS__)
 #endif
+
 
 typedef struct spBaseTimeline spTranslateTimeline;
 
@@ -152,6 +158,7 @@ typedef spTranslateTimeline TranslateTimeline;
 #define TranslateTimeline_setFrame(...) spTranslateTimeline_setFrame(__VA_ARGS__)
 #endif
 
+
 typedef struct spBaseTimeline spScaleTimeline;
 
 spScaleTimeline* spScaleTimeline_create (int framesCount);
@@ -163,6 +170,7 @@ typedef spScaleTimeline ScaleTimeline;
 #define ScaleTimeline_create(...) spScaleTimeline_create(__VA_ARGS__)
 #define ScaleTimeline_setFrame(...) spScaleTimeline_setFrame(__VA_ARGS__)
 #endif
+
 
 typedef struct spColorTimeline {
 	spCurveTimeline super;
@@ -189,6 +197,7 @@ typedef spColorTimeline ColorTimeline;
 #define ColorTimeline_create(...) spColorTimeline_create(__VA_ARGS__)
 #define ColorTimeline_setFrame(...) spColorTimeline_setFrame(__VA_ARGS__)
 #endif
+
 
 typedef struct spAttachmentTimeline {
 	spTimeline super;
@@ -218,6 +227,7 @@ typedef spAttachmentTimeline AttachmentTimeline;
 #define AttachmentTimeline_setFrame(...) spAttachmentTimeline_setFrame(__VA_ARGS__)
 #endif
 
+
 typedef struct spEventTimeline {
 	spTimeline super;
 	int const framesCount;
@@ -243,6 +253,7 @@ typedef spEventTimeline EventTimeline;
 #define EventTimeline_create(...) spEventTimeline_create(__VA_ARGS__)
 #define EventTimeline_setFrame(...) spEventTimeline_setFrame(__VA_ARGS__)
 #endif
+
 
 typedef struct spDrawOrderTimeline {
 	spTimeline super;
@@ -271,6 +282,7 @@ typedef spDrawOrderTimeline DrawOrderTimeline;
 #define DrawOrderTimeline_create(...) spDrawOrderTimeline_create(__VA_ARGS__)
 #define DrawOrderTimeline_setFrame(...) spDrawOrderTimeline_setFrame(__VA_ARGS__)
 #endif
+
 
 typedef struct spFFDTimeline {
 	spCurveTimeline super;
@@ -303,6 +315,7 @@ typedef spFFDTimeline FFDTimeline;
 #define FFDTimeline_setFrame(...) spFFDTimeline_setFrame(__VA_ARGS__)
 #endif
 
+
 typedef struct spIkConstraintTimeline {
 	spCurveTimeline super;
 	int const framesCount;
@@ -328,6 +341,7 @@ typedef spIkConstraintTimeline IkConstraintTimeline;
 #define IkConstraintTimeline_create(...) spIkConstraintTimeline_create(__VA_ARGS__)
 #define IkConstraintTimeline_setFrame(...) spIkConstraintTimeline_setFrame(__VA_ARGS__)
 #endif
+
 
 #ifdef __cplusplus
 }

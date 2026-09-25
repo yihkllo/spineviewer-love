@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 
 #include "CubismFramework.hpp"
@@ -60,7 +62,6 @@ namespace Live2D { namespace Cubism { namespace Framework { namespace Utils {
 class CubismDebug
 {
 public:
-
     static void Print(CubismFramework::Option::LogLevel logLevel, const csmChar* format, ...);
 
     static void DumpBytes(CubismFramework::Option::LogLevel logLevel, const csmUint8* data, csmInt32 length);
@@ -71,3 +72,4 @@ private:
 
 };
 }}}}
+

@@ -1,3 +1,5 @@
+﻿
+
 #include "CubismRenderState_D3D9.hpp"
 #include "CubismShader_D3D9.hpp"
 #include "CubismRenderer_D3D9.hpp"
@@ -7,7 +9,6 @@ namespace Live2D { namespace Cubism { namespace Framework { namespace Rendering 
 
 CubismRenderState_D3D9::CubismRenderState_D3D9()
 {
-
     memset(_stored._valid, 0, sizeof(_stored._valid));
 }
 
@@ -23,9 +24,9 @@ void CubismRenderState_D3D9::StartFrame()
     _pushed.Clear();
 }
 
+
 void CubismRenderState_D3D9::Save()
 {
-
     _pushed.PushBack(_stored);
 }
 
@@ -92,6 +93,7 @@ void CubismRenderState_D3D9::Restore(LPDIRECT3DDEVICE9 device)
     _stored = store;
 }
 
+
 void CubismRenderState_D3D9::SetBlend(LPDIRECT3DDEVICE9 device, bool enable, bool alphaSeparateEnable,
     D3DBLEND srcmul, D3DBLENDOP blendFunc, D3DBLEND destmul,
     D3DBLEND srcalpha, D3DBLENDOP alphaFunc, D3DBLEND destalpha,
@@ -132,7 +134,6 @@ void CubismRenderState_D3D9::SetViewport(LPDIRECT3DDEVICE9 device, DWORD left, D
         _stored.ViewportX != left || _stored.ViewportY != top || _stored.ViewportWidth != width || _stored.ViewportHeight != height ||
         _stored.ViewportMinZ != zMin || _stored.ViewportMaxZ != zMax)
     {
-
         D3DVIEWPORT9 viewport;
         viewport.X = left;
         viewport.Y = top;
@@ -232,13 +233,10 @@ void CubismRenderState_D3D9::SetTextureFilter(LPDIRECT3DDEVICE9 device, csmInt32
 
 void CubismRenderState_D3D9::SaveCurrentNativeState(LPDIRECT3DDEVICE9 device)
 {
-
     _pushed.Clear();
-
     memset(_stored._valid, 0, sizeof(_stored._valid));
 
     DWORD setting[16];
-
     device->GetRenderState(D3DRS_ALPHABLENDENABLE, &setting[0]);
     device->GetRenderState(D3DRS_SEPARATEALPHABLENDENABLE, &setting[1]);
     device->GetRenderState(D3DRS_SRCBLEND, &setting[2]);
@@ -283,7 +281,6 @@ void CubismRenderState_D3D9::SaveCurrentNativeState(LPDIRECT3DDEVICE9 device)
 
 void CubismRenderState_D3D9::RestoreNativeState(LPDIRECT3DDEVICE9 device)
 {
-
     for (csmInt32 i = static_cast<csmInt32>(_pushed.GetSize()) - 1; i >= 0; i--)
     {
         Restore(device);
@@ -291,3 +288,4 @@ void CubismRenderState_D3D9::RestoreNativeState(LPDIRECT3DDEVICE9 device)
 }
 
 }}}}
+

@@ -1,3 +1,4 @@
+
 #ifdef SPINE_UE4
 #include "SpinePluginPrivatePCH.h"
 #endif
@@ -47,6 +48,7 @@ const spine::String &spine::Event::getStringValue() {
 void spine::Event::setStringValue(const spine::String &inValue) {
 	_stringValue = inValue;
 }
+
 
 float spine::Event::getVolume() {
 	return _volume;

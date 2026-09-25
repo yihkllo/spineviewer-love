@@ -1,10 +1,13 @@
-#ifndef _DEFAULT_SOURCE
 
+
+
+
+
+#ifndef _DEFAULT_SOURCE
 #define _DEFAULT_SOURCE
 #endif
 
 #ifndef _BSD_SOURCE
-
 #define _BSD_SOURCE
 #endif
 
@@ -16,7 +19,6 @@
 #include <spine/extension.h>
 
 #ifndef SPINE_JSON_DEBUG
-
 #define SPINE_JSON_DEBUG 0
 #endif
 
@@ -27,7 +29,6 @@ const char* Json_getError (void) {
 }
 
 static int Json_strcasecmp (const char* s1, const char* s2) {
-
 	if (s1 && s2) {
 #if defined(_WIN32)
 		return _stricmp(s1, s2);
@@ -115,13 +116,11 @@ static const char* parse_number (Json *item, const char* num) {
 	}
 
 	if (ptr != num) {
-
 		item->valueFloat = result;
 		item->valueInt = (int)result;
 		item->type = Json_Number;
 		return ptr;
 	} else {
-
 		ep = num;
 		return 0;
 	}
@@ -195,15 +194,12 @@ static const char* parse_string (Json *item, const char* str) {
 				case 4:
 					*--ptr2 = ((uc | 0x80) & 0xBF);
 					uc >>= 6;
-
 				case 3:
 					*--ptr2 = ((uc | 0x80) & 0xBF);
 					uc >>= 6;
-
 				case 2:
 					*--ptr2 = ((uc | 0x80) & 0xBF);
 					uc >>= 6;
-
 				case 1:
 					*--ptr2 = (uc | firstByteMark[len]);
 				}
@@ -251,7 +247,6 @@ Json *Json_create (const char* value) {
 }
 
 static const char* parse_value (Json *item, const char* value) {
-
 #if SPINE_JSON_DEBUG
 	if (!value) return 0;
 #endif
@@ -267,7 +262,6 @@ static const char* parse_value (Json *item, const char* value) {
 	case 'f': {
 		if (!strncmp(value + 1, "alse", 4)) {
 			item->type = Json_False;
-
 			return value + 5;
 		}
 		break;

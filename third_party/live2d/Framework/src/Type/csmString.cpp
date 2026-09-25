@@ -1,3 +1,5 @@
+﻿
+
 #include "csmString.hpp"
 #include <stdarg.h>
 #include "CubismFramework.hpp"
@@ -168,7 +170,6 @@ csmString csmString::operator+(const csmString& s) const
     }
     else
     {
-
         csmChar* newptr = static_cast<csmChar*>(CSM_MALLOC(sizeof(csmChar) * (len1 + len2 + 1)));
 
         if (newptr == NULL)
@@ -203,7 +204,6 @@ csmString csmString::operator+(const csmChar* c) const
     }
     else
     {
-
         csmChar* newptr = static_cast<csmChar*>(CSM_MALLOC(sizeof(csmChar) * (len1 + len2 + 1)));
 
         if (newptr == NULL)
@@ -282,7 +282,6 @@ csmString& csmString::operator+=(const csmChar* c)
 
 csmBool csmString::operator==(const csmString& s) const
 {
-
     if (s._length != this->_length) return false;
 
     if (this->_hashcode != s._hashcode) return false;
@@ -299,7 +298,6 @@ csmBool csmString::operator==(const csmString& s) const
 
 csmBool csmString::operator==(const csmChar* rc) const
 {
-
     if (static_cast<csmInt32>(strlen(rc)) != this->_length) return false;
 
     const csmChar* lc = this->GetRawString();
@@ -379,11 +377,8 @@ csmString& csmString::Append(csmInt32 len2, const csmChar c)
     }
     else
     {
-
         newptr = static_cast<csmChar*>(CSM_MALLOC(sizeof(csmChar) * (len1 + len2 + 1)));
-
         memcpy(newptr, this->GetRawString(), len1);
-
         for (csmInt32 i = len1 + len2 - 1; i >= len1; --i) newptr[i] = c;
 
         Clear();
@@ -464,6 +459,7 @@ csmBool csmString::IsEmpty() const
 
 #else
 
+
     return (_ptr == NULL && _small[0] == '\0');
 
 #endif
@@ -471,7 +467,6 @@ csmBool csmString::IsEmpty() const
 
 void csmString::SetEmpty()
 {
-
     _ptr = NULL;
     _small[0] = '\0';
     _length = 0;
@@ -492,3 +487,4 @@ csmChar* csmString::WritePointer()
 }
 
 }}}
+

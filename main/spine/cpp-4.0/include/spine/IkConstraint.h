@@ -1,3 +1,4 @@
+
 #ifndef Spine_IkConstraint_h
 #define Spine_IkConstraint_h
 
@@ -20,7 +21,6 @@ namespace spine {
 	RTTI_DECL
 
 	public:
-
 		static void
 		apply(Bone &bone, float targetX, float targetY, bool compress, bool stretch, bool uniform, float alpha);
 

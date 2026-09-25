@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 
 #include "CubismFramework.hpp"
@@ -8,7 +10,6 @@ namespace Live2D { namespace Cubism { namespace Framework {
 class csmString
 {
 public:
-
     csmString();
 
     csmString(const csmChar* c);
@@ -57,6 +58,7 @@ public:
 
     csmInt32 GetHashcode();
 
+
 protected:
 
     void Copy(const csmChar* c, csmInt32 length);
@@ -83,3 +85,5 @@ private:
     csmChar* WritePointer();
 };
 }}}
+
+

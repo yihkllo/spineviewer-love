@@ -1,3 +1,4 @@
+
 #include <spine/Slot.h>
 #include <spine/extension.h>
 
@@ -45,7 +46,6 @@ void spSlot_setToSetupPose (spSlot* self) {
 	if (!self->data->attachmentName)
 		spSlot_setAttachment(self, 0);
 	else {
-
 		int i;
 		for (i = 0; i < self->bone->skeleton->data->slotsCount; ++i) {
 			if (self->data == self->bone->skeleton->data->slots[i]) {

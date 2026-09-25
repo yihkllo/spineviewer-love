@@ -1,3 +1,4 @@
+
 #ifndef SPINE_ANIMATIONSTATEDATA_H_
 #define SPINE_ANIMATIONSTATEDATA_H_
 
@@ -27,7 +28,6 @@ void spAnimationStateData_dispose (spAnimationStateData* self);
 
 void spAnimationStateData_setMixByName (spAnimationStateData* self, const char* fromName, const char* toName, float duration);
 void spAnimationStateData_setMix (spAnimationStateData* self, spAnimation* from, spAnimation* to, float duration);
-
 float spAnimationStateData_getMix (spAnimationStateData* self, spAnimation* from, spAnimation* to);
 
 #ifdef SPINE_SHORT_NAMES

@@ -1,3 +1,4 @@
+
 #ifndef Spine_CurveTimeline_h
 #define Spine_CurveTimeline_h
 
@@ -5,7 +6,6 @@
 #include <spine/Vector.h>
 
 namespace spine {
-
 	class SP_API CurveTimeline : public Timeline {
 	RTTI_DECL
 

@@ -17,7 +17,9 @@ Column {
         for (let i=0;i<sourceValues.length;++i) {
             const item=sourceValues[i];
             const row={id:String(item.id || ""),name:String(item.name || item.id || ""),value:Number(item.value || 0),min:Number(item.min || 0),max:item.max === undefined ? 1 : Number(item.max),overridden:!!item.overridden};
-            if (same) valueRows.set(i,row); else valueRows.append(row);
+            if (!same) { valueRows.append(row); continue; }
+            const old=valueRows.get(i);
+            if (old.value!==row.value || old.overridden!==row.overridden || old.name!==row.name || old.min!==row.min || old.max!==row.max) valueRows.set(i,row);
         }
     }
     function foldAscii(value) { return String(value).replace(/[A-Z]/g, function(c) { return c.toLowerCase(); }); }

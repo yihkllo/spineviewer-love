@@ -1,7 +1,7 @@
 #include "asset_library.h"
 #include "spine_json_preflight.h"
 
-#include "../../runtime_shared/sl_skeleton_probe.h"
+#include "spinelove/sl_skeleton_probe.h"
 
 #include <QCollator>
 #include <QDir>
@@ -124,7 +124,6 @@ QString AssetLibrary::matchingAtlas(const QString& skeletonPath)
     const QFileInfo skeleton(skeletonPath);
     const QDir directory(skeleton.absolutePath());
     const QString stem = skeleton.completeBaseName();
-
     QStringList names;
     for (const auto& suffix : {QStringLiteral(".atlas"), QStringLiteral(".atlas.txt")}) {
         const QString wanted = stem + suffix;
@@ -153,7 +152,6 @@ AssetEntry AssetLibrary::inspect(const QString& path)
         return entry;
     }
     if (isLive2DFileName(entry.path)) {
-
         entry.kind = AssetKind::Live2D;
         return entry;
     }
@@ -175,7 +173,6 @@ AssetBundle AssetLibrary::readSpineBundle(const QStringList& paths)
         result.error = message;
         return result;
     };
-
     for (const auto& path : paths) {
         if (isLive2DFileName(path))
             return fail(QStringLiteral("Please select Spine skeleton files for a Spine bundle."));
@@ -188,7 +185,6 @@ AssetBundle AssetLibrary::readSpineBundle(const QStringList& paths)
             return fail(entry.error);
         const bool binary = entry.kind == AssetKind::SpineBinary;
         if (!binary) {
-
             if (!SpineJsonPreflight::valid(skeletonBytes))
                 return fail(QStringLiteral("Spine JSON has no bone data: %1").arg(path));
         }
@@ -245,7 +241,6 @@ void AssetLibrary::naturalSort(QStringList& paths)
         int compared = collator.compare(QFileInfo(left).fileName(), QFileInfo(right).fileName());
         if (compared == 0)
             compared = collator.compare(left, right);
-
         if (compared == 0)
             compared = QString::compare(left, right, Qt::CaseSensitive);
         return compared < 0;

@@ -1,3 +1,4 @@
+
 #include <spine/Atlas.h>
 #include <ctype.h>
 #include <spine/extension.h>
@@ -15,6 +16,7 @@ void spAtlasPage_dispose (spAtlasPage* self) {
 	FREE(self);
 }
 
+
 spAtlasRegion* spAtlasRegion_create () {
 	return NEW(spAtlasRegion);
 }
@@ -25,6 +27,7 @@ void spAtlasRegion_dispose (spAtlasRegion* self) {
 	FREE(self->pads);
 	FREE(self);
 }
+
 
 typedef struct {
 	const char* begin;

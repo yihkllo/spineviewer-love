@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 
 #include "CubismModel.hpp"
@@ -9,7 +11,6 @@ typedef CubismIdHandle  ModelUserDataType;
 class CubismModelUserData
 {
 public:
-
     struct CubismModelUserDataNode
     {
         ModelUserDataType   TargetType;

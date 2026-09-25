@@ -1,3 +1,4 @@
+
 #ifndef SPINE_LOG_H
 #define SPINE_LOG_H
 
@@ -97,5 +98,6 @@ namespace spine {
 		size_t _usedMemory;
 	};
 }
+
 
 #endif

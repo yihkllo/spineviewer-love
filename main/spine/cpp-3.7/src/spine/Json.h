@@ -1,3 +1,8 @@
+
+
+
+
+
 #ifndef SPINE_JSON_H_
 #define SPINE_JSON_H_
 
@@ -14,7 +19,6 @@ extern "C" {
 #define Json_Object 6
 
 #ifndef SPINE_JSON_HAVE_PREV
-
 #define SPINE_JSON_HAVE_PREV 0
 #endif
 

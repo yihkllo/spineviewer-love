@@ -1,3 +1,5 @@
+﻿
+
 #include "CubismRenderState_D3D11.hpp"
 #include "CubismShader_D3D11.hpp"
 #include "CubismRenderer_D3D11.hpp"
@@ -7,7 +9,6 @@ namespace Live2D { namespace Cubism { namespace Framework { namespace Rendering 
 
 CubismRenderState_D3D11::CubismRenderState_D3D11()
 {
-
     memset(_stored._valid, 0, sizeof(_stored._valid));
 
     Create(CubismRenderer_D3D11::GetCurrentDevice());
@@ -112,6 +113,7 @@ void CubismRenderState_D3D11::Create(ID3D11Device* device)
     device->CreateBlendState(&blendDesc, &state);
     _blendStateObjects.PushBack(state);
 
+
     ID3D11RasterizerState* rasterizer = NULL;
     D3D11_RASTERIZER_DESC rasterDesc;
     memset(&rasterDesc, 0, sizeof(rasterDesc));
@@ -132,6 +134,7 @@ void CubismRenderState_D3D11::Create(ID3D11Device* device)
     device->CreateRasterizerState(&rasterDesc, &rasterizer);
     _rasterizeStateObjects.PushBack(rasterizer);
 
+
     ID3D11DepthStencilState* depth = NULL;
     D3D11_DEPTH_STENCIL_DESC depthDesc;
     memset(&depthDesc, 0, sizeof(depthDesc));
@@ -149,6 +152,7 @@ void CubismRenderState_D3D11::Create(ID3D11Device* device)
     depthDesc.StencilEnable = false;
     device->CreateDepthStencilState(&depthDesc, &depth);
     _depthStencilState.PushBack(depth);
+
 
     ID3D11SamplerState* sampler = NULL;
     D3D11_SAMPLER_DESC samplerDesc;
@@ -183,7 +187,6 @@ void CubismRenderState_D3D11::StartFrame()
 
 void CubismRenderState_D3D11::Save()
 {
-
     _pushed.PushBack(_stored);
 }
 
@@ -287,7 +290,6 @@ void CubismRenderState_D3D11::SetViewport(ID3D11DeviceContext* renderContext, FL
         _stored._viewportX != left || _stored._viewportY != top || _stored._viewportWidth != width || _stored._viewportHeight != height ||
         _stored._viewportMinZ != zMin || _stored._viewportMaxZ != zMax)
     {
-
         D3D11_VIEWPORT setViewport;
         setViewport.TopLeftX = left;
         setViewport.TopLeftY = top;
@@ -338,7 +340,6 @@ void CubismRenderState_D3D11::SetSampler(ID3D11DeviceContext* renderContext, Sam
         _stored._sampler != sample)
     {
         if (anisotropy > 0.0 && sample == Sampler_Anisotropy) {
-
             ID3D11SamplerState* sampler;
             D3D11_SAMPLER_DESC samplerDesc;
             memset(&samplerDesc, 0, sizeof(D3D11_SAMPLER_DESC));
@@ -358,9 +359,7 @@ void CubismRenderState_D3D11::SetSampler(ID3D11DeviceContext* renderContext, Sam
 
 void CubismRenderState_D3D11::SaveCurrentNativeState(ID3D11Device* device, ID3D11DeviceContext* renderContext)
 {
-
     _pushed.Clear();
-
     memset(_stored._valid, 0, sizeof(_stored._valid));
 
     ID3D11BlendState* originBlend;
@@ -396,7 +395,6 @@ void CubismRenderState_D3D11::SaveCurrentNativeState(ID3D11Device* device, ID3D1
 
 void CubismRenderState_D3D11::RestoreNativeState(ID3D11Device* device, ID3D11DeviceContext* renderContext)
 {
-
     for (csmInt32 i = static_cast<csmInt32>(_pushed.GetSize()) - 1; i >= 0; i--)
     {
         Restore(renderContext);
@@ -425,3 +423,4 @@ void CubismRenderState_D3D11::RestoreNativeState(ID3D11Device* device, ID3D11Dev
 }
 
 }}}}
+

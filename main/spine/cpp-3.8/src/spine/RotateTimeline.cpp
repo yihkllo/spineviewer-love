@@ -1,3 +1,4 @@
+
 #ifdef SPINE_UE4
 #include "SpinePluginPrivatePCH.h"
 #endif
@@ -42,7 +43,6 @@ void RotateTimeline::apply(Skeleton &skeleton, float lastTime, float time, Vecto
 			break;
 		}
 		default: {
-
 			break;
 		}
 		}
@@ -59,7 +59,6 @@ void RotateTimeline::apply(Skeleton &skeleton, float lastTime, float time, Vecto
 			case MixBlend_Replace:
 				r += bone->_data._rotation - bone->_rotation;
 				r -= (16384 - (int)(16384.499999999996 - r / 360)) * 360;
-
 			case MixBlend_Add:
 				bone->_rotation += r * alpha;
 		}
@@ -80,7 +79,6 @@ void RotateTimeline::apply(Skeleton &skeleton, float lastTime, float time, Vecto
 		case MixBlend_First:
 		case MixBlend_Replace:
 			r += bone->_data._rotation - bone->_rotation;
-
 		case MixBlend_Add:
 			bone->_rotation += (r - (16384 - (int)(16384.499999999996 - r / 360)) * 360) * alpha;
 	}

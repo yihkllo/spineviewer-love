@@ -5,6 +5,8 @@
 #include <string>
 #include <vector>
 #include <array>
+#include <unordered_map>
+#include "native_layer_state.h"
 
 struct ID3D11Device;
 struct ID3D11DeviceContext;
@@ -14,12 +16,11 @@ namespace sl_d3d11
 	class D3D11Renderer;
 }
 
-namespace live2d
+	namespace live2d
 {
 	struct ParameterState
 	{
 		std::string id;
-
 		std::string displayName;
 		float value = 0.0f;
 		float minimum = 0.0f;
@@ -71,6 +72,19 @@ namespace live2d
 		float height = 0.0f;
 	};
 
+    struct NativeHitCandidate
+    {
+        std::string drawableId;
+        int index=-1,precision=0,partType=0;
+        bool enabled=true;
+    };
+
+    struct NativeDrawableHit
+    {
+        std::string drawableId;
+        int index=-1,partType=0;
+    };
+
 	class Live2DModule
 	{
 	public:
@@ -91,15 +105,18 @@ namespace live2d
 		bool QueryLastRenderedBounds(RenderBounds& outBounds) const noexcept;
 
 		bool PlayMotion(size_t index);
-
 		bool PlayMotionOnce(size_t index);
+		bool PlayNativeMotion(size_t index,bool loop,double mix=0,double time=-1);
+        void SeekNativeMotion(double time);
+        void SetNativeLayers(const std::vector<std::string>& names);
+        void SetNativeLayerStates(const std::vector<NativeLayerState>& layers,const std::unordered_map<std::string,float>& overrides,const std::unordered_map<std::string,float>& parts={});
+        std::vector<NativeDrawableHit> NativeRaycast(float localX,float localY,const std::vector<NativeHitCandidate>& candidates)const;
+		void SetSceneTransform(const std::array<float,6>& matrix);
 		bool IsMotionFinished() const noexcept;
 		bool PlayExpression(size_t index);
 		bool PlayRandomExpression();
 		void ClearExpression();
-
 		bool TapAt(float normalizedX, float normalizedY);
-
 		std::string HitAreaAt(float normalizedX, float normalizedY) const;
 		void SetTimeScale(float value) noexcept;
 		float TimeScale() const noexcept;
@@ -130,16 +147,13 @@ namespace live2d
 		void SetVoiceVolume(float volume) noexcept;
 		void StopVoice() noexcept;
 		float VoiceVolume() const noexcept;
-
 		void SetLoopAll(bool enabled) noexcept;
 		bool LoopAll() const noexcept;
 
 		bool BeginExportSession(size_t motionIndex, float fps);
-
 		bool ExportSessionSwitchMotion(size_t motionIndex);
 		void EndExportSession();
 		bool ExportSessionActive() const noexcept;
-
 		float MotionDuration(size_t index) const noexcept;
 
 		unsigned int ModelGeneration() const noexcept;

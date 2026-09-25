@@ -1,4 +1,5 @@
 #include "live2d_module.h"
+#include "unity_playback.h"
 
 #include <Windows.h>
 #include <algorithm>
@@ -8,13 +9,15 @@
 #include <fstream>
 #include <malloc.h>
 #include <mutex>
+#include <set>
+#include <vector>
 #include <unordered_map>
 #include <utility>
 
-#include "../audio/model_audio.h"
-#include "../../third_party/nlohmann/json.hpp"
+#include "../common/module_audio.h"
+#include "nlohmann/json.hpp"
 #include "../render_d3d11/d3d11_renderer.h"
-#include "../sl_text_codec.h"
+#include "../common/sl_text_codec.h"
 
 #include <CubismDefaultParameterId.hpp>
 #include <CubismFramework.hpp>
@@ -41,9 +44,7 @@ namespace
 	using Csm::csmSizeInt;
 
 	constexpr float kClippingMaskBufferSize = 2048.0f;
-
 	constexpr float kMaxFrameDeltaSeconds = 0.1f;
-
 	constexpr int kMaxExportPrerollSteps = 900;
 	constexpr unsigned int kExportRandomSeed = 0x5EEDu;
 
@@ -140,7 +141,7 @@ namespace
 			bool enabled = false;
 		};
 
-		Live2DModel(sl_d3d11::D3D11Renderer* textureRenderer, sl_audio::ModelAudio* audio)
+		Live2DModel(sl_d3d11::D3D11Renderer* textureRenderer, slaudio::audio_deck* audio)
 			: m_textureRenderer(textureRenderer)
 			, m_audio(audio)
 		{
@@ -192,6 +193,9 @@ namespace
 			}
 
 			m_setting = std::make_unique<Csm::CubismModelSettingJson>(bytes.data(), static_cast<csmSizeInt>(bytes.size()));
+			const auto metadata = nlohmann::json::parse(bytes.begin(), bytes.end(), nullptr, false);
+			m_nativeCoordinates = !metadata.is_discarded() && metadata.contains("SpineLove")
+				&& metadata["SpineLove"].value("NativeCoordinates", false);
 			const char* mocFile = m_setting->GetModelFileName();
 			if (mocFile == nullptr || mocFile[0] == '\0')
 			{
@@ -212,14 +216,35 @@ namespace
 				return false;
 			}
 
+			if (!metadata.is_discarded() && metadata.contains("SpineLove") && metadata["SpineLove"].contains("UnityPlayback")) {
+				try {
+					const auto path = AssetPath(m_directory, metadata["SpineLove"]["UnityPlayback"].get<std::string>().c_str());
+					if (!ReadBytes(path, bytes)) throw std::runtime_error("Unity playback data is missing.");
+					std::vector<std::string> parameterIds,partIds;
+					for (int i=0;i<_model->GetParameterCount();++i) parameterIds.emplace_back(_model->GetParameterId(i)->GetString().GetRawString());
+					for (int i=0;i<_model->GetPartCount();++i) partIds.emplace_back(_model->GetPartId(i)->GetString().GetRawString());
+					m_unity.load(nlohmann::json::parse(bytes.begin(),bytes.end()),parameterIds,partIds);
+					m_unity.update(0,CsmCore::csmGetParameterValues(_model->GetModel()),CsmCore::csmGetPartOpacities(_model->GetModel()));
+				} catch (const std::exception& exception) { error=exception.what();return false; }
+			}
 			LoadOptionalComponents(bytes);
 			_model->Update();
 			SetupLayout();
 			LoadMotions(bytes);
 			LoadExpressions(bytes);
-			CreateRenderer();
+			std::set<std::vector<Csm::csmInt32>> maskSets;
+			{
+				const auto* counts=_model->GetDrawableMaskCounts();const auto** masks=_model->GetDrawableMasks();
+				for(Csm::csmInt32 i=0;i<_model->GetDrawableCount();++i)if(counts[i]>0){std::vector<Csm::csmInt32> set(masks[i],masks[i]+counts[i]);std::sort(set.begin(),set.end());maskSets.insert(std::move(set));}
+			}
+			CreateRenderer((std::max)(1,static_cast<int>((maskSets.size()+35)/36)));
 			if (auto* renderer = GetRenderer<Csm::Rendering::CubismRenderer_D3D11>())
+			{
 				renderer->SetClippingMaskBufferSize(kClippingMaskBufferSize, kClippingMaskBufferSize);
+				if(!metadata.is_discarded()&&metadata.contains("SpineLove"))
+					for(const auto& value:metadata["SpineLove"].value("DisabledDrawables",nlohmann::json::array()))
+						if(value.is_number_integer()){const int index=value.get<int>();if(index>=0&&index<_model->GetDrawableCount())renderer->SetDrawableDisabled(index);}
+			}
 			if (!LoadTextures(error))
 				return false;
 
@@ -249,7 +274,7 @@ namespace
 		}
 
 		void Draw(int width, int height, float centerOffsetX, float centerOffsetY,
-			float scale, float offsetX, float offsetY, live2d::RenderBounds* outBounds)
+			float scale, float offsetX, float offsetY, live2d::RenderBounds* outBounds,const std::array<float,6>* sceneTransform=nullptr)
 		{
 			if (_model == nullptr || width <= 0 || height <= 0)
 				return;
@@ -265,17 +290,21 @@ namespace
 				view.Scale(scale * static_cast<float>(height) / static_cast<float>(width), scale);
 			view.Translate(centerOffsetX + (2.0f * offsetX / static_cast<float>(width)),
 				centerOffsetY - (2.0f * offsetY / static_cast<float>(height)));
-
 			m_lastView = view;
 			m_lastViewValid = true;
 
 			Csm::CubismMatrix44 mvp = view;
-			mvp.MultiplyByMatrix(_modelMatrix);
+			if (m_nativeCoordinates && sceneTransform) {
+				const auto& a=*sceneTransform;const float aspect=float(width)/float(height);
+				float matrix[16]={a[0]/aspect,a[1],0,0,a[2]/aspect,a[3],0,0,0,0,1,0,a[4]/aspect,a[5],0,1};
+				mvp.SetMatrix(matrix);
+			} else if (!m_nativeCoordinates) mvp.MultiplyByMatrix(_modelMatrix);
 
 			if (outBounds != nullptr)
 				*outBounds = ComputePixelBounds(mvp, width, height);
 
             renderer->SetMvpMatrix(&mvp);
+            if(m_unity.enabled())renderer->SetModelColor(1,1,1,m_unity.opacity());
             renderer->DrawModel();
 		}
 
@@ -303,11 +332,21 @@ namespace
 			PlayMotionSound(m_motions[index]);
 			return true;
 		}
+		bool NativeCoordinates() const noexcept { return m_nativeCoordinates; }
+		bool PlayNativeMotion(size_t index,bool loop,double mix,double time) {
+			if(index>=m_motions.size())return false;
+			if(!m_unity.enabled())return loop?PlayMotion(index):PlayMotionOnce(index);
+			_motionManager->StopAllMotions();m_oneShotActive=false;m_currentMotion=int(index);
+			return m_unity.play(m_motions[index].group,loop,mix,time);
+		}
+		void SeekNativeMotion(double time){if(m_unity.enabled())m_unity.seek(time);}
+		void SetNativeLayers(const std::vector<std::string>& names){if(m_unity.enabled()){_motionManager->StopAllMotions();m_oneShotActive=false;m_currentMotion=-1;m_unity.setLayers(names);}}
+		void SetNativeLayerStates(const std::vector<live2d::NativeLayerState>& layers,const std::unordered_map<std::string,float>& overrides,const std::unordered_map<std::string,float>& parts){if(m_unity.enabled()){_motionManager->StopAllMotions();m_oneShotActive=false;m_currentMotion=-1;m_unity.setLayerStates(layers,overrides,parts);}}
+
 		bool PlayMotionOnce(size_t index)
 		{
 			if (index >= m_motions.size() || m_motions[index].motion == nullptr || _motionManager == nullptr)
 				return false;
-
 			m_oneShotActive = false;
 			StartMotionEntry(index, false);
 			PlayMotionSound(m_motions[index]);
@@ -316,6 +355,7 @@ namespace
 
 		bool IsMotionFinished() const noexcept
 		{
+			if(m_unity.enabled())return m_unity.finished();
 			return _motionManager != nullptr && _motionManager->IsFinished();
 		}
 
@@ -336,7 +376,6 @@ namespace
 		{
 			if (m_expressions.empty())
 				return false;
-
 			size_t index = static_cast<size_t>(std::rand()) % m_expressions.size();
 			if (m_expressions.size() > 1 && static_cast<int>(index) == m_currentExpression)
 				index = (index + 1) % m_expressions.size();
@@ -345,7 +384,6 @@ namespace
 
 		void ClearExpression()
 		{
-
 			CSM_DELETE(_expressionManager);
 			_expressionManager = CSM_NEW Csm::CubismExpressionMotionManager();
 			m_currentExpression = -1;
@@ -355,7 +393,6 @@ namespace
 		{
 			if (m_motions.empty())
 				return false;
-
 			std::vector<size_t> candidates;
 			for (size_t i = 0; i < m_motions.size(); ++i)
 			{
@@ -380,7 +417,6 @@ namespace
 		{
 			if (_model == nullptr || m_setting == nullptr || !m_lastViewValid)
 				return {};
-
 			Csm::CubismMatrix44 view = m_lastView;
 			const float viewX = view.InvertTransformX(normalizedX);
 			const float viewY = view.InvertTransformY(normalizedY);
@@ -398,12 +434,39 @@ namespace
 			return {};
 		}
 
+        std::vector<live2d::NativeDrawableHit> NativeRaycast(float x,float y,const std::vector<live2d::NativeHitCandidate>& candidates)const
+        {
+            std::vector<live2d::NativeDrawableHit> hits;
+            if(!_model||!std::isfinite(x)||!std::isfinite(y))return hits;
+            auto ordered=candidates;
+            for(auto& candidate:ordered)if(!candidate.drawableId.empty())candidate.index=_model->GetDrawableIndex(Csm::CubismFramework::GetIdManager()->GetId(candidate.drawableId.c_str()));
+            std::stable_sort(ordered.begin(),ordered.end(),[](const auto& a,const auto& b){return a.index<b.index;});
+            int previous=-1;
+            for(const auto& candidate:ordered){
+                const int index=candidate.index;
+                if(index<0||index>=_model->GetDrawableCount()||index==previous)continue;
+                const bool updated=size_t(index)<m_nativeVisibilityUpdated.size()&&m_nativeVisibilityUpdated[size_t(index)];
+                if(!(updated?_model->GetDrawableDynamicFlagIsVisible(index):candidate.enabled))continue;
+                previous=index;const int count=_model->GetDrawableVertexCount(index);const auto* vertices=_model->GetDrawableVertexPositions(index);if(!vertices||count<=0)continue;
+                float minX=vertices[0].X,maxX=minX,minY=vertices[0].Y,maxY=minY;
+                for(int i=1;i<count;++i){minX=(std::min)(minX,vertices[i].X);maxX=(std::max)(maxX,vertices[i].X);minY=(std::min)(minY,vertices[i].Y);maxY=(std::max)(maxY,vertices[i].Y);}
+                if(x<minX||x>maxX||y<minY||y>maxY)continue;
+                bool inside=candidate.precision==0;
+                if(candidate.precision==1){const auto* indices=_model->GetDrawableVertexIndices(index);const int length=_model->GetDrawableVertexIndexCount(index);
+                    for(int i=0;indices&&i+2<length;i+=3){if(indices[i]>=count||indices[i+1]>=count||indices[i+2]>=count)continue;const auto a=vertices[indices[i]],b=vertices[indices[i+1]],c=vertices[indices[i+2]];
+                        const float ab=(b.X-a.X)*(y-b.Y)-(b.Y-a.Y)*(x-b.X),bc=(c.X-b.X)*(y-c.Y)-(c.Y-b.Y)*(x-c.X),ca=(a.X-c.X)*(y-a.Y)-(a.Y-c.Y)*(x-a.X);
+                        if((ab>0&&bc>0&&ca>0)||(ab<0&&bc<0&&ca<0)){inside=true;break;}
+                    }
+                }
+                if(inside){hits.push_back({_model->GetDrawableId(index)->GetString().GetRawString(),index,candidate.partType});if(hits.size()==4)break;}
+            }
+            return hits;
+        }
 		bool TapAt(float normalizedX, float normalizedY)
 		{
 			const std::string area = HitTest(normalizedX, normalizedY);
 			if (!area.empty())
 			{
-
 				if (_strnicmp(area.c_str(), "head", 4) == 0 && !m_expressions.empty())
 					return PlayRandomExpression();
 				return PlayRandomTapMotion();
@@ -475,7 +538,6 @@ namespace
 				m_partOverrides[index].value = m_parts[index].opacity;
 			m_partOverrides[index].enabled = enabled;
 			m_parts[index].overridden = enabled;
-
 			if (!enabled && _model != nullptr)
 			{
 				_model->SetPartOpacity(static_cast<int>(index), m_parts[index].defaultOpacity);
@@ -497,7 +559,6 @@ namespace
 			m_parameters[index].overridden = false;
 			if (_model != nullptr)
 			{
-
 				_model->SetParameterValue(static_cast<int>(index), m_parameters[index].defaultValue);
 				m_parameters[index].value = m_parameters[index].defaultValue;
 			}
@@ -555,7 +616,6 @@ namespace
 			_model->SaveParameters();
 
 			StartExportMotion(motionIndex);
-
 			UpdateInternal(0.0f, 1.0f, false);
 			if (_physics != nullptr)
 				_physics->Stabilization(_model);
@@ -652,7 +712,9 @@ namespace
 
 			_model->LoadParameters();
 			bool motionUpdated = false;
-			if (_motionManager != nullptr && !_motionManager->IsFinished())
+			if(m_unity.enabled()){
+				m_unity.update(motionDelta,CsmCore::csmGetParameterValues(_model->GetModel()),CsmCore::csmGetPartOpacities(_model->GetModel()));motionUpdated=m_unity.active();
+			}else if (_motionManager != nullptr && !_motionManager->IsFinished())
 				motionUpdated = _motionManager->UpdateMotion(_model, motionDelta);
 			_model->SaveParameters();
 
@@ -660,7 +722,6 @@ namespace
 				_eyeBlink->UpdateParameters(_model, motionDelta);
 			if (_expressionManager != nullptr)
 				_expressionManager->UpdateMotion(_model, motionDelta);
-
 			if (_dragManager != nullptr && m_effects.gazeFollow && !m_gazePose.enabled && !m_export.active)
 			{
 				_dragManager->Update(frameDelta);
@@ -673,7 +734,6 @@ namespace
 					if (m_gazeParameterIndices[i] >= 0) _model->AddParameterValue(m_gazeParameterIndices[i], values[i]);
 			}
 			ApplyGazePose();
-
 			if (m_effects.lipSync && !m_export.active && m_audio != nullptr && m_audio->ready() &&
 				m_audio->voice_is_active() && m_lipSyncIds.GetSize() > 0)
 			{
@@ -687,7 +747,6 @@ namespace
 				_physics->Evaluate(_model, motionDelta);
 			if (_pose != nullptr)
 				_pose->UpdateParameters(_model, motionDelta);
-
 			ApplyGazePose();
 			for (size_t i = 0; i < m_parameterOverrides.size(); ++i)
 			{
@@ -696,7 +755,6 @@ namespace
 				m_parameters[i].value = _model->GetParameterValue(static_cast<int>(i));
 				m_parameters[i].overridden = m_parameterOverrides[i].enabled;
 			}
-
 			for (size_t i = 0; i < m_partOverrides.size(); ++i)
 			{
 				if (m_partOverrides[i].enabled)
@@ -704,8 +762,11 @@ namespace
 				m_parts[i].opacity = _model->GetPartOpacity(static_cast<int>(i));
 				m_parts[i].overridden = m_partOverrides[i].enabled;
 			}
-			if (computeVertices)
+			if (computeVertices){
 				_model->Update();
+                m_nativeVisibilityUpdated.resize(size_t(_model->GetDrawableCount()),false);
+                for(int i=0;i<_model->GetDrawableCount();++i)if(_model->GetDrawableDynamicFlagVisibilityDidChange(i))m_nativeVisibilityUpdated[size_t(i)]=true;
+            }
 		}
 
 		void ApplyGazePose()
@@ -717,7 +778,9 @@ namespace
 
 		void StartMotionEntry(size_t index, bool loop)
 		{
-
+			if(m_unity.enabled()){
+				_motionManager->StopAllMotions();m_unity.play(m_motions[index].group,loop);m_currentMotion=int(index);return;
+			}
 			Csm::CubismMotion* motion = m_motions[index].motion;
 			_motionManager->StopAllMotions();
 			_motionManager->SetReservePriority(3);
@@ -741,7 +804,6 @@ namespace
 				touched.loopFadeIn = motion->IsLoopFadeIn();
 				m_export.touchedMotions.push_back(touched);
 			}
-
 			motion->SetFadeInTime(0.0f);
 			motion->SetFadeOutTime(0.0f);
 			motion->IsLoopFadeIn(false);
@@ -751,7 +813,6 @@ namespace
 
 		void ResetDragManager()
 		{
-
 			CSM_DELETE(_dragManager);
 			_dragManager = CSM_NEW Csm::CubismTargetPoint();
 		}
@@ -868,7 +929,6 @@ namespace
 				m_eyeBlinkIds.PushBack(m_setting->GetEyeBlinkParameterId(i));
 			for (int i = 0; i < m_setting->GetLipSyncParameterCount(); ++i)
 				m_lipSyncIds.PushBack(m_setting->GetLipSyncParameterId(i));
-
 			if (m_lipSyncIds.GetSize() == 0)
 				m_lipSyncIds.PushBack(Csm::CubismFramework::GetIdManager()->GetId(
 					Csm::DefaultParameterId::ParamMouthOpenY));
@@ -961,7 +1021,6 @@ namespace
 					entry.group = group;
 					entry.groupIndex = motionIndex;
 					entry.motion = motion;
-
 					entry.duration = (std::max)(0.0f, motion->GetLoopDuration());
 					entry.fadeInSeconds = motion->GetFadeInTime();
 					entry.fadeOutSeconds = motion->GetFadeOutTime();
@@ -1048,7 +1107,6 @@ namespace
 			}
 			catch (...)
 			{
-
 			}
 		}
 
@@ -1095,7 +1153,6 @@ namespace
 			for (int i = 0; i < m_setting->GetTextureCount(); ++i)
 			{
 				const fs::path texturePath = AssetPath(m_directory, m_setting->GetTextureFileName(i));
-
 				const SlTextureId texture = m_textureRenderer->LoadTexture(texturePath.c_str(), false, true);
 				if (texture == 0)
 				{
@@ -1111,9 +1168,11 @@ namespace
 		}
 
 		fs::path m_directory;
+		bool m_nativeCoordinates = false;
+		live2d::UnityPlayback m_unity;
 		std::unique_ptr<Csm::CubismModelSettingJson> m_setting;
 		sl_d3d11::D3D11Renderer* m_textureRenderer = nullptr;
-		sl_audio::ModelAudio* m_audio = nullptr;
+		slaudio::audio_deck* m_audio = nullptr;
 		std::vector<SlTextureId> m_textures;
 		std::vector<MotionEntry> m_motions;
 		std::vector<ExpressionEntry> m_expressions;
@@ -1137,6 +1196,7 @@ namespace
 		ExportState m_export;
 		Csm::CubismMatrix44 m_lastView;
 		bool m_lastViewValid = false;
+        std::vector<bool> m_nativeVisibilityUpdated;
 		bool m_oneShotActive = false;
 		bool m_forceLoop = false;
 		bool m_hasIdleGroup = false;
@@ -1154,7 +1214,7 @@ struct live2d::Live2DModule::Impl
 	ID3D11Device* device = nullptr;
 	ID3D11DeviceContext* context = nullptr;
 	sl_d3d11::D3D11Renderer* textureRenderer = nullptr;
-	sl_audio::ModelAudio audio;
+	slaudio::audio_deck audio;
 	std::unique_ptr<Live2DModel> model;
 	std::wstring manifestPath;
 	std::string displayName;
@@ -1166,6 +1226,8 @@ struct live2d::Live2DModule::Impl
 	float modelScale = 1.0f;
 	float viewOffsetX = 0.0f;
 	float viewOffsetY = 0.0f;
+	std::array<float,6> sceneTransform{};
+	bool hasSceneTransform=false;
 	live2d::RenderBounds lastRenderBounds{};
 	bool lastRenderBoundsValid = false;
 	live2d::DragSettings dragSettings;
@@ -1273,7 +1335,6 @@ bool live2d::Live2DModule::ImportModel(const std::wstring& manifestPath)
 	model->SetEffects(m_impl->effects);
 	model->SetForceLoop(m_impl->loopAll);
 	m_impl->model = std::move(model);
-
 	const auto gazeIndices = GazeParameterIndices();
 	for (size_t i = 0; i < gazeIndices.size(); ++i)
 		m_impl->gazePose.values[i] = gazeIndices[i] >= 0 ? Parameters()[gazeIndices[i]].defaultValue : 0.0f;
@@ -1296,6 +1357,7 @@ void live2d::Live2DModule::Clear() noexcept
 	m_impl->modelScale = 1.0f;
 	m_impl->viewOffsetX = 0.0f;
 	m_impl->viewOffsetY = 0.0f;
+	m_impl->hasSceneTransform=false;
 	m_impl->lastRenderBoundsValid = false;
 }
 
@@ -1313,7 +1375,7 @@ bool live2d::Live2DModule::TickAndRender(float deltaSeconds, int viewportWidth, 
 		m_impl->lastRenderBounds = { 0.0f, 0.0f, -1.0f, -1.0f };
 	m_impl->model->Draw(viewportWidth, viewportHeight, centerOffsetX, centerOffsetY, m_impl->modelScale,
 		m_impl->viewOffsetX, m_impl->viewOffsetY,
-		captureBounds ? &m_impl->lastRenderBounds : nullptr);
+		captureBounds ? &m_impl->lastRenderBounds : nullptr,m_impl->hasSceneTransform?&m_impl->sceneTransform:nullptr);
 	m_impl->lastRenderBoundsValid = captureBounds &&
 		m_impl->lastRenderBounds.width >= 0.0f && m_impl->lastRenderBounds.height >= 0.0f;
 	Csm::Rendering::CubismRenderer_D3D11::EndFrame(m_impl->device);
@@ -1337,6 +1399,11 @@ bool live2d::Live2DModule::PlayMotionOnce(size_t index)
 {
 	return m_impl->model != nullptr && m_impl->model->PlayMotionOnce(index);
 }
+bool live2d::Live2DModule::PlayNativeMotion(size_t index,bool loop,double mix,double time){return m_impl->model&&m_impl->model->PlayNativeMotion(index,loop,mix,time);}
+void live2d::Live2DModule::SeekNativeMotion(double time){if(m_impl->model)m_impl->model->SeekNativeMotion(time);}
+void live2d::Live2DModule::SetNativeLayers(const std::vector<std::string>& names){if(m_impl->model)m_impl->model->SetNativeLayers(names);}
+void live2d::Live2DModule::SetNativeLayerStates(const std::vector<NativeLayerState>& layers,const std::unordered_map<std::string,float>& overrides,const std::unordered_map<std::string,float>& parts){if(m_impl->model)m_impl->model->SetNativeLayerStates(layers,overrides,parts);}
+void live2d::Live2DModule::SetSceneTransform(const std::array<float,6>& matrix){m_impl->sceneTransform=matrix;m_impl->hasSceneTransform=true;}
 
 bool live2d::Live2DModule::IsMotionFinished() const noexcept
 {
@@ -1367,6 +1434,11 @@ bool live2d::Live2DModule::TapAt(float normalizedX, float normalizedY)
 std::string live2d::Live2DModule::HitAreaAt(float normalizedX, float normalizedY) const
 {
 	return m_impl->model != nullptr ? m_impl->model->HitTest(normalizedX, normalizedY) : std::string();
+}
+
+std::vector<live2d::NativeDrawableHit> live2d::Live2DModule::NativeRaycast(float x,float y,const std::vector<NativeHitCandidate>& candidates)const
+{
+    return m_impl->model?m_impl->model->NativeRaycast(x,y,candidates):std::vector<NativeDrawableHit>{};
 }
 
 void live2d::Live2DModule::StopVoice() noexcept
@@ -1442,7 +1514,8 @@ float live2d::Live2DModule::TimeScale() const noexcept
 	return ExportSessionActive() ? m_impl->exportRestoreTimeScale : m_impl->timeScale;
 }
 void live2d::Live2DModule::SetModelScale(float value) noexcept {
-	m_impl->modelScale = (std::max)(0.1f, (std::min)(5.0f, value));
+	const bool native = m_impl->model && m_impl->model->NativeCoordinates();
+	m_impl->modelScale = (std::max)(native ? 0.005f : 0.1f, (std::min)(native ? 100.f : 5.0f, value));
 }
 float live2d::Live2DModule::ModelScale() const noexcept { return m_impl->modelScale; }
 void live2d::Live2DModule::PanByPixels(float deltaX, float deltaY) noexcept { m_impl->viewOffsetX += deltaX; m_impl->viewOffsetY += deltaY; }

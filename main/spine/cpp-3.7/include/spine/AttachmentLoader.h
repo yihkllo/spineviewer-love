@@ -1,3 +1,4 @@
+
 #ifndef SPINE_ATTACHMENTLOADER_H_
 #define SPINE_ATTACHMENTLOADER_H_
 
@@ -27,9 +28,7 @@ SP_API void spAttachmentLoader_dispose (spAttachmentLoader* self);
 
 SP_API spAttachment* spAttachmentLoader_createAttachment (spAttachmentLoader* self, spSkin* skin, spAttachmentType type, const char* name,
 		const char* path);
-
 SP_API void spAttachmentLoader_configureAttachment (spAttachmentLoader* self, spAttachment* attachment);
-
 SP_API void spAttachmentLoader_disposeAttachment (spAttachmentLoader* self, spAttachment* attachment);
 
 #ifdef SPINE_SHORT_NAMES

@@ -1,3 +1,5 @@
+﻿
+
 #include "CubismShader_D3D11.hpp"
 
 #include "CubismRenderer_D3D11.hpp"
@@ -132,9 +134,9 @@ static const csmChar* CubismShaderEffectSrc =
         "return color;\n"\
     "}\n";
 
+
 void CubismShader_D3D11::ReleaseShaderProgram()
 {
-
     if (_vertexFormat)
     {
         _vertexFormat->Release();
@@ -160,7 +162,6 @@ void CubismShader_D3D11::ReleaseShaderProgram()
 CubismShader_D3D11::CubismShader_D3D11()
     : _vertexFormat(NULL)
 {
-
     for (csmInt32 i = 0; i < ShaderNames_Max; i++)
     {
         _shaderSetsVS.PushBack(NULL);
@@ -178,7 +179,6 @@ CubismShader_D3D11::~CubismShader_D3D11()
 
 void CubismShader_D3D11::GenerateShaders(ID3D11Device* device)
 {
-
     if(_vertexFormat!=NULL)
     {
         return;
@@ -189,7 +189,6 @@ void CubismShader_D3D11::GenerateShaders(ID3D11Device* device)
     csmBool isSuccess = false;
     do
     {
-
         if(!LoadShaderProgram(device, false, ShaderNames_SetupMask, static_cast<const csmChar*>("VertSetupMask")))
         {
             break;
@@ -243,9 +242,10 @@ void CubismShader_D3D11::GenerateShaders(ID3D11Device* device)
         return;
     }
 
+
+
     UINT compileFlag = 0;
 #ifdef CSM_DEBUG
-
     compileFlag |= D3DCOMPILE_DEBUG;
 #endif
 
@@ -270,7 +270,6 @@ void CubismShader_D3D11::GenerateShaders(ID3D11Device* device)
     }
     else
     {
-
         D3D11_INPUT_ELEMENT_DESC elems[] = {
             { "POSITION", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
             { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
@@ -309,7 +308,6 @@ Csm::csmBool CubismShader_D3D11::LoadShaderProgram(ID3D11Device* device, bool is
     {
         UINT compileFlag = 0;
 #ifdef CSM_DEBUG
-
         compileFlag |= D3DCOMPILE_DEBUG;
 #endif
 
@@ -346,7 +344,6 @@ Csm::csmBool CubismShader_D3D11::LoadShaderProgram(ID3D11Device* device, bool is
         {
             _shaderSetsVS[assign] = vertexShader;
         }
-
         bRet = true;
     } while (0);
 
@@ -384,7 +381,6 @@ ID3D11PixelShader* CubismShader_D3D11::GetPixelShader(csmUint32 assign)
 
 void CubismShader_D3D11::SetupShader(ID3D11Device* device, ID3D11DeviceContext* renderContext)
 {
-
     GenerateShaders(device);
 
     if (!renderContext || !_vertexFormat) return;
@@ -393,3 +389,5 @@ void CubismShader_D3D11::SetupShader(ID3D11Device* device, ID3D11DeviceContext* 
 }
 
 }}}}
+
+

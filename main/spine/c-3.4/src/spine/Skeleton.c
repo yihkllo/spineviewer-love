@@ -1,3 +1,4 @@
+
 #include <spine/Skeleton.h>
 #include <stdlib.h>
 #include <string.h>
@@ -403,7 +404,6 @@ void spSkeleton_setSkin (spSkeleton* self, spSkin* newSkin) {
 		if (self->skin)
 			spSkin_attachAll(newSkin, self, self->skin);
 		else {
-
 			int i;
 			for (i = 0; i < self->slotsCount; ++i) {
 				spSlot* slot = self->slots[i];

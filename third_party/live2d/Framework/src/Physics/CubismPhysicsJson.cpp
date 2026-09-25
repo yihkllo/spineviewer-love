@@ -1,10 +1,11 @@
+﻿
+
 #include "CubismPhysicsJson.hpp"
 #include "Id/CubismIdManager.hpp"
 
 namespace Live2D { namespace Cubism { namespace Framework {
 
 namespace {
-
 const csmChar* Position = "Position";
 const csmChar* X = "X";
 const csmChar* Y = "Y";
@@ -73,7 +74,6 @@ CubismVector2 CubismPhysicsJson::GetWind() const
 
 csmFloat32 CubismPhysicsJson::GetFps() const
 {
-
     return _json->GetRoot()[Meta][Fps].ToFloat(0.0f);
 }
 

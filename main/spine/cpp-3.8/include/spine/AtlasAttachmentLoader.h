@@ -1,9 +1,11 @@
+
 #ifndef Spine_AtlasAttachmentLoader_h
 #define Spine_AtlasAttachmentLoader_h
 
 #include <spine/AttachmentLoader.h>
 #include <spine/Vector.h>
 #include <spine/SpineString.h>
+
 
 namespace spine {
 	class Atlas;

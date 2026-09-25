@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 
 #include "../CubismRenderer.hpp"
@@ -53,7 +55,6 @@ class CubismClippingContext_OpenGLES2 : public CubismClippingContext
     friend class CubismRenderer_OpenGLES2;
 
 public:
-
     CubismClippingContext_OpenGLES2(CubismClippingManager<CubismClippingContext_OpenGLES2, CubismOffscreenSurface_OpenGLES2>* manager, CubismModel& model, const csmInt32* clippingDrawableIndices, csmInt32 clipCount);
 
     virtual ~CubismClippingContext_OpenGLES2();
@@ -68,7 +69,6 @@ class CubismRendererProfile_OpenGLES2
     friend class CubismRenderer_OpenGLES2;
 
 private:
-
     CubismRendererProfile_OpenGLES2() {};
 
     virtual ~CubismRendererProfile_OpenGLES2() {};
@@ -107,7 +107,6 @@ class CubismRenderer_OpenGLES2 : public CubismRenderer
     friend class CubismShader_OpenGLES2;
 
 public:
-
     void Initialize(Framework::CubismModel* model);
 
     void Initialize(Framework::CubismModel* model, csmInt32 maskBufferCount);
@@ -125,7 +124,6 @@ public:
     CubismOffscreenSurface_OpenGLES2* GetMaskBuffer(csmInt32 index);
 
 protected:
-
     CubismRenderer_OpenGLES2();
 
     virtual ~CubismRenderer_OpenGLES2();
@@ -136,14 +134,12 @@ protected:
 
 #ifdef CSM_TARGET_ANDROID_ES2
 public:
-
     static void SetExtShaderMode(csmBool extMdoe, csmBool extPAMode = false);
 
     static void ReloadShader();
 #endif
 
 private:
-
     CubismRenderer_OpenGLES2(const CubismRenderer_OpenGLES2&);
     CubismRenderer_OpenGLES2& operator=(const CubismRenderer_OpenGLES2&);
 
@@ -170,7 +166,6 @@ private:
     GLuint GetBindedTextureId(csmInt32 textureId);
 
 #ifdef CSM_TARGET_WIN_GL
-
     void  InitializeGlFunctions();
 
     void* WinGlGetProcAddress(const csmChar* name);

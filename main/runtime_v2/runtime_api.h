@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 #include <array>
+#include "spinelove/native_motion_track.h"
 
 namespace sl_runtime_v2 {
 
@@ -110,6 +111,13 @@ struct AnimationEvent
 	float time = 0.0f;
 };
 
+struct AnimationCompletion
+{
+	std::string animation;
+	int track = 0;
+	float time = 0.0f;
+};
+
 enum class SlotAttachmentMode
 {
 	Preserve,
@@ -149,11 +157,15 @@ public:
 	virtual bool StartMotionOnTrack(int, const char*, bool, float) { return false; }
 	virtual bool ClearMotionTrack(int, float) { return false; }
 	virtual bool HoldMotionTrack(int, float) { return false; }
+	virtual bool SetNativeMotionTrack(const SlNativeMotionTrack&) { return false; }
 	virtual void ApplyLook(const char* name) = 0;
 	virtual void ComposeLooks(const std::vector<std::string>& names) = 0;
+	virtual bool SetNativeSkinMix(const std::vector<std::string>&) { return false; }
 	virtual bool SetSlotOverride(const char*, float, SlotAttachmentMode) { return false; }
 	virtual void ClearSlotOverrides() {}
 	virtual void DrainAnimationEvents(std::vector<AnimationEvent>& events) { events.clear(); }
+	virtual void EnableMotionCompletions(bool) {}
+	virtual void DrainMotionCompletions(std::vector<AnimationCompletion>& events) { events.clear(); }
 	virtual std::string LastError() const = 0;
 	virtual bool ReadBoneTransform(const char*, std::array<float, 6>&) const { return false; }
 };

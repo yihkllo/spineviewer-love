@@ -1,3 +1,5 @@
+﻿
+
 #include "CubismJson.hpp"
 #include <stdlib.h>
 #include "Type/csmString.hpp"
@@ -68,6 +70,7 @@ void CubismJson::Delete(CubismJson* instance)
     CSM_DELETE_SELF(CubismJson, instance);
 }
 
+
 CubismJson* CubismJson::Create(const csmByte* buffer, csmSizeInt size)
 {
     CubismJson* json = CSM_NEW CubismJson();
@@ -84,10 +87,12 @@ CubismJson* CubismJson::Create(const csmByte* buffer, csmSizeInt size)
     }
 }
 
+
 Value& CubismJson::GetRoot() const
 {
     return *_root;
 }
+
 
 csmBool CubismJson::ParseBytes(const csmByte* buffer, csmInt32 size)
 {
@@ -115,6 +120,7 @@ csmBool CubismJson::ParseBytes(const csmByte* buffer, csmInt32 size)
     }
     return true;
 }
+
 
 csmString CubismJson::ParseString(const csmChar* string, csmInt32 length, csmInt32 begin, csmInt32* outEndPos)
 {
@@ -197,6 +203,7 @@ csmString CubismJson::ParseString(const csmChar* string, csmInt32 length, csmInt
     return NULL;
 }
 
+
 Value* CubismJson::ParseObject(const csmChar* buffer, csmInt32 length, csmInt32 begin, csmInt32* outEndPos)
 {
     if (_error)
@@ -265,7 +272,6 @@ Value* CubismJson::ParseObject(const csmChar* buffer, csmInt32 length, csmInt32 
                 _error = "illegal '}' position";
                 break;
             case '\n': _lineCount++;
-
             default: break;
             }
         }
@@ -283,7 +289,6 @@ Value* CubismJson::ParseObject(const csmChar* buffer, csmInt32 length, csmInt32 
             return NULL;
         }
         i = local_ret_endpos2[0];
-
         ret->Put(key, value);
 
         for (; i < length; i++)
@@ -298,7 +303,6 @@ Value* CubismJson::ParseObject(const csmChar* buffer, csmInt32 length, csmInt32 
                 *outEndPos = i + 1;
                 return ret;
             case '\n': _lineCount++;
-
             default: break;
             }
         }
@@ -309,6 +313,7 @@ Value* CubismJson::ParseObject(const csmChar* buffer, csmInt32 length, csmInt32 
     _error = "illegal end of parseObject";
     return NULL;
 }
+
 
 Value* CubismJson::ParseArray(const csmChar* buffer, csmInt32 length, csmInt32 begin, csmInt32* outEndPos)
 {
@@ -331,7 +336,6 @@ Value* CubismJson::ParseArray(const csmChar* buffer, csmInt32 length, csmInt32 b
 
     for (; i < length; i++)
     {
-
         Value* value = ParseValue(buffer, length, i, local_ret_endpos2);
         if (_error)
         {
@@ -350,13 +354,11 @@ Value* CubismJson::ParseArray(const csmChar* buffer, csmInt32 length, csmInt32 b
             switch (c)
             {
             case ',':
-
                 goto BREAK_LOOP3;
             case ']':
                 *outEndPos = i + 1;
                 return ret;
             case '\n': ++_lineCount;
-
             default: break;
             }
         }
@@ -368,6 +370,7 @@ Value* CubismJson::ParseArray(const csmChar* buffer, csmInt32 length, csmInt32 b
     _error = "illegal end of parseObject";
     return NULL;
 }
+
 
 Value* CubismJson::ParseValue(const csmChar* buffer, csmInt32 length, csmInt32 begin, csmInt32* outEndPos)
 {
@@ -451,6 +454,7 @@ Value* CubismJson::ParseValue(const csmChar* buffer, csmInt32 length, csmInt32 b
     return NULL;
 }
 
+
 Map::~Map()
 {
     csmMap<csmString, Value*>::const_iterator ite = _map.Begin();
@@ -469,6 +473,7 @@ Map::~Map()
         CSM_DELETE(_keys);
     }
 }
+
 
 Array::~Array()
 {

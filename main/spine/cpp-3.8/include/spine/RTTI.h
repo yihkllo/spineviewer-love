@@ -1,3 +1,4 @@
+
 #ifndef Spine_RTTI_h
 #define Spine_RTTI_h
 
@@ -17,7 +18,6 @@ public:
 	bool instanceOf(const RTTI &rtti) const;
 
 private:
-
 	RTTI(const RTTI &obj);
 
 	RTTI &operator=(const RTTI &obj);

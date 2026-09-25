@@ -1,3 +1,4 @@
+
 #include <spine/Skin.h>
 #include <spine/extension.h>
 
@@ -24,6 +25,7 @@ static _SkinHashTableEntry* _SkinHashTableEntry_create (_Entry* entry) {
 static void _SkinHashTableEntry_dispose (_SkinHashTableEntry* self) {
 	FREE(self);
 }
+
 
 spSkin* spSkin_create (const char* name) {
 	spSkin* self = SUPER(NEW(_spSkin));

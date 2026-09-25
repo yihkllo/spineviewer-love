@@ -1,3 +1,5 @@
+﻿
+
 #include "CubismOffscreenSurface_OpenGLES2.hpp"
 
 namespace Live2D { namespace Cubism { namespace Framework { namespace Rendering {
@@ -11,6 +13,7 @@ CubismOffscreenSurface_OpenGLES2::CubismOffscreenSurface_OpenGLES2()
     , _isColorBufferInherited(false)
 {
 }
+
 
 void CubismOffscreenSurface_OpenGLES2::BeginDraw(GLint restoreFBO)
 {
@@ -43,14 +46,12 @@ void CubismOffscreenSurface_OpenGLES2::EndDraw()
 
 void CubismOffscreenSurface_OpenGLES2::Clear(float r, float g, float b, float a)
 {
-
     glClearColor(r,g,b,a);
     glClear(GL_COLOR_BUFFER_BIT);
 }
 
 csmBool CubismOffscreenSurface_OpenGLES2::CreateOffscreenSurface(csmUint32 displayBufferWidth, csmUint32 displayBufferHeight, GLuint colorBuffer)
 {
-
     DestroyOffscreenSurface();
 
     do
@@ -141,3 +142,4 @@ csmBool CubismOffscreenSurface_OpenGLES2::IsValid() const
 }
 
 }}}}
+

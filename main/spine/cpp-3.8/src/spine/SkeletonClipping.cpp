@@ -1,3 +1,4 @@
+
 #ifdef SPINE_UE4
 #include "SpinePluginPrivatePCH.h"
 #endif
@@ -209,12 +210,10 @@ bool SkeletonClipping::clip(float x1, float y1, float x2, float y2, float x3, fl
 			bool side2 = deltaX * (inputY2 - edgeY2) - deltaY * (inputX2 - edgeX2) > 0;
 			if (deltaX * (inputY - edgeY2) - deltaY * (inputX - edgeX2) > 0) {
 				if (side2) {
-
 					output->add(inputX2);
 					output->add(inputY2);
 					continue;
 				}
-
 				float c0 = inputY2 - inputY, c2 = inputX2 - inputX;
 				float s = c0 * (edgeX2 - edgeX) - c2 * (edgeY2 - edgeY);
 				if (MathUtil::abs(s) > 0.000001f) {
@@ -226,7 +225,6 @@ bool SkeletonClipping::clip(float x1, float y1, float x2, float y2, float x3, fl
 					output->add(edgeY);
 				}
 			} else if (side2) {
-
 				float c0 = inputY2 - inputY, c2 = inputX2 - inputX;
 				float s = c0 * (edgeX2 - edgeX) - c2 * (edgeY2 - edgeY);
 				if (MathUtil::abs(s) > 0.000001f) {
@@ -244,7 +242,6 @@ bool SkeletonClipping::clip(float x1, float y1, float x2, float y2, float x3, fl
 		}
 
 		if (outputStart == output->size()) {
-
 			originalOutput->clear();
 			return true;
 		}

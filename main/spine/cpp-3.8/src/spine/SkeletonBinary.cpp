@@ -1,3 +1,4 @@
+
 #ifdef SPINE_UE4
 #include "SpinePluginPrivatePCH.h"
 #endif
@@ -108,7 +109,6 @@ SkeletonData *SkeletonBinary::readSkeletonData(const unsigned char *binary, cons
 	nonessential = readBoolean(input);
 
 	if (nonessential) {
-
 		skeletonData->_fps = readFloat(input);
 		skeletonData->_imagesPath.own(readString(input));
 		skeletonData->_audioPath.own(readString(input));
@@ -234,7 +234,6 @@ SkeletonData *SkeletonBinary::readSkeletonData(const unsigned char *binary, cons
 	}
 
 	Skin* defaultSkin = readSkin(input, true, skeletonData, nonessential);
-
 	if (!_error.isEmpty()) {
 		delete input;
 		delete skeletonData;
@@ -488,7 +487,6 @@ Attachment *SkeletonBinary::readAttachment(DataInput *input, Skin *skin, int slo
 		}
 		readVertices(input, static_cast<VertexAttachment *>(box), vertexCount);
 		if (nonessential) {
-
 			readInt(input);
 		}
 		_attachmentLoader->configureAttachment(box);
@@ -564,7 +562,6 @@ Attachment *SkeletonBinary::readAttachment(DataInput *input, Skin *skin, int slo
 			path->_lengths[i] = readFloat(input) * _scale;
 		}
 		if (nonessential) {
-
 			readInt(input);
 		}
 		_attachmentLoader->configureAttachment(path);
@@ -581,7 +578,6 @@ Attachment *SkeletonBinary::readAttachment(DataInput *input, Skin *skin, int slo
 		point->_y = readFloat(input) * _scale;
 
 		if (nonessential) {
-
 			readInt(input);
 		}
 		_attachmentLoader->configureAttachment(point);
@@ -598,7 +594,6 @@ Attachment *SkeletonBinary::readAttachment(DataInput *input, Skin *skin, int slo
 		readVertices(input, static_cast<VertexAttachment *>(clip), vertexCount);
 		clip->_endSlot = skeletonData->_slots[endSlotIndex];
 		if (nonessential) {
-
 			readInt(input);
 		}
 		_attachmentLoader->configureAttachment(clip);
@@ -959,10 +954,8 @@ Animation *SkeletonBinary::readAnimation(const String &name, DataInput *input, S
 			size_t originalIndex = 0, unchangedIndex = 0;
 			for (size_t ii = 0; ii < offsetCount; ++ii) {
 				size_t slotIndex = (size_t)readVarint(input, true);
-
 				while (originalIndex != slotIndex)
 					unchanged[unchangedIndex++] = originalIndex++;
-
 				size_t index = originalIndex;
 				drawOrder[index + (size_t)readVarint(input, true)] = originalIndex++;
 			}

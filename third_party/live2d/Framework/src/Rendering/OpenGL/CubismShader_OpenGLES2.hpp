@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 
 #include "CubismFramework.hpp"
@@ -35,7 +37,6 @@ class CubismClippingContext_OpenGLES2;
 class CubismShader_OpenGLES2
 {
 public:
-
     static CubismShader_OpenGLES2* GetInstance();
 
     static void DeleteInstance();
@@ -45,7 +46,6 @@ public:
     void SetupShaderProgramForMask(CubismRenderer_OpenGLES2* renderer, const CubismModel& model, const csmInt32 index);
 
 private:
-
     struct CubismShaderSet
     {
         GLuint ShaderProgram;
@@ -88,7 +88,6 @@ private:
 
 #ifdef CSM_TARGET_ANDROID_ES2
 public:
-
     static void SetExtShaderMode(csmBool extMode, csmBool extPAMode);
 
 private:

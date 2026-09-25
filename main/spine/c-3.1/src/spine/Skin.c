@@ -1,3 +1,4 @@
+
 #include <spine/Skin.h>
 #include <spine/extension.h>
 
@@ -22,6 +23,7 @@ void _Entry_dispose (_Entry* self) {
 	FREE(self->name);
 	FREE(self);
 }
+
 
 typedef struct {
 	spSkin super;

@@ -1,3 +1,4 @@
+
 #ifndef SPINE_STRING_H
 #define SPINE_STRING_H
 
@@ -177,5 +178,6 @@ namespace spine {
 		mutable char *_buffer;
 	};
 }
+
 
 #endif

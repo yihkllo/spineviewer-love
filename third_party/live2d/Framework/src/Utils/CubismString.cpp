@@ -1,3 +1,5 @@
+﻿
+
 #include "CubismString.hpp"
 #include "Type/csmVector.hpp"
 #include <stdio.h>
@@ -21,7 +23,6 @@ csmString CubismString::GetFormatedString(const csmChar* format, ...)
 #endif
             break;
         } else {
-
             CSM_FREE(buffer);
             bufferSize *= 2;
             buffer = static_cast<csmChar*>(CSM_MALLOC(sizeof(csmChar)* bufferSize));
@@ -101,7 +102,6 @@ csmFloat32 CubismString::StringToFloat(const csmChar* string, csmInt32 length, c
 
     if (i == position)
     {
-
         *outEndPos = -1;
         return 0;
     }
@@ -113,3 +113,4 @@ csmFloat32 CubismString::StringToFloat(const csmChar* string, csmInt32 length, c
 }
 
 }}}}
+

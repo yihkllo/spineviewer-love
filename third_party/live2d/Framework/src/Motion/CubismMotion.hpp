@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 
 #include "ACubismMotion.hpp"
@@ -13,7 +15,6 @@ struct CubismMotionData;
 class CubismMotion : public ACubismMotion
 {
 public:
-
     static CubismMotion* Create(const csmByte* buffer, csmSizeInt size, FinishedMotionCallback onFinishedMotionHandler = NULL);
 
     virtual void        DoUpdateParameters(CubismModel* model, csmFloat32 userTimeSeconds, csmFloat32 fadeWeight, CubismMotionQueueEntry* motionQueueEntry);
@@ -49,11 +50,9 @@ public:
     CubismIdHandle GetModelOpacityId(csmInt32 index);
 
 protected:
-
     csmFloat32 GetModelOpacityValue() const;
 
 private:
-
     CubismMotion();
 
     virtual ~CubismMotion();
@@ -82,3 +81,4 @@ private:
 };
 
 }}}
+

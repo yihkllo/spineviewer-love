@@ -44,6 +44,13 @@ Item {
                     onTriggered: chrome.shell.send("settings.resolution", index)
                 }
             }
+            MenuItem {
+                text: qsTr("Custom")
+                checkable: true
+                checked: chrome.shell.read("resolutionPreset", 0) === -1
+                enabled: chrome.shell.can("settings.resolution.custom")
+                onTriggered: chrome.shell.openSettings(5, true)
+            }
         }
     }
     Repeater {

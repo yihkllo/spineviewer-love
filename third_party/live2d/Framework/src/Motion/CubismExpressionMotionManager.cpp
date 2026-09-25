@@ -1,3 +1,5 @@
+﻿
+
 #include "CubismExpressionMotionManager.hpp"
 #include "CubismExpressionMotion.hpp"
 #include "CubismMotionQueueEntry.hpp"
@@ -83,7 +85,6 @@ csmBool CubismExpressionMotionManager::UpdateMotion(CubismModel* model, csmFloat
         csmVector<CubismExpressionMotion::ExpressionParameter> expressionParameters = expressionMotion->GetExpressionParameters();
         if (motionQueueEntry->IsAvailable())
         {
-
             for (csmInt32 i = 0; i < expressionParameters.GetSize(); ++i)
             {
                 if (expressionParameters[i].ParameterId == NULL)
@@ -92,7 +93,6 @@ csmBool CubismExpressionMotionManager::UpdateMotion(CubismModel* model, csmFloat
                 }
 
                 csmInt32 index = -1;
-
                 for (csmInt32 j = 0; j < _expressionParameterValues->GetSize(); ++j)
                 {
                     if (_expressionParameterValues->At(j).ParameterId != expressionParameters[i].ParameterId)
@@ -131,7 +131,6 @@ csmBool CubismExpressionMotionManager::UpdateMotion(CubismModel* model, csmFloat
 
         if (motionQueueEntry->IsTriggeredFadeOut())
         {
-
             motionQueueEntry->StartFadeout(motionQueueEntry->GetFadeOutSeconds(), _userTimeSeconds);
         }
 
@@ -147,7 +146,6 @@ csmBool CubismExpressionMotionManager::UpdateMotion(CubismModel* model, csmFloat
         csmFloat32 latestFadeWeight = _fadeWeights[_fadeWeights.GetSize() - 1];
         if (latestFadeWeight >= 1.0f)
         {
-
             for (csmInt32 i = motions->GetSize()-2; i >= 0; i--)
             {
                 CubismMotionQueueEntry* motionQueueEntry = motions->At(i);

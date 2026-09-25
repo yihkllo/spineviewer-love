@@ -1,4 +1,4 @@
-#include "texture_loader.h"
+#include "spinelove/texture_loader.h"
 #include <QFile>
 #include <QFileInfo>
 #include <QDir>
@@ -16,7 +16,6 @@ QImage decodeStb(const QString& path){
     const auto bytes=f.readAll();int w=0,h=0,channels=0;
     auto* p=stbi_load_from_memory(reinterpret_cast<const unsigned char*>(bytes.constData()),int(bytes.size()),&w,&h,&channels,4);
     if(!p)return {};
-
     return QImage(p,w,h,w*4,QImage::Format_RGBA8888,[](void* pixels){stbi_image_free(pixels);},p);
 }
 }
@@ -41,7 +40,6 @@ QImage loadTextureImage(const QString& path,bool premultiply,QString* error){
         }
     }
     if(premultiply){
-
         auto* row=image.bits();
         for(int y=0;y<image.height();++y,row+=image.bytesPerLine()){
             auto* p=row;

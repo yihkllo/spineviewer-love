@@ -1,3 +1,5 @@
+﻿
+
 #pragma once
 
 #include "CubismFramework.hpp"
@@ -17,7 +19,6 @@ public:
 
     struct DrawableColorData
     {
-
         DrawableColorData()
             : IsOverwritten(false)
             , Color() {};
@@ -35,7 +36,6 @@ public:
 
     struct DrawableCullingData
     {
-
         DrawableCullingData()
             : IsOverwritten(false)
             , IsCulling(0) {};
@@ -53,7 +53,6 @@ public:
 
     struct PartColorData
     {
-
         PartColorData()
             : IsOverwritten(false)
             , Color() {};
@@ -252,7 +251,6 @@ public:
     Core::csmModel*     GetModel() const;
 
 private:
-
     CubismModel(Core::csmModel* model);
 
     virtual ~CubismModel();
