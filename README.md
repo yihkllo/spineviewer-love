@@ -13,7 +13,11 @@
 [![License](https://img.shields.io/badge/许可-参见%20LICENSE-2EA44F)](LICENSE)
 [![English](https://img.shields.io/badge/docs-English-EE6677)](README_en.md)
 
-https://github.com/user-attachments/assets/7c6c0049-20da-480b-9408-3e7af1bab5ae
+
+https://github.com/user-attachments/assets/64a22970-a8b3-4bf8-8602-2b73ca88a30f
+
+
+
 
 ---
 
