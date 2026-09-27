@@ -167,8 +167,9 @@ void ViewerController::setWindow(QQuickWindow* window){
 }
 void ViewerController::setViewport(QSizeF logical,qreal dpr){
     if(logical.isEmpty()||!std::isfinite(dpr)||dpr<=0)return;
+    m_previewSize=logical;
     if(m_petMode&&!live2dMode()){m_dpr=dpr;return;}
-    const QSize next(qMax(1,int(std::ceil(logical.width()*dpr))),qMax(1,int(std::ceil(logical.height()*dpr))));
+    const QSize next=renderSize().isEmpty()?QSize(qMax(1,int(std::ceil(logical.width()*dpr))),qMax(1,int(std::ceil(logical.height()*dpr)))):renderSize();
     if(m_viewportInitialized&&next==m_viewport&&dpr==m_dpr)return;
     m_viewportInitialized=true;m_dpr=dpr;m_viewport=next;
     runtime()->SetViewportSize(m_viewport.width(),m_viewport.height());fit();refresh(false);record();
@@ -290,7 +291,7 @@ void ViewerController::scanFolder(const QString& folder,bool openAll,bool allowM
     if(openAll){openPaths(m_files);announce();}else {announce();record();}
 }
 void ViewerController::fit(){
-    if(m_plugins->isOpen())return;
+    if(m_plugins->isOpen()||!renderSize().isEmpty())return;
     auto* r=runtime();if(!r->ContainsDrawableContent())return;
     if(!m_window||m_petMode||m_window->visibility()==QWindow::FullScreen)return;
     const auto b=r->BaseSize();const float scale=r->CanvasScale();
@@ -428,6 +429,7 @@ void ViewerController::record(){
     emit frameChanged();
 }
 void ViewerController::refresh(bool notify){
+    m_state["renderWidth"]=renderSize().width();m_state["renderHeight"]=renderSize().height();
     m_state["pluginsOpen"]=m_plugins->isOpen();m_state["pluginActive"]=m_plugins->isActive();
     const auto live=live2dMode()?m_live2d->state():QVariantMap{};
     auto* r=runtime();m_state["loaded"]=r->ContainsDrawableContent();m_state["devicePixelRatio"]=m_dpr;
@@ -685,11 +687,15 @@ bool ViewerController::petHitTest(qreal x,qreal y) const{
     }
     return m_snapshot&&sceneHitTest(*m_snapshot,point);
 }
+QPointF ViewerController::renderPosition(QPointF point)const{
+    if(renderSize().isEmpty()||m_previewSize.isEmpty())return point*m_dpr;
+    return {point.x()*m_viewport.width()/m_previewSize.width(),point.y()*m_viewport.height()/m_previewSize.height()};
+}
 void ViewerController::pointerPress(QPointF p,Qt::MouseButton button,Qt::KeyboardModifiers mods){
     if(inputBlocked())return;
     if(m_petMode&&!petHitTest(p.x(),p.y())){m_pointerMode=0;m_dragged=true;return;}
     if(!m_petMode&&!live2dMode()&&m_hoverEnabled&&button==Qt::LeftButton){hover(p);m_pinnedSlot=m_hoveredSlot;refresh();}
-    p*=m_dpr;m_pointerStart=p;m_pointerLast=p;m_dragged=false;m_pointerMode=0;
+    p=renderPosition(p);m_pointerStart=p;m_pointerLast=p;m_dragged=false;m_pointerMode=0;
     if(m_petMode&&button==Qt::LeftButton&&m_window){
         m_pointerMode=5;m_petDragCursor=QCursor::pos();m_petDragWindow=m_window->position();
         m_state["petDragging"]=true;publishState();return;
@@ -714,12 +720,12 @@ void ViewerController::pointerMove(QPointF p,Qt::MouseButtons buttons,Qt::Keyboa
         }
         return;
     }
-    if(inputBlocked()||!(buttons&Qt::LeftButton))return;p*=m_dpr;const auto delta=p-m_pointerLast;
+    if(inputBlocked()||!(buttons&Qt::LeftButton))return;p=renderPosition(p);const auto delta=p-m_pointerLast;
     BackgroundLayer* bg=activeBackground();if(!bg&&(mods&Qt::ControlModifier)&&!m_backgrounds.isEmpty())bg=&m_backgrounds.front();
     const int mode=(buttons&Qt::RightButton)?3:(bg?2:(live2dMode()?4:1));
     if(m_pointerMode!=mode){m_pointerMode=mode;m_pointerLast=p;return;}
     if(delta.manhattanLength()>0)m_dragged=true;
-    if((buttons&Qt::RightButton)&&m_window)m_window->setPosition(m_window->position()+QPoint(qRound(delta.x()/m_dpr),qRound(delta.y()/m_dpr)));
+    if((buttons&Qt::RightButton)&&m_window)m_window->setPosition(m_window->position()+QPoint(qRound(delta.x()*m_previewSize.width()/m_viewport.width()),qRound(delta.y()*m_previewSize.height()/m_viewport.height())));
     else if(bg)bg->offset+=delta;
     else if(live2dMode())m_live2d->command("view.pan",QVariantMap{{"x",delta.x()},{"y",delta.y()}});
     else if(mods&Qt::ShiftModifier)runtime()->PanAllByPixels(qRound(delta.x()),qRound(delta.y()));
@@ -736,7 +742,7 @@ void ViewerController::pointerRelease(QPointF p,Qt::MouseButton button,Qt::Keybo
     if(live2dMode()){
         if(button==Qt::MiddleButton)m_live2d->command("view.reset");
         else if(button==Qt::LeftButton&&!m_dragged&&m_pointerMode==4){
-            p*=m_dpr;
+            p=renderPosition(p);
             m_live2d->command("live2d.tap",QVariantMap{{"x",p.x()/m_viewport.width()*2-1},{"y",1-p.y()/m_viewport.height()*2}});
         }
         m_live2d->command("live2d.endDrag");m_pointerMode=0;record();return;
@@ -748,7 +754,7 @@ void ViewerController::pointerRelease(QPointF p,Qt::MouseButton button,Qt::Keybo
 }
 void ViewerController::wheel(QPointF p,int delta,Qt::MouseButtons buttons,Qt::KeyboardModifiers mods){
     if(m_petMode&&!petHitTest(p.x(),p.y()))return;
-    if(inputBlocked()||(!m_petMode&&(buttons&Qt::LeftButton)))return;p*=m_dpr;
+    if(inputBlocked()||(!m_petMode&&(buttons&Qt::LeftButton)))return;p=renderPosition(p);
     BackgroundLayer* bg=activeBackground();if(!bg&&(mods&Qt::ControlModifier)&&!m_backgrounds.isEmpty())bg=&m_backgrounds.front();
     const int target=m_petMode?4:(bg?1:(live2dMode()?3:2));
     if(m_wheelTarget!=target){m_wheelRemainder=0;m_wheelTarget=target;}
@@ -777,11 +783,11 @@ void ViewerController::hover(QPointF p){
     if(live2dMode()){
         if(inputBlocked())return;
         if(p.x()<0||p.y()<0)m_live2d->command("live2d.endDrag");
-        else{p*=m_dpr;m_live2d->command("live2d.drag",QVariantMap{{"x",p.x()/m_viewport.width()*2-1},{"y",1-p.y()/m_viewport.height()*2}});}
+        else{p=renderPosition(p);m_live2d->command("live2d.drag",QVariantMap{{"x",p.x()/m_viewport.width()*2-1},{"y",1-p.y()/m_viewport.height()*2}});}
         return;
     }
     m_hoverPosition=p;
-    if(!m_hoverEnabled||inputBlocked())return;p*=m_dpr;
+    if(!m_hoverEnabled||inputBlocked())return;p=renderPosition(p);
     const QString previous=std::exchange(m_hoveredSlot,QString{});
     const auto done=[&]{if(m_hoveredSlot!=previous)refresh();};
     if(p.x()<0||p.y()<0||p.x()>=m_viewport.width()||p.y()>=m_viewport.height()){done();return;}

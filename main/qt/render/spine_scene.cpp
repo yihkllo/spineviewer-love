@@ -522,7 +522,10 @@ void SpineScene::setController(ViewerController* controller){
     m_controller=controller;
     setAcceptedMouseButtons(controller?Qt::AllButtons:Qt::NoButton);setAcceptHoverEvents(controller!=nullptr);
     ++m_sourceGeneration;
-    if(m_controller)connect(m_controller,&ViewerController::frameChanged,this,&QQuickItem::update);
+    if(m_controller){
+        connect(m_controller,&ViewerController::frameChanged,this,&QQuickItem::update);
+        connect(m_controller,&ViewerController::renderSizeChanged,this,[this]{updateViewport();update();});
+    }
     updateViewport();emit controllerChanged();update();
 }
 void SpineScene::setFrameSource(QObject* source){
@@ -540,7 +543,7 @@ QQuickRhiItemRenderer* SpineScene::createRenderer(){return new SceneRenderer;}
 void SpineScene::updateViewport(){
     if(!window())return;
     const qreal dpr=window()->devicePixelRatio()*m_renderScale;
-    const auto preferred=m_frameSource?m_frameSource->preferredViewport():QSize{};
+    const auto preferred=m_frameSource?m_frameSource->preferredViewport():m_controller?m_controller->renderSize():QSize{};
     const int w=preferred.isEmpty()?std::max(1,int(std::ceil(width()*dpr))):preferred.width(),h=preferred.isEmpty()?std::max(1,int(std::ceil(height()*dpr))):preferred.height();
     setFixedColorBufferWidth(w);setFixedColorBufferHeight(h);
     if(m_frameSource)m_frameSource->setViewport(QSizeF(width(),height()),dpr);

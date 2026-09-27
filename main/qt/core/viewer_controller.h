@@ -42,6 +42,7 @@ public:
     void openPaths(const QStringList& paths,bool confirmed=false);
     void setWindow(QQuickWindow* window);
     void setViewport(QSizeF logicalSize,qreal dpr);
+    QSize renderSize() const { return m_petMode ? QSize{} : m_renderSize; }
     std::shared_ptr<const SceneSnapshot> snapshot() const { return m_snapshot; }
     std::shared_ptr<SceneExportBatch> takeExportBatch() { return std::exchange(m_exportBatch, {}); }
     void pointerPress(QPointF,Qt::MouseButton,Qt::KeyboardModifiers);
@@ -52,6 +53,7 @@ public:
 signals:
     void stateChanged();
     void frameChanged();
+    void renderSizeChanged();
     void errorOccurred(QString message);
     void languageRequested(QString language);
 protected:
@@ -64,6 +66,7 @@ private:
     QVariantList fileRows(const QVariantMap& live);
     void record();
     void fit();
+    QPointF renderPosition(QPointF point) const;
     void scanFolder(const QString& folder,bool openAll=false,bool allowModeFallback=false);
     void addLayer(const QString& path);
     void openArchive(const QString& path);
@@ -162,6 +165,8 @@ private:
     int m_pointerMode=0;
     double m_animationTime=0;
     QSize m_viewport{1000,720};
+    QSize m_renderSize;
+    QSizeF m_previewSize{1000,720};
     qreal m_dpr=1;
     bool m_viewportInitialized=false;
     bool m_viewportNotificationPending=false;

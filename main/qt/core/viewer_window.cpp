@@ -173,8 +173,9 @@ bool ViewerController::windowCommand(const QString& c,const QVariant& v){
     else if(c=="window.restoreCanvas"){runtime()->ClearBaseSize();fit();}
     else if(c=="settings.renderSize.reset"){
         if(m_petMode)return true;
-        runtime()->ClearBaseSize();
-        return windowCommand("settings.resolution",0);
+        m_renderSize={};
+        setViewport(m_previewSize,m_dpr);
+        emit renderSizeChanged();
     }
     else if(c=="settings.renderSize"){
         if(m_petMode)return true;
@@ -183,18 +184,9 @@ bool ViewerController::windowCommand(const QString& c,const QVariant& v){
         if(!widthOk||!heightOk||width<64||height<64||width>8192||height>8192||qint64(width)*height>33554432){
             fail(tr("Render size must be between 64 and 8192 pixels per side, up to 32 megapixels."));return true;
         }
-        auto* desktop=m_window->findChild<QObject*>("desktopViewer");
-        const double dpr=m_window->devicePixelRatio();
-        const double currentWidth=m_window->width()*dpr;
-        const double fallback=std::max(0.0,currentWidth-m_viewport.width())/std::clamp(currentWidth/1920.0,0.5,3.0);
-        const double panel=std::clamp(desktop?desktop->property("renderPanelUnits").toDouble():fallback,0.0,1800.0);
-        double fullWidth=width+panel*0.5;
-        if(fullWidth>960.0){
-            fullWidth=width/(1.0-panel/1920.0);
-            if(fullWidth>5760.0)fullWidth=width+panel*3.0;
-        }
-        return windowCommand("settings.resolution.custom",QVariantMap{
-            {"width",std::max(320,int(std::floor(fullWidth)))},{"height",std::max(240,height)}});
+        m_renderSize=QSize(width,height);
+        setViewport(m_previewSize,m_dpr);
+        emit renderSizeChanged();
     }
     else if(c=="settings.resolution.custom"){
         if(m_petMode||!m_window->screen())return true;
@@ -284,7 +276,7 @@ void ViewerController::enterDesktopPet(){
     m_window->setPersistentGraphics(true);m_window->setPersistentSceneGraph(true);
     m_queuePlaying=false;m_live2d->command("queue.stop");m_live2d->command("pet.reset");m_petClock.restart();m_petMode=true;m_nextPetMotion=0;m_dragged=false;m_pointerMode=0;
     QCoreApplication::instance()->installEventFilter(this);
-    m_state["petMode"]=true;publishState();
+    m_state["petMode"]=true;publishState();emit renderSizeChanged();
     m_window->setMinimumSize(QSize(1,1));m_window->setColor(Qt::transparent);
     m_window->setWindowState(Qt::WindowNoState);
     m_window->setProperty("_slPetReturnNormalGeometry",m_window->geometry());
@@ -308,7 +300,7 @@ void ViewerController::exitDesktopPet(){
     QCoreApplication::instance()->removeEventFilter(this);
     m_petMode=false;m_pointerMode=0;m_dragged=true;m_live2d->command("live2d.endDrag");m_live2d->command("pet.reset");
     if(auto* grabber=m_window->mouseGrabberItem())grabber->ungrabMouse();
-    m_state["petMode"]=false;m_state["petDragging"]=false;publishState();
+    m_state["petMode"]=false;m_state["petDragging"]=false;publishState();emit renderSizeChanged();
     m_window->setWindowState(Qt::WindowNoState);
     m_window->setFlags(m_petReturnFlags);m_window->setTitle(m_window->property("_slPetReturnTitle").toString());m_window->setColor(m_window->property("_slPetReturnColor").value<QColor>());m_window->setMinimumSize(m_petReturnMinimum);
     m_window->setMask(m_petReturnMask);m_petMask={};m_petCurrentRegion={};m_petCanvasOrigin={};

@@ -1,6 +1,7 @@
 #include "render/spine_scene.h"
 #include <QQuickWindow>
 #include <QtTest>
+#include <QTemporaryDir>
 #include <cmath>
 
 class ProbeSource final:public slqt::SceneSource {
@@ -12,6 +13,23 @@ public:
 class ViewportLifecycleTest final:public QObject {
     Q_OBJECT
 private slots:
+    void controllerRenderSizeSetsThePhysicalBuffer(){
+        QTemporaryDir preferences;QSettings::setDefaultFormat(QSettings::IniFormat);
+        QSettings::setPath(QSettings::IniFormat,QSettings::UserScope,preferences.path());
+        QQuickWindow window;slqt::ViewerController controller;slqt::SpineScene scene;
+        window.resize(800,600);controller.setWindow(&window);
+        scene.setSize({600,400});scene.setParentItem(window.contentItem());scene.setController(&controller);
+        controller.dispatch("settings.renderSize",QVariantMap{{"width",3840},{"height",2160}});
+        QCOMPARE(scene.fixedColorBufferWidth(),3840);QCOMPARE(scene.fixedColorBufferHeight(),2160);
+        QCOMPARE(controller.snapshot()->size,QSize(3840,2160));
+        scene.setSize({240,135});
+        QCOMPARE(scene.fixedColorBufferWidth(),3840);QCOMPARE(scene.fixedColorBufferHeight(),2160);
+        QCOMPARE(controller.snapshot()->size,QSize(3840,2160));
+        controller.dispatch("settings.renderSize.reset");
+        QCOMPARE(scene.fixedColorBufferWidth(),qCeil(scene.width()*window.devicePixelRatio()));
+        QCOMPARE(scene.fixedColorBufferHeight(),qCeil(scene.height()*window.devicePixelRatio()));
+        scene.setController(nullptr);scene.setParentItem(nullptr);
+    }
     void lazy_scene_uses_window_dpr_on_attach(){
         ProbeSource source;slqt::SpineScene scene;scene.setSize({800,450});scene.setFrameSource(&source);
         QCOMPARE(source.updates,0);

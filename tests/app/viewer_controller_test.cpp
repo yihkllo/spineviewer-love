@@ -34,6 +34,39 @@ void setup(QQuickWindow& w,ViewerController& c){w.resize(800,600);c.setWindow(&w
 class ControllerTest : public QObject {
     Q_OBJECT
 private slots:
+    void renderSizeIsIndependentOfWindowAndPreview(){
+        QQuickWindow w;ViewerController c;setup(w,c);
+        w.create();
+        const auto geometry=w.geometry();const auto preset=c.state().value("resolutionPreset");
+        c.dispatch("settings.renderSize",QVariantMap{{"width",3840},{"height",2160}});
+        QCOMPARE(w.geometry(),geometry);QCOMPARE(c.snapshot()->size,QSize(3840,2160));
+        QCOMPARE(c.state().value("resolutionPreset"),preset);
+        c.setViewport({480,270},2);
+        QCOMPARE(c.snapshot()->size,QSize(3840,2160));
+        c.dispatch("settings.renderSize",QVariantMap{{"width",3840},{"height",4320}});
+        QCOMPARE(c.snapshot()->size,QSize(3840,4320));QCOMPARE(w.geometry(),geometry);
+        c.setViewport({240,270},2);
+        QCOMPARE(c.snapshot()->size,QSize(3840,4320));
+        c.dispatch("settings.renderSize",QVariantMap{{"width",8192},{"height",8192}});
+        QCOMPARE(c.snapshot()->size,QSize(3840,4320));
+        c.dispatch("settings.renderSize.reset");
+        QVERIFY(c.renderSize().isEmpty());QCOMPARE(c.snapshot()->size,QSize(480,540));
+        QCOMPARE(w.geometry(),geometry);
+    }
+    void backgroundDraggingUsesRenderPixelsInScaledPreview(){
+        QTemporaryDir d;QQuickWindow w;ViewerController c;setup(w,c);
+        const QString path=d.path()+"/background.png";
+        QImage picture(32,32,QImage::Format_RGBA8888);picture.fill(Qt::cyan);QVERIFY(picture.save(path));
+        c.dispatch("background.open",path);
+        c.dispatch("settings.renderSize",QVariantMap{{"width",3840},{"height",2160}});
+        c.setViewport({960,540},1);
+        const auto before=c.snapshot()->draws.front().vertices.front().pos;
+        c.pointerPress({100,100},Qt::LeftButton,Qt::NoModifier);
+        c.pointerMove({100,100},Qt::LeftButton,Qt::NoModifier);
+        c.pointerMove({125,150},Qt::LeftButton,Qt::NoModifier);
+        const auto after=c.snapshot()->draws.front().vertices.front().pos;
+        QCOMPARE(after.x-before.x,100.f);QCOMPARE(after.y-before.y,200.f);
+    }
     void frameClockRespectsPlaybackSuspension(){
         QTemporaryDir d;QQuickWindow w;ViewerController c;setup(w,c);w.show();
         c.openPaths({model(d.path(),"frame-clock")});c.resetFrameClock();
