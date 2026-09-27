@@ -1,4 +1,8 @@
 #include "viewer_controller.h"
+#include "../plugin_api/plugin_host.h"
+#include <QQuickItemGrabResult>
+#include <QTimer>
+#include <QtMath>
 
 #include <QEventLoop>
 #include <QCoreApplication>
@@ -73,6 +77,31 @@ bool ViewerController::live2dExportCommand(const QString& command,QVariantMap ar
     return success;
 }
 
+void ViewerController::prepareDecorTexture(){
+    if(m_decorTexture){m_recorder.ReleaseTexture(m_decorTexture);m_decorTexture=0;}
+    if(!m_window||!m_state.value("stageDecor",true).toBool()||hasBackground()||m_petMode||m_plugins->isOpen())return;
+    auto* decor=m_window->findChild<QQuickItem*>("stageDecor");
+    auto* scene=m_window->findChild<QQuickItem*>("spineScene");
+    if(!decor||!scene||!decor->isVisible()||decor->width()<=0||decor->height()<=0||m_viewport.isEmpty())return;
+    const qreal dpr=m_window->effectiveDevicePixelRatio();
+    decor->setProperty("exporting",true);
+    const auto grab=decor->grabToImage(QSize(qCeil(decor->width()*dpr),qCeil(decor->height()*dpr)));
+    if(grab){
+        QEventLoop loop;QTimer timeout;timeout.setSingleShot(true);
+        connect(grab.data(),&QQuickItemGrabResult::ready,&loop,&QEventLoop::quit);
+        connect(&timeout,&QTimer::timeout,&loop,&QEventLoop::quit);
+        timeout.start(3000);m_window->update();loop.exec();
+    }
+    decor->setProperty("exporting",false);
+    if(!grab)return;
+    const QImage image=grab->image();
+    if(image.isNull())return;
+    const QPointF origin=scene->mapToItem(decor,QPointF(0,0));
+    const qreal sx=image.width()/decor->width(),sy=image.height()/decor->height();
+    QImage part=image.copy(QRect(qRound(origin.x()*sx),qRound(origin.y()*sy),qRound(scene->width()*sx),qRound(scene->height()*sy)));
+    if(part.size()!=m_viewport)part=part.scaled(m_viewport,Qt::IgnoreAspectRatio,Qt::SmoothTransformation);
+    m_decorTexture=m_recorder.addTexture(part.convertToFormat(QImage::Format_RGBA8888));
+}
 QImage ViewerController::captureFrame(bool keepAlpha,QString* error)
 {
     if(error)error->clear();
@@ -191,17 +220,19 @@ void ViewerController::beginExport(const QString& command,const QVariant& payloa
     }
     const bool jpeg=command=="export.jpg"||command=="export.jpgFrames";
     const bool keepAlpha=options.value("alpha",m_state.value("exportAlpha",true)).toBool()
-        &&!jpeg&&(!movie||command=="export.webm");
+        &&!jpeg&&(!movie||command=="export.webm"||command=="export.gif");
     const ImageFormat imageFormat=jpeg?ImageFormat::Jpeg:ImageFormat::Png;
     const QString extension=movie?(command=="export.mp4"?".mp4":command=="export.gif"?".gif":".webm"):(jpeg?".jpg":".png");
     QString path=options.value("path").toString();
     if(path.isEmpty()){
         m_modal=true;
-        if(frames)path=QFileDialog::getExistingDirectory(nullptr,tr("Export animation frames"));
+        QDir root(QCoreApplication::applicationDirPath());
+        if(root.dirName().compare("main",Qt::CaseInsensitive)==0)root.cdUp();
+        if(frames)path=QFileDialog::getExistingDirectory(nullptr,tr("Export animation frames"),root.absolutePath());
         else{
             QString base=m_state.value("currentFileName").toString();
             if(base.isEmpty())base="spinelove_export";
-            path=QFileDialog::getSaveFileName(nullptr,tr("Export"),base+extension,
+            path=QFileDialog::getSaveFileName(nullptr,tr("Export"),root.filePath(base+extension),
                                              tr("Export files (*%1);;All files (*)").arg(extension));
         }
         m_modal=false;m_clock.restart();
@@ -211,7 +242,14 @@ void ViewerController::beginExport(const QString& command,const QVariant& payloa
     if(!frames&&!path.endsWith(extension,Qt::CaseInsensitive)
         &&!(jpeg&&path.endsWith(".jpeg",Qt::CaseInsensitive)))path+=extension;
     path=QFileInfo(path).absoluteFilePath();
-    const QColor matte=m_clearColor;
+    QString exportName=m_state.value("currentFileName").toString();if(exportName.isEmpty())exportName="spinelove_export";
+    if(frames){
+        const QDir parent(path);QString folder=parent.filePath(exportName);
+        for(int n=2;QFileInfo::exists(folder);++n)folder=parent.filePath(QStringLiteral("%1 (%2)").arg(exportName).arg(n));
+        path=folder;
+    }
+    const QColor matte=hasBackground()?QColor(Qt::black):m_clearColor;
+    if(!keepAlpha)prepareDecorTexture();
     if(snapshot){
         m_exportActive=true;
         m_state["exportRunning"]=true;m_state["exportFailed"]=false;m_state["exportTotal"]=1;m_state["exportDone"]=0;
@@ -230,8 +268,11 @@ void ViewerController::beginExport(const QString& command,const QVariant& payloa
     auto* r=runtime();
     ExportRequest request;
     request.outputPath=path;request.imageFormat=imageFormat;request.keepAlpha=keepAlpha;request.matteColor=matte;
+    request.frameName=exportName;
     request.movieFormat=command=="export.webm"?MovieFormat::Webm:command=="export.gif"?MovieFormat::Gif:MovieFormat::Mp4;
-    request.fps=ExportService::clampFps(m_state.value(movie?"exportVideoFps":"exportImageFps",movie?60:30).toInt());
+    request.fps=request.movieFormat==MovieFormat::Gif?m_state.value("exportGifFps",50).toInt():m_state.value(movie?"exportVideoFps":"exportImageFps",movie?60:30).toInt();
+    if(request.movieFormat==MovieFormat::Gif&&!ExportService::gifFpsChoices().contains(request.fps))request.fps=50;
+    request.fps=ExportService::clampFps(request.fps);
     const bool queue=options.value("queue",m_state.value("exportQueue",false)).toBool();
     request.queue=queue;
     QStringList motions;

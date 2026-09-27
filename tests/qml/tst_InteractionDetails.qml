@@ -14,7 +14,7 @@ Item {
     property int otherClicks: 0
     property string externalText: "10"
     property int finishedEdits: 0
-    FontLoader { id: testFont; source: Qt.resolvedUrl("../../main/resources/NotoSansSC-Regular.ttf") }
+    FontLoader { id: testFont; source: Qt.resolvedUrl("../../main/resources/NotoSansSC-VF.ttf") }
     UiMetrics { id: metrics; viewportWidth: 1920 }
     UiTheme { id: theme }
     SlSlider {

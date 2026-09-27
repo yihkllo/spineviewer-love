@@ -27,11 +27,15 @@ add_library(spinelove_qt_controller STATIC
     core/viewer_export.cpp
     core/viewer_window.cpp
     core/asset_library.h core/asset_library.cpp
+    core/archive_cache.h core/archive_cache.cpp
     core/legacy_preferences.h core/legacy_preferences.cpp
     core/export_service.h core/export_service.cpp
     render/slot_outline.h render/slot_outline.cpp render/ui_pointer_observer.h render/ui_pointer_observer.cpp
     render/spine_scene.h render/spine_scene.cpp)
 target_link_libraries(spinelove_qt_controller PRIVATE Qt6::GuiPrivate)
+if(WIN32)
+    target_link_libraries(spinelove_qt_controller PRIVATE dwmapi)
+endif()
 target_compile_features(spinelove_qt_controller PUBLIC cxx_std_17)
 set_target_properties(spinelove_qt_controller PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_include_directories(spinelove_qt_controller
@@ -62,7 +66,7 @@ file(GLOB UI_LANGUAGES "${CMAKE_CURRENT_SOURCE_DIR}/lang/*.txt")
 qt_add_resources(spinelove_qt "viewer_languages" PREFIX "/lang" BASE "${CMAKE_CURRENT_SOURCE_DIR}/lang" FILES ${UI_LANGUAGES})
 qt_add_shaders(spinelove_qt "viewer_shaders" PREFIX "/shaders" BASE "${CMAKE_CURRENT_SOURCE_DIR}/shaders" FILES shaders/spine.vert shaders/spine.frag shaders/scene_transition.frag)
 add_custom_command(TARGET spinelove_qt POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different "${PROJECT_SOURCE_DIR}/main/resources/NotoSansSC-Regular.ttf" "$<TARGET_FILE_DIR:spinelove_qt>/NotoSansSC-Regular.ttf")
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different "${PROJECT_SOURCE_DIR}/main/resources/NotoSansSC-VF.ttf" "$<TARGET_FILE_DIR:spinelove_qt>/NotoSansSC-VF.ttf")
 add_custom_command(TARGET spinelove_qt POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:spinelove_qt>/render_d3d11/shaders"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "${PROJECT_SOURCE_DIR}/main/render_d3d11/shaders/sprite.hlsl" "$<TARGET_FILE_DIR:spinelove_qt>/render_d3d11/shaders/sprite.hlsl")

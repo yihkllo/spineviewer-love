@@ -40,6 +40,7 @@ Item {
             shell.sent=[];
             findChild(tools,"trackSection").expanded=false;
             findChild(tools,"slotSection").expanded=false;
+            findChild(tools,"slotQuery").text="";
             wait(1);
         }
         function test_trackSelectionDoesNotResetScroll() {
@@ -74,7 +75,7 @@ Item {
         }
         function test_clearAlsoClearsUnappliedSlotQuery() {
             findChild(tools,"slotSection").expanded=true;
-            findChild(tools,"slotQuerySection").expanded=true;
+            waitForRendering(tools);
             const query=findChild(tools,"slotQuery");
             mouseClick(query,20,query.height/2);
             keyClick(Qt.Key_A);keyClick(Qt.Key_B);keyClick(Qt.Key_C);
@@ -83,6 +84,23 @@ Item {
             const clear=findChild(tools,"slotClear");
             mouseClick(clear,clear.width/2,clear.height/2);
             compare(query.text,"","Clear must clear the draft even when the applied controller query was already empty");
+        }
+        function test_slotFilterNarrowsListAndHidesMatches() {
+            findChild(tools,"slotSection").expanded=true;
+            const query=findChild(tools,"slotQuery");
+            const list=findChild(tools,"slotList");
+            const target=shell.state.slots[35].name;
+            query.text=target;
+            wait(1);
+            compare(list.count,1,"The filter keeps only the matching slot");
+            tryVerify(function(){const item=list.itemAtIndex(0);return item&&item.text===target;});
+            const row=list.itemAtIndex(0);
+            mouseClick(row,10,row.height/2);
+            verify(shell.sent.some(function(item){return item.key==="slot.toggle"&&item.value===35;}),"A filtered row toggles its original slot index");
+            const hide=findChild(tools,"slotHideMatches");
+            mouseClick(hide,hide.width/2,hide.height/2);
+            verify(shell.sent.some(function(item){return item.key==="slot.excludeQuery"&&item.value===target;}),"Hide matches sends the filter text");
+            compare(query.text,target,"Hiding matches keeps the filter text");
         }
     }
 }

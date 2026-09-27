@@ -112,6 +112,8 @@ ExportService::~ExportService()
 
 int ExportService::clampFps(int fps) noexcept { return std::clamp(fps, 1, 120); }
 
+QList<int> ExportService::gifFpsChoices() { return {10, 20, 25, 50, 100}; }
+
 int ExportService::frameCount(double durationSeconds, int fps) noexcept
 {
     if (!std::isfinite(durationSeconds) || durationSeconds <= 0.0)
@@ -215,7 +217,7 @@ QList<QStringList> ExportService::movieArguments(const QString& frameFolder, con
 {
     const QStringList base{"-hide_banner", "-loglevel", "error", "-y", "-framerate",
                            QString::number(clampFps(fps)), "-start_number", "1", "-i",
-                           QDir(frameFolder).filePath("frame_%06d.png")};
+                           QDir(frameFolder).filePath("frame_%05d.png")};
     if (format == MovieFormat::Mp4) {
         const QStringList prefix = base + QStringList{"-vf", "crop=trunc(iw/2)*2:trunc(ih/2)*2"};
         const QStringList tail{"-pix_fmt", "yuv420p", "-movflags", "+faststart", outputPath};
@@ -223,9 +225,12 @@ QList<QStringList> ExportService::movieArguments(const QString& frameFolder, con
                 prefix + QStringList{"-c:v", "h264_mf", "-b:v", "12M"} + tail,
                 prefix + QStringList{"-c:v", "h264_nvenc", "-cq", "18"} + tail};
     }
+    if (format == MovieFormat::Gif && keepAlpha)
+        return {base + QStringList{"-vf", "split[s0][s1];[s0]palettegen=max_colors=256:reserve_transparent=1[p];[s1][p]paletteuse=dither=sierra2_4a:alpha_threshold=128",
+                                   "-gifflags", "-offsetting-transdiff", "-loop", "0", outputPath}};
     if (format == MovieFormat::Gif)
         return {base + QStringList{"-vf", "split[s0][s1];[s0]palettegen=max_colors=256[p];[s1][p]paletteuse=dither=sierra2_4a",
-                                   "-loop", "0", outputPath}};
+                                   "-gifflags", "-offsetting-transdiff", "-loop", "0", outputPath}};
     if (keepAlpha)
         return {base + QStringList{"-c:v", "libvpx-vp9", "-crf", "17", "-b:v", "0", "-pix_fmt", "yuva420p",
                                    "-auto-alt-ref", "0", outputPath}};
@@ -309,9 +314,11 @@ bool ExportService::start(const ExportRequest& request, RenderFrames render, boo
     ++m_generation;
     m_request.outputPath = QFileInfo(request.outputPath).absoluteFilePath();
     m_request.fps = clampFps(request.fps);
+    if (movie || m_request.frameName.isEmpty())
+        m_request.frameName = QStringLiteral("frame");
     if (movie) {
         m_request.imageFormat = ImageFormat::Png;
-        m_request.keepAlpha = request.movieFormat == MovieFormat::Webm && request.keepAlpha;
+        m_request.keepAlpha = (request.movieFormat == MovieFormat::Webm || request.movieFormat == MovieFormat::Gif) && request.keepAlpha;
     }
     m_render = std::move(render);
     m_frameCounts = counts;
@@ -427,7 +434,7 @@ void ExportService::renderNext()
             return;
         }
         const QString path = QDir(m_frameFolder).filePath(
-            QStringLiteral("frame_%1").arg(m_completedFrames + 1, 6, 10, QLatin1Char('0')) + suffix);
+            m_request.frameName + QStringLiteral("_%1").arg(m_completedFrames + 1, 5, 10, QLatin1Char('0')) + suffix);
         writeFrame(path, image);
         ++m_completedFrames;
         m_motionIndex = steps[accepted].motionIndex;

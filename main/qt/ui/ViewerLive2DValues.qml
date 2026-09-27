@@ -1,6 +1,5 @@
 pragma ComponentBehavior: Bound
 import QtQuick
-import QtQuick.Controls.Basic
 
 Column {
     id: values
@@ -8,7 +7,7 @@ Column {
     property bool parts: false
     property bool syncEnabled: true
     property var sourceValues: syncEnabled ? shell.read(parts ? "parts" : "parameters", []) : []
-    spacing: shell.metrics.spacing
+    spacing: shell.metrics.s(8)
     ListModel { id: valueRows }
     onSourceValuesChanged: {
         let same = valueRows.count === sourceValues.length;
@@ -29,51 +28,40 @@ Column {
         placeholderText: values.parts ? qsTr("Filter parts") : qsTr("Filter parameters")
         metrics: values.shell.metrics; theme: values.shell.theme
     }
-    ListView {
+    Column {
         id: list
         width: parent.width
-        height: Math.min(values.shell.metrics.s(360), (values.shell.metrics.detailFont + values.shell.metrics.spacing) * 14)
-        clip: true
-        model: valueRows
-        objectName: values.parts ? "live2dPartsList" : "live2dParametersList"
-        delegate: Row {
-            id: row
-            required property var model
-            readonly property var modelData: model
-            required property int index
-            property bool matches: !filter.text.length || values.foldAscii(modelData.name).indexOf(values.foldAscii(filter.text)) >= 0 || values.foldAscii(modelData.id).indexOf(values.foldAscii(filter.text)) >= 0
-            width: list.width - scrollbar.width
-            visible: matches
-            height: matches ? overrideCheck.height + values.shell.metrics.spacing : 0
-            spacing: values.shell.metrics.s(4)
-            SlCheckBox {
-                id: overrideCheck
+        Repeater {
+            model: valueRows
+            objectName: values.parts ? "live2dPartsList" : "live2dParametersList"
+            delegate: SlValueRow {
+                id: row
+                required property var model
+                required property int index
+                required name
+                required value
+                required property real min
+                required property real max
+                required property bool overridden
+                readonly property string key: row.model ? String(row.model.id || "") : ""
+                property bool matches: !filter.text.length || values.foldAscii(row.name).indexOf(values.foldAscii(filter.text)) >= 0 || values.foldAscii(row.key).indexOf(values.foldAscii(filter.text)) >= 0
+                width: list.width
+                visible: matches
+                height: matches ? implicitHeight : 0
                 metrics: values.shell.metrics; theme: values.shell.theme
-                lineHeight: metrics.detailFont
-                checked: values.parts ? row.modelData.value > .001 : row.modelData.overridden
-                tip: values.parts ? qsTr("Show / hide this part") : qsTr("Lock this parameter for manual control")
-                enabled: values.shell.can(values.parts ? "live2d.partValue" : "live2d.parameterOverride")
-                onClicked: values.shell.send(values.parts ? "live2d.partValue" : "live2d.parameterOverride", {index:row.index,value:values.parts ? (checked ? 1 : 0) : checked})
-            }
-            SlSlider {
-                width: Math.max(0, parent.width - overrideCheck.width - reset.width - parent.spacing * 2)
-                metrics: values.shell.metrics; theme: values.shell.theme; textSize: metrics.detailFont
-                from: values.parts ? 0 : row.modelData.min
-                to: values.parts ? 1 : row.modelData.max
-                value: row.modelData.value
-                displayText: (row.modelData.name || row.modelData.id) + "  " + value.toFixed(2)
-                enabled: values.shell.can(values.parts ? "live2d.partValue" : "live2d.parameterValue")
-                onValueEdited: function(newValue) { values.shell.send(values.parts ? "live2d.partValue" : "live2d.parameterValue", {index:row.index,value:newValue}); }
-            }
-            SlButton {
-                id: reset
-                metrics: values.shell.metrics; theme: values.shell.theme; lineHeight: metrics.detailFont
-                text: "R"; height: overrideCheck.height
-                tip: qsTr("Reset to default")
-                enabled: values.shell.can(values.parts ? "live2d.partReset" : "live2d.parameterReset")
-                onClicked: values.shell.send(values.parts ? "live2d.partReset" : "live2d.parameterReset", row.index)
+                from: values.parts ? 0 : row.min
+                to: values.parts ? 1 : row.max
+                checked: values.parts ? row.value > .001 : row.overridden
+                dimmed: values.parts && row.value <= .001
+                marked: !values.parts && row.overridden
+                checkTip: values.parts ? qsTr("Show / hide this part") : qsTr("Lock this parameter for manual control")
+                checkEnabled: values.shell.can(values.parts ? "live2d.partValue" : "live2d.parameterOverride")
+                slideEnabled: values.shell.can(values.parts ? "live2d.partValue" : "live2d.parameterValue")
+                resetEnabled: values.shell.can(values.parts ? "live2d.partReset" : "live2d.parameterReset")
+                onToggled: function(on) { values.shell.send(values.parts ? "live2d.partValue" : "live2d.parameterOverride", {index:row.index,value:values.parts ? (on ? 1 : 0) : on}); }
+                onMoved: function(newValue) { values.shell.send(values.parts ? "live2d.partValue" : "live2d.parameterValue", {index:row.index,value:newValue}); }
+                onReset: values.shell.send(values.parts ? "live2d.partReset" : "live2d.parameterReset", row.index)
             }
         }
-        ScrollBar.vertical: SlScrollBar { id: scrollbar; metrics: values.shell.metrics; theme: values.shell.theme }
     }
 }

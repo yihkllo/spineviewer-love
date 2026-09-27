@@ -9,9 +9,11 @@ ListView {
     required property UiTheme theme
     property int selectedIndex: -1
     property var entries: []
-    property real textSize: metrics.mainFont
+    property real textSize: metrics.smallFont
+    property bool numbered: true
     signal activated(int index)
     clip: true
+    spacing: metrics.rowGap
     boundsBehavior: Flickable.StopAtBounds
     currentIndex: selectedIndex
     model: rowData
@@ -26,44 +28,17 @@ ListView {
             if (same) rowData.set(i,value); else rowData.append(value);
         }
     }
-    delegate: Rectangle {
-        id: row
+    delegate: SlRow {
         required property int index
         required property var model
-        readonly property var modelData: model
-        width: list.width - (bar.visible ? bar.width : 0)
-        height: list.textSize + list.metrics.spacing
-        color: mouse.containsMouse ? list.theme.headerHover
-             : list.selectedIndex === index ? list.theme.header : "transparent"
-        Text {
-            anchors.left: parent.left
-            anchors.right: duration.left
-            anchors.rightMargin: list.metrics.gap
-            anchors.verticalCenter: parent.verticalCenter
-            text: typeof row.modelData === "string" ? row.modelData : row.modelData.name
-            textFormat: Text.PlainText
-            font.pixelSize: list.textSize * list.metrics.fontEmScale
-            color: list.theme.text
-            clip: true
-        }
-        Text {
-            id: duration
-            anchors.right: parent.right
-            anchors.verticalCenter: parent.verticalCenter
-            text: row.modelData.duration > 0 ? row.modelData.duration.toFixed(1) + "s" : ""
-            font.pixelSize: list.textSize * list.metrics.fontEmScale
-            color: list.theme.text
-        }
-        MouseArea {
-            id: mouse
-            anchors.fill: parent
-            hoverEnabled: true
-            onPressed: {
-                const item = Window.window ? Window.window.activeFocusItem : null;
-                if (item && (item instanceof TextInput || item instanceof TextEdit)) item.focus = false;
-            }
-            onClicked: list.activated(row.index)
-        }
+        width: list.width - (bar.visible ? bar.width + list.metrics.rowGap : 0)
+        metrics: list.metrics; theme: list.theme
+        textSize: list.textSize
+        number: list.numbered ? index + 1 : 0
+        text: model.name
+        detail: model.duration > 0 ? model.duration.toFixed(1) + "s" : ""
+        selected: list.selectedIndex === index
+        onClicked: list.activated(index)
     }
     ScrollBar.vertical: SlScrollBar { id: bar; metrics: list.metrics; theme: list.theme }
 }

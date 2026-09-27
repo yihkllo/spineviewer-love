@@ -26,6 +26,7 @@ struct ExportMotion {
 
 struct ExportRequest {
     QString outputPath;
+    QString frameName = QStringLiteral("frame");
     ImageFormat imageFormat = ImageFormat::Png;
     MovieFormat movieFormat = MovieFormat::Mp4;
     int fps = 30;
@@ -62,6 +63,7 @@ public:
     void resetCancellation() noexcept { if (!isBusy()) m_cancelled = false; }
 
     static int clampFps(int fps) noexcept;
+    static QList<int> gifFpsChoices();
     static int frameCount(double durationSeconds, int fps) noexcept;
     static QImage outputPixels(const QImage& image, bool keepAlpha, const QColor& matteColor);
     static bool saveImage(const QString& path, ImageFormat format, const QImage& image,

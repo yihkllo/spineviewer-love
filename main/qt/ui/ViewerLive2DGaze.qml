@@ -8,7 +8,8 @@ Column {
     property bool active: true
     readonly property var channels: active ? shell.read("gazeChannels", {}) : ({})
     readonly property bool following: shell.read("effects", {}).gazeFollow !== false
-    spacing: shell.metrics.spacing
+    spacing: shell.metrics.s(8)
+    readonly property real labelWidth: shell.metrics.detailFont * shell.metrics.fontEmScale * 4.2
 
     Row {
         width: parent.width
@@ -36,25 +37,29 @@ Column {
         width: parent.width
         metrics: gazeView.shell.metrics; theme: gazeView.shell.theme; lineHeight: metrics.detailFont
         wrapMode: Text.WordWrap
+        color: theme.mute
         text: gazeView.following ? qsTr("Adjust mouse-follow strength.") : qsTr("Adjust and hold direction.")
     }
     Row {
         id: sensitivityRow
         width: parent.width; spacing: gazeView.shell.metrics.spacingX
         visible: gazeView.following
+        SlLabel {
+            width: gazeView.labelWidth; height: sensitivity.height
+            metrics: gazeView.shell.metrics; theme: gazeView.shell.theme; lineHeight: metrics.detailFont
+            color: theme.text
+            text: qsTr("Sensitivity##live2d-drag").split("##")[0]
+            elide: Text.ElideRight
+        }
         SlSlider {
-            width: Math.max(0, (parent.width - parent.spacing) * .65)
+            id: sensitivity
+            width: Math.max(0, parent.width - gazeView.labelWidth - parent.spacing)
             metrics: gazeView.shell.metrics; theme: gazeView.shell.theme; textSize: metrics.detailFont
             from: 0; to: 3
             value: gazeView.gaze.sensitivity === undefined ? 1 : gazeView.gaze.sensitivity
             displayText: value.toFixed(2) + "x"
             enabled: gazeView.shell.can("live2d.gaze")
             onValueEdited: function(newValue) { gazeView.shell.send("live2d.gaze", {key:"sensitivity", value:newValue}); }
-        }
-        SlLabel {
-            width: Math.max(0, (parent.width - parent.spacing) * .35)
-            metrics: gazeView.shell.metrics; theme: gazeView.shell.theme; lineHeight: metrics.detailFont
-            text: qsTr("Sensitivity##live2d-drag").split("##")[0]
         }
     }
     Repeater {
@@ -71,9 +76,17 @@ Column {
             required property var modelData
             readonly property var channel: gazeView.channels[modelData.key] || ({})
             width: gazeView.width; spacing: gazeView.shell.metrics.spacingX
+            SlLabel {
+                width: gazeView.labelWidth; height: axisSlider.height
+                metrics: gazeView.shell.metrics; theme: gazeView.shell.theme; lineHeight: metrics.detailFont
+                color: theme.text
+                text: axisRow.modelData.label
+                elide: Text.ElideRight
+            }
             SlSlider {
+                id: axisSlider
                 objectName: "live2dGaze_" + axisRow.modelData.key
-                width: Math.max(0, (parent.width - parent.spacing) * .65)
+                width: Math.max(0, parent.width - gazeView.labelWidth - parent.spacing)
                 metrics: gazeView.shell.metrics; theme: gazeView.shell.theme; textSize: metrics.detailFont
                 from: gazeView.following ? axisRow.modelData.min : Number(axisRow.channel.min || 0)
                 to: gazeView.following ? axisRow.modelData.max : Number(axisRow.channel.max || 0)
@@ -89,11 +102,6 @@ Column {
                     gazeView.shell.send(gazeView.following ? "live2d.gaze" : "live2d.gazePose",
                         {key:axisRow.modelData.key, value:newValue});
                 }
-            }
-            SlLabel {
-                width: Math.max(0, (parent.width - parent.spacing) * .35)
-                metrics: gazeView.shell.metrics; theme: gazeView.shell.theme; lineHeight: metrics.detailFont
-                text: axisRow.modelData.label
             }
         }
     }

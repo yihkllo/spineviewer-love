@@ -48,33 +48,67 @@ Slider {
     padding: 0
     implicitHeight: textSize + metrics.framePaddingY * 2
     focusPolicy: Qt.StrongFocus
-    opacity: enabled ? 1 : .6
-    background: Rectangle {
+    hoverEnabled: true
+    opacity: enabled ? 1 : .45
+    readonly property real slant: height * .25
+    readonly property real handleBand: Math.max(6 * metrics.pixel, implicitHeight * .24)
+    readonly property real handleWidth: handleBand + slant
+    readonly property real fillWidth: handle.x + slant + handleBand * .5
+    background: Item {
         width: control.width
         height: control.height
-        radius: control.metrics.frameRadius
-        color: control.pressed ? control.theme.frameActive
-             : control.hovered ? control.theme.frameHover : control.theme.frame
+        SlPoly {
+            anchors.fill: parent
+            tl: control.slant; br: control.slant
+            fill: control.pressed ? control.theme.frameActive : control.hovered ? control.theme.frameHover : control.theme.frame
+        }
+        SlPoly {
+            width: Math.max(0, control.fillWidth); height: control.height
+            tl: control.slant; br: control.slant
+            fill: control.theme.emphasis
+        }
     }
-    handle: Rectangle {
-        x: control.visualPosition * (control.width - width)
-        y: 2 * control.metrics.pixel
-        implicitWidth: Math.min(control.width, Math.max(12 * control.metrics.pixel,
-            control.stepSize > 0 ? control.width / ((control.to - control.from) / control.stepSize + 1) : 0))
-        height: control.height - 4 * control.metrics.pixel
-        radius: control.metrics.frameRadius
-        color: control.pressed ? control.theme.check : control.theme.grab
+    handle: SlPoly {
+        x: control.visualPosition * (control.width - control.handleWidth)
+        y: 0
+        implicitWidth: control.handleWidth
+        width: control.handleWidth
+        height: control.height
+        tl: control.slant; br: control.slant
+        fill: control.pressed ? control.theme.mix(control.theme.accent2, "white", .3) : control.theme.accent2
     }
     Text {
+        id: valueLabel
         anchors.fill: parent
+        anchors.leftMargin: control.slant + control.metrics.framePaddingX
+        anchors.rightMargin: control.slant + control.metrics.framePaddingX
         text: control.displayText
         textFormat: Text.PlainText
-        font.pixelSize: control.textSize * control.metrics.fontEmScale
+        font.pixelSize: control.textSize * control.metrics.fontEmScale * 1.08
+        font.family: control.theme.numberFont
+        font.weight: Font.DemiBold
         color: control.theme.text
-        horizontalAlignment: implicitWidth > width ? Text.AlignLeft : Text.AlignHCenter
+        horizontalAlignment: implicitWidth > width ? Text.AlignLeft : Text.AlignRight
         verticalAlignment: Text.AlignVCenter
         visible: !control.directEditing
         clip: true
+    }
+    Item {
+        width: Math.max(0, control.fillWidth)
+        height: control.height
+        clip: true
+        visible: !control.directEditing
+        Text {
+            x: valueLabel.x; y: valueLabel.y
+            width: valueLabel.width; height: valueLabel.height
+            text: valueLabel.text
+            textFormat: Text.PlainText
+            font: valueLabel.font
+            color: control.theme.inkText
+            horizontalAlignment: valueLabel.horizontalAlignment
+            verticalAlignment: Text.AlignVCenter
+            clip: true
+        }
     }
     MouseArea {
         anchors.fill: parent
@@ -93,13 +127,14 @@ Slider {
         closePolicy: Popup.CloseOnPressOutside
         onOpened: { editor.forceActiveFocus(); editor.selectAll(); }
         onClosed: control.finishDirectEdit(true)
-        background: Rectangle { color: control.theme.frameActive; radius: control.metrics.frameRadius }
+        background: SlPoly { tl: control.slant; br: control.slant; fill: control.theme.frameActive }
         contentItem: TextField {
             id: editor
             objectName: "numericEditor"
             padding: 0
             font.pixelSize: control.textSize * control.metrics.fontEmScale
             horizontalAlignment: TextInput.AlignHCenter
+            font.family: control.theme.numberFont
             verticalAlignment: TextInput.AlignVCenter
             color: control.theme.text
             selectionColor: control.theme.selected

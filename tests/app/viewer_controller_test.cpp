@@ -2,7 +2,6 @@
 #include "viewer_load_benchmark.h"
 #include "core/window_geometry.h"
 #include "core/legacy_preferences.h"
-#include "render/legacy_image_provider.h"
 #include "runtime_fixture.h"
 #include <QQmlPropertyMap>
 #include <QApplication>
@@ -209,25 +208,29 @@ private slots:
         QVERIFY(!c.state().value("lastError").toString().isEmpty());QVERIFY(c.state().value("loaded").toBool());
         QCOMPARE(firstLayer(c),QString("working"));QCOMPARE(c.snapshot()->draws.size(),size_t(1));
     }
+    void backgroundsStackAndReorder(){
+        QTemporaryDir d;const auto first=d.path()+"/first.png",second=d.path()+"/second.png";
+        QImage picture(4,4,QImage::Format_RGBA8888);picture.fill(Qt::cyan);QVERIFY(picture.save(first));picture.fill(Qt::red);QVERIFY(picture.save(second));
+        QQuickWindow w;ViewerController c;setup(w,c);
+        c.dispatch("background.open",first);c.dispatch("background.open",second);
+        auto rows=c.state().value("backgrounds").toList();QCOMPARE(rows.size(),2);
+        QCOMPARE(rows[0].toMap().value("name").toString(),QString("second"));QVERIFY(rows[0].toMap().value("selected").toBool());
+        QCOMPARE(c.snapshot()->draws.size(),size_t(2));
+        c.dispatch("background.move",QVariantMap{{"from",0},{"to",1}});
+        rows=c.state().value("backgrounds").toList();
+        QCOMPARE(rows[1].toMap().value("name").toString(),QString("second"));QVERIFY(rows[1].toMap().value("selected").toBool());
+        c.dispatch("background.visible",0);QCOMPARE(c.snapshot()->draws.size(),size_t(1));QVERIFY(c.state().value("hasBackgroundImage").toBool());
+        c.dispatch("background.visible",1);QVERIFY(!c.state().value("hasBackgroundImage").toBool());
+        c.dispatch("background.remove",1);rows=c.state().value("backgrounds").toList();
+        QCOMPARE(rows.size(),1);QCOMPARE(rows[0].toMap().value("name").toString(),QString("first"));QVERIFY(!rows[0].toMap().value("selected").toBool());
+        c.dispatch("background.clear");QVERIFY(c.state().value("backgrounds").toList().isEmpty());
+    }
     void badBackgroundKeepsTheCurrentArtwork(){
         QTemporaryDir d;const auto path=d.path()+"/background.png",bad=d.path()+"/bad.png";
         QImage picture(4,4,QImage::Format_RGBA8888);picture.fill(Qt::cyan);QVERIFY(picture.save(path));write(bad,"not an image");
         QQuickWindow w;ViewerController c;setup(w,c);c.dispatch("background.open",path);
         const auto before=c.snapshot();QCOMPARE(before->draws.size(),size_t(1));
         c.dispatch("background.open",bad);QVERIFY(!c.state().value("lastError").toString().isEmpty());QCOMPARE(c.snapshot(),before);
-        c.dispatch("title.background",path);const auto title=c.state().value("titleBackground");
-        c.dispatch("title.background",bad);QCOMPARE(c.state().value("titleBackground"),title);
-    }
-    void titleArtworkUsesPairedAlphaAndLiteralPaths(){
-        QTemporaryDir d;const auto path=d.path()+QString::fromUtf8("/标题%20.png"),alpha=d.path()+QString::fromUtf8("/标题%20_alpha.png");
-        QImage picture(4,4,QImage::Format_RGBA8888);picture.fill(Qt::cyan);QVERIFY(picture.save(path));
-        picture.fill(QColor(77,0,0));QVERIFY(picture.save(alpha));
-        QQuickWindow w;ViewerController c;setup(w,c);c.dispatch("title.background",path);
-        const auto url=c.state().value("titleBackground").toUrl();QCOMPARE(url.scheme(),QString("image"));
-        slqt::LegacyImageProvider provider;QSize size;
-        const auto decoded=provider.requestImage(url.path().mid(1),&size,{});
-        QCOMPARE(size,QSize(4,4));QCOMPARE(decoded.pixelColor(1,1).alpha(),77);
-        c.dispatch("title.background",path);QVERIFY(c.state().value("titleBackground").toUrl()!=url);
     }
 };
 int main(int argc,char** argv){

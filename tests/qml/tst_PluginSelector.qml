@@ -21,7 +21,7 @@ Item {
     ]
     Rectangle { id: backdrop; anchors.fill: parent; color: "#2d4f70" }
     Button { id: outside; x:10; y:10; width:100; height:40; text:"Outside"; onClicked:fixture.outsideClicks++ }
-    FontLoader { id: fontLoader; source: Qt.resolvedUrl("../../main/resources/NotoSansSC-Regular.ttf") }
+    FontLoader { id: fontLoader; source: Qt.resolvedUrl("../../main/resources/NotoSansSC-VF.ttf") }
     UiMetrics { id: metrics; viewportWidth:fixture.width; baseFontPixels:32 }
     UiTheme { id: theme }
     QtObject {

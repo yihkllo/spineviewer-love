@@ -1,5 +1,6 @@
 pragma ComponentBehavior: Bound
 import QtQuick
+import QtQuick.Controls.Basic
 
 Column {
     id: section
@@ -8,53 +9,63 @@ Column {
     property string title: ""
     property bool expanded: false
     property bool framed: true
+    property bool headerVisible: true
     default property alias content: body.data
     spacing: metrics.spacing
-    SlButton {
+    Button {
         id: header
+        visible: section.headerVisible
         width: parent.width
-        height: section.metrics.mainFont + (section.framed ? section.metrics.framePaddingY * 2 : 0)
-        metrics: section.metrics
-        theme: section.theme
+        height: section.framed ? section.metrics.rowHeight : section.metrics.smallFont * 1.5
+        padding: 0
+        hoverEnabled: true
+        focusPolicy: Qt.NoFocus
         text: section.title
+        readonly property bool lit: section.framed && section.expanded
         contentItem: Item {
-            Canvas {
-                id: arrow
-                width: section.metrics.mainFont
-                height: width
-                y: section.framed ? section.metrics.framePaddingY : section.metrics.mainFont*.15
-                onWidthChanged: requestPaint()
-                onPaint: {
-                    const ctx=getContext("2d"),h=width,scale=section.framed?1:.7,r=h*.4*scale,cx=h*.5,cy=h*.5*scale;
-                    ctx.clearRect(0,0,width,height);ctx.fillStyle=section.theme.text;ctx.beginPath();
-                    if(section.expanded){ctx.moveTo(cx,cy+.75*r);ctx.lineTo(cx-.866*r,cy-.75*r);ctx.lineTo(cx+.866*r,cy-.75*r);}
-                    else{ctx.moveTo(cx+.75*r,cy);ctx.lineTo(cx-.75*r,cy+.866*r);ctx.lineTo(cx-.75*r,cy-.866*r);}
-                    ctx.closePath();ctx.fill();
-                }
-                Connections { target: section; function onExpandedChanged(){arrow.requestPaint();} }
-                Connections { target: section.theme; function onTextChanged(){arrow.requestPaint();} }
+            Text {
+                id: chevron
+                x: section.framed ? section.metrics.framePaddingX * 1.5 : 0
+                height: parent.height
+                width: font.pixelSize
+                text: section.expanded ? "▾" : "▸"
+                font.pixelSize: section.metrics.smallFont * section.metrics.fontEmScale * .9
+                color: header.lit ? section.theme.accent2 : section.theme.accent
+                verticalAlignment: Text.AlignVCenter
             }
             Text {
-                x: section.metrics.mainFont + section.metrics.framePaddingX * (section.framed ? 2 : 1)
-                width: Math.max(0,parent.width-x)
-                height: section.metrics.mainFont
-                y: section.framed ? section.metrics.framePaddingY : 0
+                x: chevron.x + chevron.width + section.metrics.framePaddingX
+                width: Math.max(0, parent.width - x - section.metrics.framePaddingX)
+                height: parent.height
                 text: header.text
                 textFormat: Text.PlainText
-                color: section.theme.text
-                font.pixelSize: section.metrics.mainFont * section.metrics.fontEmScale
+                color: header.lit ? section.theme.inkText : section.theme.text
+                font.pixelSize: section.metrics.smallFont * section.metrics.fontEmScale
+                font.weight: section.framed ? Font.Medium : Font.Normal
                 verticalAlignment: Text.AlignVCenter
-                clip: true
+                elide: Text.ElideRight
             }
         }
-        background: Rectangle { color: header.down ? section.theme.headerActive : header.hovered ? section.theme.headerHover : section.framed ? section.theme.header : "transparent"; radius: section.framed ? section.metrics.frameRadius : 0 }
+        background: Item {
+            visible: section.framed || header.hovered
+            SlPoly {
+                anchors.fill: parent
+                br: section.framed ? header.height * .3 : 0
+                fill: header.lit ? section.theme.emphasis : header.down ? section.theme.frameActive : header.hovered ? section.theme.buttonHover : section.framed ? section.theme.button : "transparent"
+            }
+            Rectangle {
+                visible: header.lit
+                width: Math.max(3, 5 * section.metrics.pixel); height: parent.height
+                color: section.theme.accent
+            }
+        }
         onClicked: section.expanded = !section.expanded
     }
     Column {
         id: body
-        x: section.framed ? 0 : 21 * section.metrics.pixel
+        x: section.framed ? 0 : 14 * section.metrics.pixel
         width: parent.width-x
-        visible: section.expanded
+        visible: section.expanded || !section.headerVisible
         spacing: section.metrics.spacing
     }
 }

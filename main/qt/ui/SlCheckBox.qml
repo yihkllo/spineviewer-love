@@ -12,43 +12,45 @@ CheckBox {
     property real lineHeight: metrics.smallFont
     font.pixelSize: lineHeight * metrics.fontEmScale
     padding: 0
-    spacing: 4 * metrics.pixel
+    spacing: 6 * metrics.pixel
     focusPolicy: Qt.NoFocus
+    hoverEnabled: true
     onPressed: {
         const item = Window.window ? Window.window.activeFocusItem : null;
         if (item && (item instanceof TextInput || item instanceof TextEdit)) item.focus = false;
     }
     implicitHeight: Math.max(contentItem.implicitHeight, indicator.height)
     implicitWidth: text.length ? contentItem.implicitWidth : indicator.width
-    opacity: enabled ? 1 : 0.6
-    indicator: Rectangle {
-        implicitWidth: control.lineHeight + control.metrics.framePaddingY * 2
+    opacity: enabled ? 1 : 0.45
+    indicator: Item {
+        implicitWidth: control.lineHeight * .78 + control.metrics.framePaddingY * 2
         implicitHeight: implicitWidth
+        x: control.leftPadding
         y: (control.height - height) / 2
-        radius: control.metrics.frameRadius
-        color: control.down ? control.theme.frameActive
-             : control.hovered ? control.theme.frameHover : control.theme.frame
+        SlPoly {
+            anchors.fill: parent
+            anchors.margins: parent.width * .12
+            tl: width * .14; br: width * .14
+            fill: control.checked ? control.theme.accent : control.hovered ? control.theme.frameHover : "transparent"
+            stroke: control.checked ? control.theme.accent : control.theme.dark ? control.theme.mute : control.theme.ink
+            strokeWidth: Math.max(1.5, 2 * control.metrics.pixel)
+        }
         Shape {
             id: mark
             objectName: "checkMark"
             anchors.fill: parent
             visible: control.checked
             preferredRendererType: Shape.CurveRenderer
-            readonly property real pad: Math.max(1, Math.floor(width / control.metrics.pixel / 6)) * control.metrics.pixel
-            readonly property real markSize: Math.max(0, width - 2 * pad)
-            readonly property real thickness: Math.max(markSize / 5, control.metrics.pixel)
-            readonly property real extent: markSize - thickness * .5
-            readonly property real origin: pad + thickness * .25
+            readonly property real w: width
             ShapePath {
-                strokeColor: control.theme.check
-                strokeWidth: mark.thickness
+                strokeColor: control.theme.accentInk
+                strokeWidth: Math.max(1.5, mark.w * .13)
                 fillColor: "transparent"
                 capStyle: ShapePath.FlatCap
                 joinStyle: ShapePath.MiterJoin
-                startX: mark.origin
-                startY: mark.origin + mark.extent / 2
-                PathLine { x: mark.origin + mark.extent / 3; y: mark.origin + mark.extent * 5 / 6 }
-                PathLine { x: mark.origin + mark.extent; y: mark.origin + mark.extent / 6 }
+                startX: mark.w * .3; startY: mark.w * .5
+                PathLine { x: mark.w * .45; y: mark.w * .65 }
+                PathLine { x: mark.w * .72; y: mark.w * .34 }
             }
         }
     }

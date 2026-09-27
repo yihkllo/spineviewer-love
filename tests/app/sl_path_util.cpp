@@ -216,11 +216,11 @@ std::wstring path_util::GetBundledFontPath()
 	if (exeDir.empty())
 		return {};
 
-	const fs::path direct = exeDir / L"NotoSansSC-Regular.ttf";
+	const fs::path direct = exeDir / L"NotoSansSC-VF.ttf";
 	if (FileExists(direct.wstring()))
 		return direct.wstring();
 
-	const fs::path nested = exeDir / L"fonts" / L"NotoSansSC-Regular.ttf";
+	const fs::path nested = exeDir / L"fonts" / L"NotoSansSC-VF.ttf";
 	return FileExists(nested.wstring()) ? nested.wstring() : std::wstring();
 }
 

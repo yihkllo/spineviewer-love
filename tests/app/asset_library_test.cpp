@@ -1,4 +1,5 @@
 #include "core/asset_library.h"
+#include "core/archive_cache.h"
 
 #include <QCoreApplication>
 #include <QDebug>
@@ -30,6 +31,37 @@ bool writeFile(const QString& path, const QByteArray& bytes)
 QByteArray skeletonJson(const QByteArray& version = "4.2.67")
 {
     return "{\"skeleton\":{\"spine\":\"" + version + "\"},\"bones\":[{\"name\":\"root\"}]}";
+}
+quint32 crc32(const QByteArray& bytes)
+{
+    quint32 crc = 0xFFFFFFFFu;
+    for (const char value : bytes) {
+        crc ^= static_cast<quint8>(value);
+        for (int bit = 0; bit < 8; ++bit)
+            crc = (crc >> 1) ^ (0xEDB88320u & (0u - (crc & 1u)));
+    }
+    return ~crc;
+}
+void put16(QByteArray& out, quint16 value) { out.append(char(value & 0xFF)); out.append(char(value >> 8)); }
+void put32(QByteArray& out, quint32 value) { put16(out, quint16(value & 0xFFFF)); put16(out, quint16(value >> 16)); }
+bool writeZip(const QString& path, const QList<QPair<QByteArray, QByteArray>>& files)
+{
+    QByteArray body, directory;
+    for (const auto& [name, data] : files) {
+        const quint32 offset = quint32(body.size());
+        const quint32 crc = crc32(data);
+        put32(body, 0x04034b50); put16(body, 20); put16(body, 0x0800); put16(body, 0); put16(body, 0); put16(body, 0);
+        put32(body, crc); put32(body, quint32(data.size())); put32(body, quint32(data.size()));
+        put16(body, quint16(name.size())); put16(body, 0); body.append(name); body.append(data);
+        put32(directory, 0x02014b50); put16(directory, 20); put16(directory, 20); put16(directory, 0x0800); put16(directory, 0);
+        put16(directory, 0); put16(directory, 0); put32(directory, crc); put32(directory, quint32(data.size()));
+        put32(directory, quint32(data.size())); put16(directory, quint16(name.size())); put16(directory, 0); put16(directory, 0);
+        put16(directory, 0); put16(directory, 0); put32(directory, 0); put32(directory, offset); directory.append(name);
+    }
+    QByteArray zip = body + directory;
+    put32(zip, 0x06054b50); put16(zip, 0); put16(zip, 0); put16(zip, quint16(files.size())); put16(zip, quint16(files.size()));
+    put32(zip, quint32(directory.size())); put32(zip, quint32(body.size())); put16(zip, 0);
+    return writeFile(path, zip);
 }
 QString makeSkeleton(const QString& folder, const QString& name, const QByteArray& bytes = skeletonJson())
 {
@@ -145,6 +177,82 @@ int main(int argc, char** argv)
           "document-picker local URL preserves Unicode path");
     check(slqt::AssetLibrary::localPath(QUrl("content://documents/tree/123"), &urlError).isEmpty() && !urlError.isEmpty(),
           "Android content URI is not silently misinterpreted as a local path");
+    const QString shared = QDir(root).filePath("shared");
+    check(writeFile(shared + "/hero-pro.json", skeletonJson()), "shared atlas skeleton exists");
+    check(writeFile(shared + "/hero.atlas", "hero.png\nsize: 1,1\n"), "straight shared atlas exists");
+    check(slqt::AssetLibrary::matchingAtlas(shared + "/hero-pro.json") == QDir::cleanPath(shared + "/hero.atlas"),
+          "skeleton variant falls back to shared atlas by name prefix");
+    check(writeFile(shared + "/hero-pma.atlas", "hero-pma.png\nsize: 1,1\n"), "premultiplied shared atlas exists");
+    check(slqt::AssetLibrary::matchingAtlas(shared + "/hero-pro.json") == QDir::cleanPath(shared + "/hero-pma.atlas"),
+          "premultiplied shared atlas is preferred");
+    check(writeFile(shared + "/heroic.json", skeletonJson()) && writeFile(shared + "/settings.json", "{}"), "unrelated JSON fixtures exist");
+    check(slqt::AssetLibrary::matchingAtlas(shared + "/heroic.json").isEmpty(), "atlas prefix must end at a name boundary");
+    check(slqt::AssetLibrary::matchingAtlas(shared + "/settings.json").isEmpty(), "unrelated JSON does not borrow an atlas");
+    check(writeFile(shared + "/unity.skel.bytes", binary) && writeFile(shared + "/unity.atlas.txt", "unity.png\nsize: 1,1\n"),
+          "Unity export fixtures exist");
+    check(slqt::AssetLibrary::isSpineFileName(shared + "/unity.skel.bytes"), "Unity binary skeleton name is recognized");
+    check(slqt::AssetLibrary::skeletonStem(shared + "/unity.skel.bytes") == "unity", "Unity binary skeleton stem drops both suffixes");
+    check(slqt::AssetLibrary::matchingAtlas(shared + "/unity.skel.bytes") == QDir::cleanPath(shared + "/unity.atlas.txt"),
+          "Unity binary skeleton pairs with its text atlas");
+
+    slqt::ArchiveCache::setRoot(QDir(root).filePath("cache"));
+    const QString archive = QDir(root).filePath("pack.zip");
+    check(writeZip(archive, {{"export/hero-pro.json", skeletonJson()}, {"export/hero.atlas", "hero.png\nsize: 1,1\n"},
+                             {"export/hero.png", "png"}, {"__MACOSX/export/._hero.png", "junk"}, {"project.spine", "project"},
+                             {"images/part.png", "part"}}), "archive fixture is written");
+    check(slqt::ArchiveCache::isArchive(archive), "zip suffix is recognized as an archive");
+    QString archiveError;
+    const QString extracted = slqt::ArchiveCache::extract(archive, &archiveError);
+    check(!extracted.isEmpty() && archiveError.isEmpty(), "archive extracts into the cache");
+    check(QFileInfo(extracted + "/export/hero.png").isFile(), "texture keeps its archive-relative folder");
+    check(!QFileInfo::exists(extracted + "/__MACOSX") && !QFileInfo::exists(extracted + "/project.spine"), "system and project files are skipped");
+    const auto archived = slqt::AssetLibrary::scanSpine(extracted);
+    check(archived.size() == 1 && archived.value(0).endsWith("/export/hero-pro.json"), "archived skeleton is found through shared atlas");
+    check(slqt::AssetLibrary::inspect(archived.value(0)).isValid(), "archived skeleton inspects as a valid Spine model");
+    const QString virtualPath = slqt::ArchiveCache::displayPath(archived.value(0));
+    check(virtualPath == QDir::cleanPath(archive) + "/export/hero-pro.json", "cache path is shown as archive path plus inner path");
+    check(slqt::ArchiveCache::sourceArchive(archived.value(0)) == QDir::cleanPath(archive), "cache path maps back to its archive");
+    check(slqt::ArchiveCache::exists(virtualPath) && !slqt::ArchiveCache::exists(QDir(root).filePath("missing.zip/a.json")),
+          "archive-relative paths exist only while the archive exists");
+    check(QDir(slqt::ArchiveCache::root()).removeRecursively(), "archive cache can be cleared");
+    check(slqt::ArchiveCache::resolve(virtualPath) == archived.value(0) && QFileInfo(archived.value(0)).isFile(),
+          "archive-relative path re-extracts after the cache is cleared");
+    check(slqt::ArchiveCache::extract(archive) == extracted, "unchanged archive reuses its cache folder");
+    const QString unsafe = QDir(root).filePath("unsafe.zip");
+    check(writeZip(unsafe, {{"../escape.png", "png"}, {"a.json", skeletonJson()}}), "unsafe archive fixture is written");
+    check(slqt::ArchiveCache::extract(unsafe, &archiveError).isEmpty() && archiveError.contains("unsafe"), "path traversal is rejected");
+    check(!QFileInfo::exists(QDir(root).filePath("cache/escape.png")), "rejected archive writes nothing outside the cache");
+    const QString broken = QDir(root).filePath("broken.zip");
+    check(writeFile(broken, "not a zip"), "broken archive fixture is written");
+    archiveError.clear();
+    check(slqt::ArchiveCache::extract(broken, &archiveError).isEmpty() && !archiveError.isEmpty(), "damaged archive reports an error");
+    const QString empty = QDir(root).filePath("project-only.zip");
+    check(writeZip(empty, {{"hero.spine", "project"}, {"images/a.png", "png"}}), "project-only archive fixture is written");
+    archiveError.clear();
+    slqt::ArchiveCache::extract(empty, &archiveError);
+    check(slqt::AssetLibrary::scanSpine(slqt::ArchiveCache::extract(empty)).isEmpty(), "project-only archive yields no playable model");
+    const QString library = QDir(root).filePath("library");
+    makeSkeleton(library, "plain.json");
+    check(writeZip(library + "/nested/bundle.zip", {{"export/a.json", skeletonJson()}, {"export/a.skel", binary},
+                                                    {"export/a.atlas", "a.png\nsize: 1,1\n"}, {"export/b-pro.json", skeletonJson()},
+                                                    {"export/b-pma.atlas", "b.png\nsize: 1,1\n"}, {"notes/readme.json", "{}"},
+                                                    {"notes/other.atlas", "o.png\nsize: 1,1\n"}}), "nested archive fixture is written");
+    const QString bundle = QDir::cleanPath(library + "/nested/bundle.zip");
+    const auto cachedBefore = QDir(slqt::ArchiveCache::root()).entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+    const auto listed = slqt::AssetLibrary::scanSpine(library);
+    check(listed.contains(QDir::cleanPath(library + "/plain.json")), "folder scan keeps loose models");
+    check(listed.contains(bundle + "/export/a.skel") && !listed.contains(bundle + "/export/a.json"),
+          "folder scan lists archived models and prefers binary over duplicate JSON");
+    check(listed.contains(bundle + "/export/b-pro.json"), "folder scan lists archived models with shared atlases");
+    check(!listed.contains(bundle + "/notes/readme.json"), "folder scan skips unrelated JSON inside archives");
+    check(listed.size() == 3, "folder scan lists exactly the playable models");
+    check(QDir(slqt::ArchiveCache::root()).entryList(QDir::Dirs | QDir::NoDotAndDotDot) == cachedBefore, "listing an archive does not extract it");
+    check(slqt::ArchiveCache::archiveOf(bundle + "/export/a.skel") == bundle, "archive-relative path maps to its archive");
+    const QString opened = slqt::ArchiveCache::resolve(bundle + "/export/b-pro.json");
+    check(QFileInfo(opened).isFile() && slqt::AssetLibrary::inspect(opened).isValid(), "listed archive model extracts and inspects on demand");
+    check(slqt::ArchiveCache::displayPath(opened) == bundle + "/export/b-pro.json", "extracted model maps back to its listed path");
+    slqt::ArchiveCache::setRoot({});
+
     qInfo() << (failures == 0 ? "Asset-library compatibility checks passed." : "Asset-library compatibility checks failed.")
             << failures;
     return failures == 0 ? 0 : 1;

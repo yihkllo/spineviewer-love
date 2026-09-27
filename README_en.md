@@ -52,7 +52,7 @@ Switch under **Setting → Language** in the top-left corner; the choice is reme
 
 | Item             | Details                                                                                                                       |
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| Skeleton files   | `.skel`, `.json`                                                                                                              |
+| Skeleton files   | `.skel`, `.skel.bytes`, `.json`; exported assets inside `.zip` archives |
 | Atlas files      | `.atlas`, `.atlas.txt` (same name, next to the skeleton file)                                                                 |
 | Spine versions   | **2.1** · **3.1** · **3.4** · **3.5** · **3.6** · **3.7** · **3.8** · **4.0** · **4.1** · **4.2**                             |
 | Live2D models    | Cubism 3+ `.model3.json` (loaded together with `.moc3`, textures, motions, expressions and voice); Cubism 2 `.model.json` is not supported |
@@ -66,11 +66,11 @@ Switch under **Setting → Language** in the top-left corner; the choice is reme
 
 ## 🚀 Quick Start
 
-1. Run `spine love.exe`.
-2. Drag in a folder containing one or more `.skel` / `.json` files.
+1. Run `SpineLoveEX.exe`.
+2. Drag in a folder containing `.skel`, `.skel.bytes`, `.json` or `.zip` resources.
 3. Click `Select Folder` to scan a folder recursively, then browse with the arrow keys or the list.
 4. Pick an animation in the **Animations** panel, or switch with **←** / **→**.
-5. Use the panels on the right to adjust transform, track mix, slots, queue and export.
+5. Use the panels on the left to adjust transforms, track mixing, slots and the queue. Open the export panel with the button at the bottom right.
 
 ---
 
@@ -189,14 +189,14 @@ Renders PNG frames first, then calls `ffmpeg.exe` to encode them.
 
 | Format | Notes          |
 | ------ | -------------- |
-| `MP4`  | H.264 / AAC    |
-| `WebM` | VP9 / Opus     |
+| `MP4`  | H.264 video without audio |
+| `WebM` | VP9 video without audio; optional transparent background |
 | `GIF`  | Animated GIF   |
 
 
-**Video FPS** controls the frame rate for MP4 / WebM / GIF.
+**Video FPS** controls the frame rate for MP4 / WebM. **GIF FPS** controls the GIF frame rate separately.
 
-> Put `ffmpeg.exe` next to `spine love.exe`, in a `tools/` subfolder, or on the system `PATH`. If it cannot be found, the app shows a download prompt.
+> Put `ffmpeg.exe` in `main/` or `main/tools/` inside the installation folder, or on the system `PATH`. If it cannot be found, the export panel shows a download prompt.
 
 ### Queue Export
 
@@ -204,6 +204,6 @@ With `Queue ON`, the whole animation queue is exported instead of just the curre
 
 ## ⚖️ Notice
 
-The *Spine* name and the bundled runtime code belong to their respective owners and are subject to their license terms. Third-party components shipped in this repository keep their own license notices; see [LICENSE](LICENSE) and the file headers under `third_party/`.
+The *Spine* name and the bundled runtime code belong to their respective owners and are subject to their license terms. See [LICENSE](LICENSE), [source notices](docs/licenses/source-notices.txt) and `docs/licenses/` for third-party licenses and notices.
 
 — Made with 💖 for 2D creators and enthusiasts —

@@ -1,4 +1,5 @@
 #include "asset_library.h"
+#include "archive_cache.h"
 #include "spine_json_preflight.h"
 
 #include "spinelove/sl_skeleton_probe.h"
@@ -40,7 +41,7 @@ AssetEntry inspectSpine(const QString& path, const QByteArray& bytes)
     AssetEntry entry;
     entry.path = cleanLocalPath(path);
     const QFileInfo file(entry.path);
-    entry.displayName = file.completeBaseName();
+    entry.displayName = AssetLibrary::skeletonStem(entry.path);
     entry.textureDirectory = file.absolutePath() + QLatin1Char('/');
     entry.atlasPath = AssetLibrary::matchingAtlas(entry.path);
     if (entry.atlasPath.isEmpty()) {
@@ -82,6 +83,10 @@ QStringList scan(const QString& folder, bool live2d)
             if (!entry.isFile())
                 continue;
             const QString path = entry.absoluteFilePath();
+            if (!live2d && ArchiveCache::isArchive(path)) {
+                result.append(ArchiveCache::listSpine(path));
+                continue;
+            }
             if (live2d ? AssetLibrary::isLive2DFileName(path)
                        : AssetLibrary::isSpineFileName(path) && !AssetLibrary::matchingAtlas(path).isEmpty())
                 result.append(path);
@@ -109,12 +114,62 @@ QString AssetLibrary::localPath(const QUrl& url, QString* error)
 bool AssetLibrary::isSpineFileName(const QString& path)
 {
     return path.endsWith(QLatin1String(".json"), Qt::CaseInsensitive)
-        || path.endsWith(QLatin1String(".skel"), Qt::CaseInsensitive);
+        || path.endsWith(QLatin1String(".skel"), Qt::CaseInsensitive)
+        || path.endsWith(QLatin1String(".skel.bytes"), Qt::CaseInsensitive);
+}
+
+QString AssetLibrary::skeletonStem(const QString& path)
+{
+    const QString name = QFileInfo(path).fileName();
+    if (name.endsWith(QLatin1String(".skel.bytes"), Qt::CaseInsensitive))
+        return name.left(name.size() - 11);
+    return QFileInfo(path).completeBaseName();
 }
 
 bool AssetLibrary::isLive2DFileName(const QString& path)
 {
     return path.endsWith(QLatin1String(".model3.json"), Qt::CaseInsensitive);
+}
+
+QString AssetLibrary::chooseAtlas(const QString& stem, const QStringList& names)
+{
+    for (const auto& suffix : {QStringLiteral(".atlas"), QStringLiteral(".atlas.txt")}) {
+        const QString wanted = stem + suffix;
+        for (const QString& name : names) {
+            if (QString::compare(name, wanted, Qt::CaseInsensitive) == 0)
+                return name;
+        }
+    }
+    QString best;
+    int bestScore = 0;
+    for (const QString& name : names) {
+        QString atlasStem;
+        if (name.endsWith(QLatin1String(".atlas.txt"), Qt::CaseInsensitive))
+            atlasStem = name.left(name.size() - 10);
+        else if (name.endsWith(QLatin1String(".atlas"), Qt::CaseInsensitive))
+            atlasStem = name.left(name.size() - 6);
+        else
+            continue;
+        bool premultiplied = false;
+        for (const auto& marker : {QStringLiteral("-pma"), QStringLiteral("_pma"), QStringLiteral(".pma")}) {
+            if (atlasStem.endsWith(marker, Qt::CaseInsensitive)) {
+                atlasStem.chop(marker.size());
+                premultiplied = true;
+                break;
+            }
+        }
+        if (atlasStem.isEmpty() || atlasStem.size() >= stem.size() || !stem.startsWith(atlasStem, Qt::CaseInsensitive))
+            continue;
+        const QChar boundary = stem.at(atlasStem.size());
+        if (boundary != QLatin1Char('-') && boundary != QLatin1Char('_') && boundary != QLatin1Char('.') && boundary != QLatin1Char(' '))
+            continue;
+        const int score = int(atlasStem.size()) * 2 + (premultiplied ? 1 : 0);
+        if (score > bestScore) {
+            bestScore = score;
+            best = name;
+        }
+    }
+    return best;
 }
 
 QString AssetLibrary::matchingAtlas(const QString& skeletonPath)
@@ -123,21 +178,12 @@ QString AssetLibrary::matchingAtlas(const QString& skeletonPath)
         return {};
     const QFileInfo skeleton(skeletonPath);
     const QDir directory(skeleton.absolutePath());
-    const QString stem = skeleton.completeBaseName();
-    QStringList names;
-    for (const auto& suffix : {QStringLiteral(".atlas"), QStringLiteral(".atlas.txt")}) {
-        const QString wanted = stem + suffix;
-        const QString exact = directory.filePath(wanted);
-        if (QFileInfo(exact).isFile())
-            return QDir::cleanPath(exact);
-        if (names.isEmpty())
-            names = directory.entryList(QDir::Files | QDir::Hidden | QDir::System, QDir::Name);
-        for (const QString& name : names) {
-            if (QString::compare(name, wanted, Qt::CaseInsensitive) == 0)
-                return QDir::cleanPath(directory.filePath(name));
-        }
-    }
-    return {};
+    const QString stem = skeletonStem(skeletonPath);
+    const QString exact = directory.filePath(stem + QStringLiteral(".atlas"));
+    if (QFileInfo(exact).isFile())
+        return QDir::cleanPath(exact);
+    const QString chosen = chooseAtlas(stem, directory.entryList(QDir::Files | QDir::Hidden | QDir::System, QDir::Name));
+    return chosen.isEmpty() ? QString{} : QDir::cleanPath(directory.filePath(chosen));
 }
 
 AssetEntry AssetLibrary::inspect(const QString& path)

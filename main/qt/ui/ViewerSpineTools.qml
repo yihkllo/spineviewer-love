@@ -5,8 +5,13 @@ import QtQuick.Controls.Basic
 Column {
     id: tools
     required property var shell
+    property string part: ""
+    function fold(value) { return String(value).replace(/[A-Z]/g, function(c) { return c.toLowerCase(); }); }
+    property bool showHeader: false
     spacing: shell.metrics.spacing
     SlSection {
+        visible: tools.part === "" || tools.part === "size"
+        headerVisible: tools.part === "" || tools.showHeader
         width: parent.width; metrics: tools.shell.metrics; theme: tools.shell.theme
         title: qsTr("Size/Flip")
         SlLabel { width: parent.width; metrics: tools.shell.metrics; theme: tools.shell.theme; lineHeight: metrics.smallFont; text: qsTr("Window size: (%d, %d)").replace("%d",tools.shell.read("canvasWidth",0)).replace("%d",tools.shell.read("canvasHeight",0)) }
@@ -29,45 +34,85 @@ Column {
         }
     }
     SlSection {
+        visible: tools.part === "" || tools.part === "tracks"
+        headerVisible: tools.part === "" || tools.showHeader
         objectName: "trackSection"
         width: parent.width; metrics: tools.shell.metrics; theme: tools.shell.theme
-        title: qsTr("Track Mix")
+        title: qsTr("Animation Mix")
         ListView {
             id: tracks
             objectName: "trackList"
             width: parent.width
-            spacing: tools.shell.metrics.spacing
-            height: (tools.shell.metrics.mainFont + tools.shell.metrics.framePaddingY * 2) * Math.max(4, Math.min(12, count + 1))
+            spacing: tools.shell.metrics.rowGap
+            height: (tools.shell.metrics.rowHeight + spacing) * Math.max(3, Math.min(tools.part === "" ? 12 : 6, count)) - spacing
             clip: true
+            boundsBehavior: Flickable.StopAtBounds
             model: tools.shell.read("animations", [])
-            delegate: SlCheckBox {
+            delegate: SlRow {
                 required property int index
                 required property var modelData
-                width: tracks.width - tools.shell.metrics.scrollbarWidth
-                metrics: tools.shell.metrics; theme: tools.shell.theme; lineHeight: metrics.mainFont
+                readonly property bool picked: tools.shell.read("selectedTracks", []).indexOf(index) >= 0
+                width: tracks.width - (trackScroll.visible ? trackScroll.width + tools.shell.metrics.rowGap : 0)
+                metrics: tools.shell.metrics; theme: tools.shell.theme
+                number: index + 1
                 text: modelData.name
-                checked: tools.shell.read("selectedTracks", []).indexOf(index) >= 0
-                enabled: tools.shell.can("track.toggle")
+                detail: picked ? "✓" : modelData.duration > 0 ? Number(modelData.duration).toFixed(1) + "s" : ""
+                marked: picked
+                interactive: tools.shell.can("track.toggle")
                 onClicked: tools.shell.send("track.toggle", index)
             }
-            ScrollBar.vertical: SlScrollBar { metrics: tools.shell.metrics; theme: tools.shell.theme }
+            ScrollBar.vertical: SlScrollBar { id: trackScroll; metrics: tools.shell.metrics; theme: tools.shell.theme }
         }
         Row {
             id: trackActions
-            x: parent.width * .1; width: parent.width * .8; spacing: tools.shell.metrics.spacingX
+            width: parent.width - tools.shell.metrics.s(10); spacing: tools.shell.metrics.s(6)
             Repeater {
-                model: [{key:"track.apply",label:qsTr("Add##AddTracks2").split("##")[0]},{key:"track.clear",label:qsTr("Clear##ClearTracks2").split("##")[0]}]
-                delegate: SlButton { required property var modelData; width: (trackActions.width - trackActions.spacing) / 2; metrics: tools.shell.metrics; theme: tools.shell.theme; text: modelData.label; enabled: tools.shell.can(modelData.key); onClicked: tools.shell.send(modelData.key, null) }
+                model: [{key:"track.apply",label:qsTr("Play Mix##AddTracks2").split("##")[0],accent:true},{key:"track.clear",label:qsTr("Clear##ClearTracks2").split("##")[0],accent:false}]
+                delegate: SlButton {
+                    required property var modelData
+                    width: (trackActions.width - trackActions.spacing) / 2
+                    height: tools.shell.metrics.rowHeight
+                    metrics: tools.shell.metrics; theme: tools.shell.theme
+                    lineHeight: metrics.smallFont
+                    accent: modelData.accent
+                    text: modelData.label
+                    enabled: tools.shell.can(modelData.key)
+                    onClicked: tools.shell.send(modelData.key, null)
+                }
             }
         }
     }
     SlSection {
+        visible: tools.part === "" || tools.part === "slots"
+        headerVisible: tools.part === "" || tools.showHeader
         objectName: "slotSection"
         width: parent.width; metrics: tools.shell.metrics; theme: tools.shell.theme
         title: qsTr("Slot")
         SlSection {
             width: parent.width; metrics: tools.shell.metrics; theme: tools.shell.theme
             title: qsTr("Exclude slot by items"); expanded: true; framed: false
+            Row {
+                width: parent.width
+                spacing: tools.shell.metrics.s(6)
+                SlTextField {
+                    id: query
+                    objectName: "slotQuery"
+                    width: parent.width - hideMatches.width - parent.spacing
+                    metrics: tools.shell.metrics; theme: tools.shell.theme; textSize: metrics.smallFont
+                    placeholderText: qsTr("Filter slots")
+                    onTextChanged: slots.rebuild()
+                }
+                SlButton {
+                    id: hideMatches
+                    objectName: "slotHideMatches"
+                    height: query.height
+                    metrics: tools.shell.metrics; theme: tools.shell.theme
+                    lineHeight: metrics.smallFont
+                    text: qsTr("Hide matches")
+                    enabled: query.text.length > 0 && tools.shell.can("slot.excludeQuery")
+                    onClicked: tools.shell.send("slot.excludeQuery", query.text)
+                }
+            }
             ListView {
                 id: slots
                 objectName: "slotList"
@@ -77,15 +122,22 @@ Column {
                 height: (tools.shell.metrics.mainFont + tools.shell.metrics.spacing) * 15
                 model: slotRows
                 ListModel { id: slotRows }
-                onSourceSlotsChanged: {
-                    let same=slotRows.count===sourceSlots.length;
-                    for(let i=0;same && i<sourceSlots.length;++i) same=slotRows.get(i).slotName===sourceSlots[i].name;
-                    if(!same)slotRows.clear();
+                function rebuild() {
+                    const needle=tools.fold(query.text);
+                    const rows=[];
                     for(let i=0;i<sourceSlots.length;++i){
-                        const value={slotName:String(sourceSlots[i].name),slotVisible:!!sourceSlots[i].visible};
-                        if(same)slotRows.set(i,value);else slotRows.append(value);
+                        const name=String(sourceSlots[i].name);
+                        if(needle.length && tools.fold(name).indexOf(needle)<0)continue;
+                        rows.push({slotName:name,slotVisible:!!sourceSlots[i].visible,slotIndex:i});
+                    }
+                    let same=slotRows.count===rows.length;
+                    for(let i=0;same && i<rows.length;++i) same=slotRows.get(i).slotIndex===rows[i].slotIndex && slotRows.get(i).slotName===rows[i].slotName;
+                    if(!same)slotRows.clear();
+                    for(let i=0;i<rows.length;++i){
+                        if(same)slotRows.set(i,rows[i]);else slotRows.append(rows[i]);
                     }
                 }
+                onSourceSlotsChanged: rebuild()
                 clip: true
                 property string pinned: tools.shell.read("pinnedSlot", "")
                 onPinnedChanged: {
@@ -96,24 +148,22 @@ Column {
                     required property int index
                     required property string slotName
                     required property bool slotVisible
+                    required property int slotIndex
                     width: slots.width - tools.shell.metrics.scrollbarWidth
                     metrics: tools.shell.metrics; theme: tools.shell.theme; lineHeight: metrics.mainFont
                     text: slotName; checked: slotVisible
                     enabled: tools.shell.can("slot.toggle")
-                    background: Rectangle { color: slotRow.slotName === slots.pinned ? "#ff8080" : "transparent" }
+                    leftPadding: tools.shell.metrics.s(8)
+                    background: SlPoly {
+                        br: height * .25
+                        fill: slotRow.slotName === slots.pinned ? "#ff8080" : slotRow.hovered && slotRow.enabled ? tools.shell.theme.selected : "transparent"
+                    }
                     onHoveredChanged: tools.shell.send("slot.hoverRow", hovered ? slotName : "")
-                    onClicked: { query.text=""; tools.shell.send("slot.toggle", index); }
+                    onClicked: tools.shell.send("slot.toggle", slotIndex)
                 }
                 ScrollBar.vertical: SlScrollBar { metrics: tools.shell.metrics; theme: tools.shell.theme }
             }
             SlButton { objectName:"slotClear"; width: tools.shell.metrics.s(106.7); metrics: tools.shell.metrics; theme: tools.shell.theme; text: qsTr("Clear##ClearExcSlots2").split("##")[0]; enabled: tools.shell.can("slot.clear"); onClicked: { query.text=""; tools.shell.send("slot.clear", null); } }
-        }
-        SlSection {
-            objectName: "slotQuerySection"
-            width: parent.width; metrics: tools.shell.metrics; theme: tools.shell.theme
-            title: qsTr("Hide slots by name text"); framed: false
-            SlTextField { id: query; objectName:"slotQuery"; width: parent.width; metrics: tools.shell.metrics; theme: tools.shell.theme; textSize: metrics.smallFont; placeholderText: qsTr("Slot name text"); externalText: tools.shell.read("slotQuery", "") }
-            SlButton { width: tools.shell.metrics.s(106.7); metrics: tools.shell.metrics; theme: tools.shell.theme; text: qsTr("Apply"); enabled: tools.shell.can("slot.excludeQuery"); onClicked: tools.shell.send("slot.excludeQuery", query.text) }
         }
         SlSection {
             width: parent.width; metrics: tools.shell.metrics; theme: tools.shell.theme
@@ -152,6 +202,8 @@ Column {
         }
     }
     SlSection {
+        visible: tools.part === "" || tools.part === "queue"
+        headerVisible: tools.part === "" || tools.showHeader
         width: parent.width; metrics: tools.shell.metrics; theme: tools.shell.theme
         title: qsTr("Queue")
         ViewerQueue { width: parent.width; shell: tools.shell }

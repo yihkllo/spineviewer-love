@@ -18,9 +18,19 @@
 #if defined(Q_OS_WIN)
 #define NOMINMAX
 #include <Windows.h>
+#include <dwmapi.h>
 #endif
 
 namespace slqt {
+void applyWindowCorners(QWindow* window,bool round){
+#if defined(Q_OS_WIN)
+    if(!window||QGuiApplication::platformName()!="windows")return;
+    const DWORD preference=round?2:1;
+    DwmSetWindowAttribute(reinterpret_cast<HWND>(window->winId()),33,&preference,sizeof(preference));
+#else
+    Q_UNUSED(window);Q_UNUSED(round);
+#endif
+}
 namespace {
 QSize legacyFrameAllowance(QQuickWindow* window,bool nativeFrame,bool resizeEnabled){
 #if defined(Q_OS_WIN)
@@ -141,7 +151,7 @@ bool ViewerController::windowCommand(const QString& c,const QVariant& v){
     }
     else if(c=="window.invertWheel"){m_invertWheel=!m_invertWheel;m_wheelRemainder=0;}
     else if(c=="window.toggleChrome"){
-        m_nativeFrame=!m_nativeFrame;m_window->setFlag(Qt::FramelessWindowHint,!m_nativeFrame);m_window->show();
+        m_nativeFrame=!m_nativeFrame;m_window->setFlag(Qt::FramelessWindowHint,!m_nativeFrame);m_window->show();applyWindowCorners(m_window,true);
 #if defined(Q_OS_WIN)
         if(!m_resizeEnabled&&!m_petMode){
             m_window->setProperty("_slNativeResizeBeforeDisable",(GetWindowLongPtrW(reinterpret_cast<HWND>(m_window->winId()),GWL_STYLE)&WS_THICKFRAME)!=0);
@@ -284,6 +294,7 @@ void ViewerController::enterDesktopPet(){
     m_window->setGeometry(pet);m_window->show();m_clock.restart();refresh();record();
 #if defined(Q_OS_WIN)
     if(!setNativePetFrame(m_window))fail(tr("Could not remove the desktop pet window frame."));
+    applyWindowCorners(m_window,false);
     QTimer::singleShot(0,this,[this]{
         if(m_petMode&&m_window){setNativePetFrame(m_window);captureNativeWindowPolicy(m_window);}
     });
@@ -317,6 +328,7 @@ void ViewerController::exitDesktopPet(){
     if(!m_resizeEnabled&&returnVisibility!=QWindow::FullScreen)setNativeResizeFrame(m_window,false);
     captureNativeWindowPolicy(m_window);
 #endif
+    applyWindowCorners(m_window,true);
     m_window->setPersistentGraphics(m_window->property("_slPetPersistentGraphics").toBool());
     m_window->setPersistentSceneGraph(m_window->property("_slPetPersistentSceneGraph").toBool());
     m_window->requestActivate();m_clock.restart();refresh();record();

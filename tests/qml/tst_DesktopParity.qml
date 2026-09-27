@@ -20,15 +20,15 @@ Item {
         when: windowShown
         function init() { ui.panelsHidden = false; ui.metrics.panelScale = 1; fixture.width = 1920; backend.received = []; }
         function test_sourceGeometry_data() {
-            return [{tag:"1920 DPR1",width:1920,dpr:1,boundary:431.3333,title:37.3},
-                    {tag:"1920 DPR1.5",width:1280,dpr:1.5,boundary:287.5555333333,title:24.8666666667},
-                    {tag:"1920 DPR2",width:960,dpr:2,boundary:215.66665,title:18.65},
-                    {tag:"2560 DPR1",width:2560,dpr:1,boundary:575.1110666667,title:37.3},
-                    {tag:"2560 DPR1.5",width:2560/1.5,dpr:1.5,boundary:383.4073777778,title:24.8666666667},
-                    {tag:"2560 DPR2",width:1280,dpr:2,boundary:287.5555333333,title:18.65},
-                    {tag:"2880 DPR1",width:2880,dpr:1,boundary:646.99995,title:37.3},
-                    {tag:"2880 DPR1.5",width:1920,dpr:1.5,boundary:431.3333,title:24.8666666667},
-                    {tag:"2880 DPR2",width:1440,dpr:2,boundary:323.499975,title:18.65}];
+            return [{tag:"1920 DPR1",width:1920,dpr:1,boundary:528,title:42},
+                    {tag:"1920 DPR1.5",width:1280,dpr:1.5,boundary:352,title:28},
+                    {tag:"1920 DPR2",width:960,dpr:2,boundary:264,title:21},
+                    {tag:"2560 DPR1",width:2560,dpr:1,boundary:704,title:42},
+                    {tag:"2560 DPR1.5",width:2560/1.5,dpr:1.5,boundary:469.3333333333,title:28},
+                    {tag:"2560 DPR2",width:1280,dpr:2,boundary:352,title:21},
+                    {tag:"2880 DPR1",width:2880,dpr:1,boundary:792,title:42},
+                    {tag:"2880 DPR1.5",width:1920,dpr:1.5,boundary:528,title:28},
+                    {tag:"2880 DPR2",width:1440,dpr:2,boundary:396,title:21}];
         }
         function test_sourceGeometry(data) {
             fixture.width = data.width;
@@ -38,14 +38,82 @@ Item {
         }
         function test_proRetainsEntrySlot() {
             backend.state = {devicePixelRatio:1,mode:"spine",loaded:false,capabilities:{"file.open":true,"mode.toggle":true}};
-            const file = findChild(ui,"entry_file.open");
             const mode = findChild(ui,"entry_mode.toggle");
             const settings = findChild(ui,"entry_settings");
             const pet = findChild(ui,"entry_pet.enter");
             const pro = findChild(ui,"entry_plugins");
-            verify(file && mode && settings && pet && pro);
-            compare(file.y,0); compare(mode.y,36); compare(settings.y,72); compare(pet.y,108); compare(pro.y,144);
-            verify(!pro.enabled); verify(!pet.enabled);
+            verify(mode && settings && pet && pro);
+            verify(!findChild(ui,"entry_file.open"));
+            compare(settings.y,pet.y); compare(pet.y,pro.y);
+            verify(mode.mapToItem(ui,0,0).x < settings.mapToItem(ui,0,0).x && settings.x < pet.x && pet.x < pro.x);
+            verify(pro.enabled); verify(!pro.usable); verify(!pet.enabled); verify(settings.enabled);
+            backend.received = [];
+            mouseClick(pro, pro.width / 2, pro.height / 2);
+            compare(backend.received.length, 0);
+            backend.state = {devicePixelRatio:1,mode:"spine",loaded:false,capabilities:{"file.open":true,"mode.toggle":true,"plugins":true}};
+            mouseClick(pro, pro.width / 2, pro.height / 2);
+            compare(backend.received.length, 1); compare(backend.received[0].name, "plugins");
+        }
+        function test_hideOverlays() {
+            backend.state = {devicePixelRatio:1,loaded:true};
+            verify(findChild(ui,"infoCard").visible); verify(findChild(ui,"actionDock").visible);
+            backend.state = {devicePixelRatio:1,loaded:true,infoCardHidden:true};
+            verify(!findChild(ui,"infoCard").visible); verify(findChild(ui,"actionDock").visible);
+            backend.state = {devicePixelRatio:1,loaded:true,exportButtonHidden:true};
+            verify(findChild(ui,"infoCard").visible); verify(!findChild(ui,"actionDock").visible);
+        }
+        function layerState(extra) {
+            const caps = {"layer.select":true,"layer.move":true,"layer.visible":true,"background.open":true,"background.select":true,"background.visible":true,"background.remove":true,"background.move":true,"file.addSpine":true};
+            const base = {devicePixelRatio:1,loaded:true,capabilities:caps,
+                          loadedSpines:[{name:"a",visible:true,selected:true},{name:"b",visible:true,selected:false},{name:"c",visible:false,selected:false}],
+                          backgrounds:[]};
+            for (const key in extra) base[key] = extra[key];
+            return base;
+        }
+        function test_layerCardRows() {
+            backend.state = layerState({});
+            const card = findChild(ui,"layerCard");
+            verify(card && card.visible);
+            verify(findChild(ui,"spineLayer_2"));
+            verify(findChild(ui,"emptyBackground").visible);
+            backend.state = layerState({backgrounds:[{name:"sky",visible:true,selected:false},{name:"floor",visible:true,selected:true}]});
+            verify(!findChild(ui,"emptyBackground").visible);
+            verify(findChild(ui,"backgroundLayer_1"));
+            backend.state = layerState({loadedSpines:[{name:"a",visible:true,selected:true}]});
+            verify(!findChild(ui,"layerCard").visible);
+        }
+        function test_layerCardCommands() {
+            backend.state = layerState({backgrounds:[{name:"sky",visible:true,selected:false},{name:"floor",visible:true,selected:false}]});
+            waitForRendering(ui);
+            const row = findChild(ui,"spineLayer_1");
+            mouseClick(row, row.width * .5, row.height * .5);
+            compare(backend.received[backend.received.length - 1].name, "layer.select");
+            compare(backend.received[backend.received.length - 1].value, 1);
+            const bg = findChild(ui,"backgroundLayer_0");
+            mouseClick(bg, bg.width * .5, bg.height * .5);
+            compare(backend.received[backend.received.length - 1].name, "background.select");
+            const remove = findChild(ui,"backgroundRemove_1");
+            mouseClick(remove, remove.width / 2, remove.height / 2);
+            compare(backend.received[backend.received.length - 1].name, "background.remove");
+            compare(backend.received[backend.received.length - 1].value, 1);
+            const eye = findChild(ui,"spineVisible_2");
+            mouseClick(eye, eye.width / 2, eye.height / 2);
+            compare(backend.received[backend.received.length - 1].name, "layer.visible");
+            compare(backend.received[backend.received.length - 1].value, 2);
+        }
+        function test_layerCardDragReorder() {
+            backend.state = layerState({});
+            waitForRendering(ui);
+            const row = findChild(ui,"spineLayer_0");
+            const pitch = findChild(ui,"spineLayer_1").y - row.y;
+            const x = row.width * .5, y = row.height * .5;
+            mousePress(row, x, y);
+            for (let step = 1; step <= 10; ++step) mouseMove(row, x, y + pitch * 2 * step / 10);
+            mouseRelease(row, x, y + pitch * 2);
+            const last = backend.received[backend.received.length - 1];
+            compare(last.name, "layer.move");
+            compare(last.value.from, 0);
+            compare(last.value.to, 2);
         }
         function test_panelHideKeepsCanvasContract() {
             backend.state = {devicePixelRatio:1};
@@ -53,7 +121,7 @@ Item {
             compare(ui.canvasLeft,0);
             verify(!findChild(ui,"leftPanel").visible);
             ui.panelsHidden = false;
-            verify(Math.abs(ui.canvasLeft - 431.3333) < .001);
+            verify(Math.abs(ui.canvasLeft - 528) < .001);
         }
         function test_commandOnce() {
             ui.send("animation.play",3);
@@ -74,7 +142,7 @@ Item {
             verify(!findChild(ui,"leftPanel").visible);
             backend.state = {devicePixelRatio:1,petMode:false};
             verify(findChild(ui,"leftPanel").visible);
-            verify(Math.abs(ui.canvasLeft - 431.3333) < .001);
+            verify(Math.abs(ui.canvasLeft - 528) < .001);
         }
         function test_resizeEdgesDisabledInFullscreen() {
             backend.state = {devicePixelRatio:2,resizeEnabled:true,resizeBorderPhysical:8,capabilities:{"window.resize":true}};
@@ -105,20 +173,25 @@ Item {
             findChild(ui,"live2dParametersSection").expanded=true;
             const list=findChild(ui,"live2dParametersList");
             tryCompare(list,"count",100);
-            list.contentY=500;
+            let page=list.parent;
+            while(page&&(page.contentY===undefined||page.flickableDirection===undefined))page=page.parent;
+            verify(page,"The parameter rows must scroll with their page");
+            page.contentY=500;
             const next=parameters.map(function(value){return Object.assign({},value,{value:.2});});
             backend.state={devicePixelRatio:1,mode:"live2d",loaded:true,parameters:next};
             wait(20);
-            compare(list.contentY,500,"Motion updates must change values without resetting the parameter scroll");
+            compare(page.contentY,500,"Motion updates must change values without resetting the parameter scroll");
         }
         function test_themeDefaultsAndCustomizedResetAreDistinct() {
             backend.state = {devicePixelRatio:1,themeCustomized:false};
-            verify(Math.abs(ui.theme.button.r - .71) < .001);
-            verify(Math.abs(ui.theme.button.g - .52) < .001);
-            backend.state = {devicePixelRatio:1,themeCustomized:true,themeHue:.74,themeSaturation:.83,themeBrightness:1};
-            verify(Math.abs(ui.theme.button.g - .52176) < .001);
+            verify(Math.abs(ui.theme.accent.r - 0x8b/255) < .002);
+            verify(Math.abs(ui.theme.accent.b - 1) < .002);
+            verify(!ui.theme.dark);
+            backend.state = {devicePixelRatio:1,themeCustomized:true,themeHue:.5,themeSaturation:.83,themeBrightness:1};
+            verify(ui.theme.accent.g > ui.theme.accent.r,"A customized hue must drive the accent color");
             backend.state = {devicePixelRatio:1,themeCustomized:true,darkTheme:true};
-            verify(Math.abs(ui.theme.button.r - .3) < .001);
+            verify(ui.theme.dark);
+            verify(ui.theme.paper.r < .2 && ui.theme.text.r > .8);
         }
         function test_live2dControlsInstantiate() {
             backend.state = {devicePixelRatio:1,mode:"live2d",loaded:true,

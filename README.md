@@ -1,19 +1,17 @@
 # SpineLoveEX
 
-**Windows Spine live2D 查看器 —— 用于预览，导出，快速切换查看**
+**Windows Spine / Live2D 查看器 —— 用于预览，导出，快速切换查看**
 
-> # ⚡ 最快导入方式
+> **⚡ 最快导入方式**
 >
-> ## 直接把含有 Spine（或 Live2D）文件的文件夹拖进窗口
->
-> ## 程序会自动筛选出相关资源，列在左边「选择文件夹」下面
+> 直接把含有 Spine（或 Live2D）文件的文件夹拖进窗口，程序会自动筛选出相关资源，列在左边「文件」里面。
 
-![Platform](https://img.shields.io/badge/平台-Windows%2010%2B-0078D6?logo=windows&logoColor=white)  
-![Renderer](https://img.shields.io/badge/渲染-Direct3D%2011-7B4FFF?logo=microsoft)  
-![Spine](https://img.shields.io/badge/Spine-2.1%20→%204.2-FF6E1F)  
-![C++](https://img.shields.io/badge/C%2B%2B-17-00599C?logo=cplusplus&logoColor=white)  
-![License](https://img.shields.io/badge/许可-参见%20LICENSE-2EA44F)  
-![English](https://img.shields.io/badge/docs-English-EE6677)
+![Platform](https://img.shields.io/badge/平台-Windows%2010%2B-0078D6?logo=windows&logoColor=white)
+![Renderer](https://img.shields.io/badge/渲染-Direct3D%2011-7B4FFF?logo=microsoft)
+![Spine](https://img.shields.io/badge/Spine-2.1%20→%204.2-FF6E1F)
+![C++](https://img.shields.io/badge/C%2B%2B-17-00599C?logo=cplusplus&logoColor=white)
+[![License](https://img.shields.io/badge/许可-参见%20LICENSE-2EA44F)](LICENSE)
+[![English](https://img.shields.io/badge/docs-English-EE6677)](README_en.md)
 
 https://github.com/user-attachments/assets/7c6c0049-20da-480b-9408-3e7af1bab5ae
 
@@ -23,12 +21,12 @@ https://github.com/user-attachments/assets/7c6c0049-20da-480b-9408-3e7af1bab5ae
 
 - **Live2D 支持（新增）** —— 左上角可切换至 Live2D 工作区
 - **Spine 运行时支持版本** —— 2.1、3.1、3.4、3.5、3.6、3.7、3.8、4.0、4.1、4.2
-- **文件夹递归浏览** —— 支持收藏、方向键快速翻阅
+- **文件区浏览** —— 文件区支持收藏、锁定文件位置，快速切换，多模型导入（右键其中一个文件即可）
 - **多 Spine 图层组合** —— 同一画布叠加多个骨骼，可重排、隐藏、统一移动
 - **动画队列** —— 串联多个动画，顺序播放或一次性导出
-- **Slot 检查** —— 鼠标悬停识别 Slot、点击钉住、按勾选或名称隐藏
+- **Slot 检查** —— 鼠标悬停识别 Slot、点击悬浮、按勾选或名称隐藏
 - **多格式导出** —— PNG / JPG 截图、PNG / JPG 帧序列、MP4 / WebM / GIF（基于 ffmpeg）
-- **2 种界面语言** —— English、简体中文
+- **语言** —— English、简体中文
 - **自绘标题栏 + 主题 + 背景图** —— 背景图可独立平移缩放
 - **桌宠模式（测试）** —— 模型脱离窗口置顶显示在桌面上，可拖动、缩放、随机切换动作
 
@@ -36,29 +34,25 @@ https://github.com/user-attachments/assets/7c6c0049-20da-480b-9408-3e7af1bab5ae
 
 ## 🌐 界面语言
 
+| 代码 | 语言 |
+| --- | --- |
+| `en` | English |
+| `zh_CN` | 简体中文（默认） |
 
-| 代码      | 语言         |
-| ------- | ---------- |
-| `en`    | English    |
-| `zh_CN` | 简体中文*(默认)* |
-
-
-在 左上角**Setting → Language** 切换，下次启动会保留。
+在左上角 **Setting → Language** 切换，下次启动会保留。
 
 ---
 
 ## 📦 支持内容
 
-
-| 项目        | 说明                                                                                                |
-| --------- | ------------------------------------------------------------------------------------------------- |
-| 骨骼文件      | `.skel`、`.json`                                                                                   |
-| Atlas 文件  | `.atlas`、`.atlas.txt`（同名，放在骨骼文件旁）                                                                 |
-| Spine 版本  | **2.1** · **3.1** · **3.4** · **3.5** · **3.6** · **3.7** · **3.8** · **4.0** · **4.1** · **4.2** |
-| Live2D 模型 | Cubism 3 及以上的 `.model3.json`（连同 `.moc3`、贴图、动作、表情、语音一起加载）；Cubism 2 的 `.model.json` 不支持             |
-| 背景图       | PNG / JPG，可参与截图、帧序列与视频导出                                                                          |
-| 图层        | 单个 Spine，或多个 Spine 在同一画布上组合                                                                       |
-
+| 项目 | 说明 |
+| --- | --- |
+| 骨骼文件 | `.skel`、`.skel.bytes`、`.json`；支持读取 `.zip` 中的导出资源 |
+| Atlas 文件 | `.atlas`、`.atlas.txt`（同名，放在骨骼文件旁） |
+| Spine 版本 | **2.1** · **3.1** · **3.4** · **3.5** · **3.6** · **3.7** · **3.8** · **4.0** · **4.1** · **4.2** |
+| Live2D 模型 | Cubism 3 及以上的 `.model3.json`（连同 `.moc3`、贴图、动作、表情、语音一起加载）；Cubism 2 的 `.model.json` 不支持 |
+| 背景图 | PNG / JPG，可参与截图、帧序列与视频导出 |
+| 图层 | 单个 Spine，或多个 Spine 在同一画布上组合 |
 
 > 一次打开多个骨骼文件时，请使用 **相同 Spine 版本** 且 **相同数据格式**（全部 `.json` 或全部 `.skel`）的文件。
 
@@ -66,33 +60,31 @@ https://github.com/user-attachments/assets/7c6c0049-20da-480b-9408-3e7af1bab5ae
 
 ## 🚀 快速开始
 
-1. 运行 `spine love.exe`。
-2. 拖入含有一个或多个 `.skel` / `.json` 文件的文件夹。
-3. 点击 `Select Folder` 递归扫描文件夹，然后用方向键或列表浏览。
-4. 在 **Animations** 面板中选择动画，或用 **←** / **→** 切换。
-5. 用右侧面板调整变换、轨道混合、Slot、队列和导出。
+1. 运行 `SpineLoveEX.exe`。
+2. 拖入含有一个或多个 `.skel` / `.json` / `.zip` 等 Spine 资源文件的文件夹。
+3. 点击 **选择文件夹** 扫描文件夹，然后用方向键或列表浏览。
+4. 在 **Animations** 面板中选择动画，动画可用 **←** / **→** 切换。
+5. 用左侧面板调整变换、轨道混合、Slot 和队列，点击右下角导出按钮打开导出面板。
 
 ---
 
 ## 🖱️ 鼠标与快捷键
 
-
-| 输入               | 功能                          |
-| ---------------- | --------------------------- |
-| 画布左键单击           | 切换到下一个动画 *（未开启鼠标 Slot 悬停时）* |
-| 左键拖动             | 移动当前 Spine 图层               |
-| **Shift** + 左键拖动 | **同时** 移动所有可见 Spine 图层      |
-| 鼠标滚轮             | 以鼠标位置为中心缩放当前图层              |
-| **Shift** + 滚轮   | 以鼠标位置为中心缩放 **所有** 可见图层      |
-| 鼠标中键             | 重置并适配当前图层                   |
-| **Shift** + 中键   | 重置并适配 **所有** 可见图层           |
-| **Ctrl** + 左键拖动  | 移动背景图                       |
-| **Ctrl** + 滚轮    | 缩放背景图                       |
-| 左键 + 右键拖动        | 移动窗口                        |
-| **←** / **→**    | 上一个 / 下一个动画                 |
-| **↑** / **↓**    | 文件夹列表中的上一个 / 下一个骨骼文件        |
-| **F11**          | 切换全屏                        |
-
+| 输入 | 功能 |
+| --- | --- |
+| 画布左键单击 | 切换到下一个动画 *（未开启鼠标 Slot 悬停时）* |
+| 左键拖动 | 移动当前 Spine 图层 |
+| **Shift** + 左键拖动 | **同时** 移动所有可见 Spine 图层 |
+| 鼠标滚轮 | 以鼠标位置为中心缩放当前图层 |
+| **Shift** + 滚轮 | 以鼠标位置为中心缩放 **所有** 可见图层 |
+| 鼠标中键 | 重置并适配当前图层 |
+| **Shift** + 中键 | 重置并适配 **所有** 可见图层 |
+| **Ctrl** + 左键拖动 | 移动背景图 |
+| **Ctrl** + 滚轮 | 缩放背景图 |
+| 左键 + 右键拖动 | 移动窗口 |
+| **←** / **→** | 上一个 / 下一个动画 |
+| **↑** / **↓** | 文件夹列表中的上一个 / 下一个骨骼文件 |
+| **F11** | 切换全屏 |
 
 > 正在输入文字或操作 UI 控件时，键盘快捷键不会触发。
 
@@ -100,9 +92,9 @@ https://github.com/user-attachments/assets/7c6c0049-20da-480b-9408-3e7af1bab5ae
 
 ## 面板
 
-### 📁 文件 与 选择文件夹
+### 📁 文件与选择文件夹
 
-**文件** 用来打开骨骼文件。**选择文件夹** 递归扫描 `.json` 和 `.skel`，列表支持快速预览、**收藏**、**打开所在文件夹**，右键 **添加Spine** 可把文件加入为新的图层。多图层模式下用普通方式加载文件时，程序会先询问是否替换当前图层。
+**文件** 用来打开骨骼文件。**选择文件夹** 递归扫描 `.json` 和 `.skel`，列表支持快速预览、**收藏**、**打开所在文件夹**，右键 **添加 Spine** 可把文件加入为新的图层。多图层模式下用普通方式加载文件时，程序会先询问是否替换当前图层。
 
 ### ⚙️ 设置
 
@@ -112,10 +104,10 @@ https://github.com/user-attachments/assets/7c6c0049-20da-480b-9408-3e7af1bab5ae
 
 加载背景图用于预览或导出。**Ctrl + 拖动** 移动，**Ctrl + 滚轮** 缩放。
 
-### 🎚️ 启用预乘透明度 · Load at (0,0)
+### 🎚️ 启用预乘透明度 · 原点 (0,0)
 
 - **启用预乘透明度** —— 当前 Spine 的预乘 Alpha 渲染开关（默认开启）。
-- **Load at (0,0)** —— 开启时新加载的骨骼使用 `(0,0)` 偏移；关闭时按打开时的姿势居中显示。
+- **原点 (0,0)** —— 开启时新加载的骨骼使用 `(0,0)` 偏移；关闭时按打开时的姿势居中显示。
 
 ### 📐 缩放 / 速度 / 混合时间
 
@@ -129,7 +121,7 @@ https://github.com/user-attachments/assets/7c6c0049-20da-480b-9408-3e7af1bab5ae
 
 普通模式下选择一个皮肤。开启 **混合** 后可勾选多个皮肤组合显示。
 
-### 📏 尺寸/翻转
+### 📏 尺寸 / 翻转
 
 显示窗口尺寸、骨骼尺寸和当前偏移；提供 **镜像**（水平镜像）和 **旋转**（顺时针 90°）。
 
@@ -169,14 +161,12 @@ https://github.com/user-attachments/assets/7c6c0049-20da-480b-9408-3e7af1bab5ae
 
 ### 截图
 
-
-| 按钮          | 输出          |
-| ----------- | ----------- |
-| `PNG`       | 当前画面导出为 PNG |
-| `JPG`       | 当前画面导出为 JPG |
-| `Alpha ON`  | 保留透明背景（PNG） |
-| `Alpha OFF` | 将当前背景烘焙进图像  |
-
+| 按钮 | 输出 |
+| --- | --- |
+| `PNG` | 当前画面导出为 PNG |
+| `JPG` | 当前画面导出为 JPG |
+| `Alpha ON` | 保留透明背景（PNG） |
+| `Alpha OFF` | 将当前背景烘焙进图像 |
 
 ### 帧序列
 
@@ -186,17 +176,15 @@ https://github.com/user-attachments/assets/7c6c0049-20da-480b-9408-3e7af1bab5ae
 
 先渲染 PNG 帧，再调用 `ffmpeg.exe` 合成。
 
+| 格式 | 备注 |
+| --- | --- |
+| `MP4` | H.264 视频，不包含音频 |
+| `WebM` | VP9 视频，不包含音频，可保留透明背景 |
+| `GIF` | 动态 GIF |
 
-| 格式     | 备注             |
-| ------ | -------------- |
-| `MP4`  | H.264 / AAC 封装 |
-| `WebM` | VP9 / Opus 封装  |
-| `GIF`  | 动态 GIF         |
+**Video FPS** 控制 MP4 / WebM 的帧率；**GIF FPS** 单独控制 GIF 的帧率。
 
-
-**Video FPS** 控制 MP4 / WebM / GIF 的帧率。
-
-> 请将 `ffmpeg.exe` 放在 `spine love.exe` 同目录、`tools/` 子目录，或加入系统 `PATH`。找不到时程序会弹出下载提示。
+> 请将 `ffmpeg.exe` 放在安装目录的 `main/` 或 `main/tools/` 中，或加入系统 `PATH`。找不到时导出面板会显示下载提示。
 
 ### 队列导出
 
@@ -204,6 +192,6 @@ https://github.com/user-attachments/assets/7c6c0049-20da-480b-9408-3e7af1bab5ae
 
 ## ⚖️ 声明
 
-*Spine* 名称及随附的运行时代码归各自权利方所有，并遵循对应许可条款。仓库携带的第三方组件保留各自的许可声明，详见 `[LICENSE](LICENSE)` 与 `third_party/` 目录中的头部说明。
+*Spine* 名称及随附的运行时代码归各自权利方所有，并遵循对应许可条款。第三方许可证与声明详见 [LICENSE](LICENSE)、[源码许可声明](docs/licenses/source-notices.txt) 及 `docs/licenses/` 目录。
 
-—— 为 2D创作者与爱好者，用 💖 打造 ——
+—— 为 2D 创作者与爱好者，用 💖 打造 ——

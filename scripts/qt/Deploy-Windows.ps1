@@ -41,7 +41,7 @@ Copy-Item -LiteralPath (Join-Path $appDirectory 'spinelove_qt.exe') -Destination
 Copy-Item -LiteralPath (Join-Path $appDirectory 'spinelove_sdk.dll') -Destination $Destination -Force
 $assetsDirectory = Join-Path $Destination 'ttf'
 $null = New-Item -ItemType Directory -Path $assetsDirectory -Force
-Copy-Item -LiteralPath (Join-Path $appDirectory 'NotoSansSC-Regular.ttf') -Destination $assetsDirectory -Force
+Copy-Item -LiteralPath (Join-Path $appDirectory 'NotoSansSC-VF.ttf') -Destination $assetsDirectory -Force
 $shaderDirectory = Join-Path $assetsDirectory 'render_d3d11/shaders'
 $null = New-Item -ItemType Directory -Path $shaderDirectory -Force
 Copy-Item -LiteralPath (Join-Path $projectRoot 'main/render_d3d11/shaders/sprite.hlsl') -Destination $shaderDirectory -Force

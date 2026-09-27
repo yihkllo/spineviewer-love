@@ -1236,6 +1236,7 @@ struct live2d::Live2DModule::Impl
 	float exportRestoreTimeScale = 1.0f;
 	bool initialized = false;
 	bool loopAll = false;
+	float voiceVolume = 0.8f;
 	unsigned int modelGeneration = 0;
 };
 
@@ -1305,7 +1306,11 @@ void live2d::Live2DModule::Shutdown() noexcept
 
 bool live2d::Live2DModule::ImportModel(const std::wstring& manifestPath)
 {
+	const float keptTimeScale = m_impl->timeScale;
+	const float keptModelScale = m_impl->modelScale;
 	Clear();
+	m_impl->timeScale = keptTimeScale;
+	m_impl->modelScale = keptModelScale;
 	if (!m_impl->initialized)
 	{
 		m_impl->lastError = "Cubism rendering has not been initialized.";
@@ -1334,7 +1339,9 @@ bool live2d::Live2DModule::ImportModel(const std::wstring& manifestPath)
 	model->SetDragSettings(m_impl->dragSettings);
 	model->SetEffects(m_impl->effects);
 	model->SetForceLoop(m_impl->loopAll);
+	model->SetVoiceVolume(m_impl->voiceVolume);
 	m_impl->model = std::move(model);
+	SetModelScale(keptModelScale);
 	const auto gazeIndices = GazeParameterIndices();
 	for (size_t i = 0; i < gazeIndices.size(); ++i)
 		m_impl->gazePose.values[i] = gazeIndices[i] >= 0 ? Parameters()[gazeIndices[i]].defaultValue : 0.0f;
@@ -1448,13 +1455,14 @@ void live2d::Live2DModule::StopVoice() noexcept
 
 void live2d::Live2DModule::SetVoiceVolume(float volume) noexcept
 {
+	m_impl->voiceVolume = (std::max)(0.0f, (std::min)(1.0f, volume));
 	if (m_impl->model != nullptr)
-		m_impl->model->SetVoiceVolume(volume);
+		m_impl->model->SetVoiceVolume(m_impl->voiceVolume);
 }
 
 float live2d::Live2DModule::VoiceVolume() const noexcept
 {
-	return m_impl->model != nullptr ? m_impl->model->VoiceVolume() : 0.8f;
+	return m_impl->voiceVolume;
 }
 
 void live2d::Live2DModule::SetLoopAll(bool enabled) noexcept

@@ -43,6 +43,8 @@ int main(int argc, char** argv)
     QCoreApplication app(argc, argv);
     using slqt::ExportService;
     check(ExportService::clampFps(0) == 1 && ExportService::clampFps(200) == 120, "fps clamp preserves limits");
+    check(ExportService::gifFpsChoices() == QList<int>({10, 20, 25, 50, 100}), "gif fps choices");
+    check(ExportService::frameCount(2.0, 50) == 100, "gif 50 fps frame count");
     check(ExportService::frameCount(1.01, 30) == 31, "partial final interval rounds up");
     check(ExportService::frameCount(static_cast<double>(1.2f), 30) == 36,
           "runtime float duration preserves original float multiplication before ceil");
@@ -79,9 +81,14 @@ int main(int argc, char** argv)
     const auto gif = ExportService::movieArguments("frames", "clip.gif", slqt::MovieFormat::Gif, false, 30);
     check(gif.front().contains("-loop") && gif.front().contains("split[s0][s1];[s0]palettegen=max_colors=256[p];[s1][p]paletteuse=dither=sierra2_4a"),
           "GIF palette and dithering recipe preserved");
+    const auto clearGif = ExportService::movieArguments("frames", "clip.gif", slqt::MovieFormat::Gif, true, 30);
+    check(clearGif.front().join(' ').contains("reserve_transparent=1") && clearGif.front().join(' ').contains("alpha_threshold=128")
+          && clearGif.front().contains("-offsetting-transdiff"), "transparent GIF keeps a transparent palette entry and writes whole frames");
+    check(gif.front().contains("-offsetting-transdiff"), "opaque GIF writes whole frames so every viewer shows the full background");
 
     slqt::ExportRequest request;
     request.outputPath = temporary.filePath("sequence");
+    request.frameName = QStringLiteral("模型");
     request.fps = 30;
     request.motions = {{"first", 0.05}, {"still", 0.0}};
     QList<int> motionCalls;
@@ -109,9 +116,9 @@ int main(int argc, char** argv)
     check(motionCalls == QList<int>{0, 0, 1} && frameCalls == QList<int>{0, 1, 0}, "queue emits each complete motion in order");
     check(timeCalls.size() == 3 && timeCalls[0] == 0 && std::abs(timeCalls[1] - 1.0f / 30) < 0.00001f && timeCalls[2] == 0,
           "each motion starts at zero then advances exactly one frame period");
-    check(QFileInfo::exists(QDir(request.outputPath).filePath("frame_000001.png"))
-              && QFileInfo::exists(QDir(request.outputPath).filePath("frame_000003.png")),
-          "frame filenames are one-based padded six digits");
+    check(QFileInfo::exists(QDir(request.outputPath).filePath(QStringLiteral("模型_00001.png")))
+              && QFileInfo::exists(QDir(request.outputPath).filePath(QStringLiteral("模型_00003.png"))),
+          "frame filenames are one-based padded five digits");
 
     ExportService cancelled;
     bool cancelledSignal = false;
@@ -129,7 +136,7 @@ int main(int argc, char** argv)
 
     {
         ExportService reentrant;QEventLoop eventLoop;int calls=0,completions=0;bool nestedAccepted=true;
-        slqt::ExportRequest abortRequest=request;abortRequest.outputPath=temporary.filePath("callback_cancel");
+        slqt::ExportRequest abortRequest=request;abortRequest.outputPath=temporary.filePath("callback_cancel");abortRequest.frameName=QStringLiteral("frame");
         QObject::connect(&reentrant,&ExportService::finished,&eventLoop,[&](bool success,const QString&,const QString&){
             ++completions;check(!success,"callback cancellation reports failure");
             nestedAccepted=reentrant.startFrames(abortRequest,renderer,&error);eventLoop.quit();
@@ -137,12 +144,12 @@ int main(int argc, char** argv)
         check(reentrant.startFrames(abortRequest,[&](int,int,float,QString*){++calls;reentrant.cancel();return source;},&error),"callback cancellation starts");
         QTimer::singleShot(5000,&eventLoop,&QEventLoop::quit);eventLoop.exec();
         check(calls==1&&completions==1&&!nestedAccepted&&!reentrant.isBusy(),"cancel cannot reenter a new export before the old render callback unwinds");
-        check(!QFileInfo::exists(QDir(abortRequest.outputPath).filePath("frame_000001.png")),"cancelled callback never writes its late returned frame");
+        check(!QFileInfo::exists(QDir(abortRequest.outputPath).filePath("frame_00001.png")),"cancelled callback never writes its late returned frame");
     }
     {
         ExportService writeFailure;QEventLoop eventLoop;int completions=0;
-        slqt::ExportRequest blocked=request;blocked.outputPath=temporary.filePath("blocked_frame");
-        QDir().mkpath(QDir(blocked.outputPath).filePath("frame_000001.png"));
+        slqt::ExportRequest blocked=request;blocked.outputPath=temporary.filePath("blocked_frame");blocked.frameName=QStringLiteral("frame");
+        QDir().mkpath(QDir(blocked.outputPath).filePath("frame_00001.png"));
         const QString marker=QDir(blocked.outputPath).filePath("user-note.txt");writeBytes(marker,"preserve me");
         QObject::connect(&writeFailure,&ExportService::finished,&eventLoop,[&](bool success,const QString& message,const QString&){
             ++completions;check(!success&&!message.isEmpty(),"frame write failure is surfaced");eventLoop.quit();
@@ -203,7 +210,7 @@ int main(int argc, char** argv)
             check(failure.startMovie(invalidMovie,[&](int,int,float,QString*){return tooSmall;},&error),"MP4 invalid even crop fixture starts");
             QTimer::singleShot(15000,&eventLoop,&QEventLoop::quit);eventLoop.exec();
             check(done&&readBytes(invalidMovie.outputPath)=="previous finished movie","failed encoding preserves the complete previous final movie");
-            check(QFileInfo::exists(QDir(recovery).filePath("frame_000001.png")),"encoder failure preserves rendered recovery frames");
+            check(QFileInfo::exists(QDir(recovery).filePath("frame_00001.png")),"encoder failure preserves rendered recovery frames");
             if(done&&!recovery.isEmpty())removeRecovery(recovery);else failure.cancel();
         }
         {

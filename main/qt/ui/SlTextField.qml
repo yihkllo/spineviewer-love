@@ -23,5 +23,9 @@ TextField {
     placeholderTextColor: Qt.rgba(theme.text.r,theme.text.g,theme.text.b,.5)
     selectByMouse: true
     verticalAlignment: TextInput.AlignVCenter
-    background: Rectangle { color: field.activeFocus ? field.theme.frameActive : field.hovered ? field.theme.frameHover : field.theme.frame; radius: field.metrics.frameRadius }
+    hoverEnabled: true
+    background: Item {
+        Rectangle { anchors.fill: parent; color: field.activeFocus ? field.theme.frameActive : field.hovered ? field.theme.frameHover : field.theme.frame }
+        Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: Math.max(1.5, 2 * field.metrics.pixel); color: field.activeFocus ? field.theme.accent : field.theme.dark ? field.theme.line : field.theme.ink }
+    }
 }

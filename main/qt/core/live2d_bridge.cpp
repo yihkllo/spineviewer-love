@@ -390,6 +390,15 @@ struct Live2DBridge::Impl {
             const int index = Index(value, queue.size());
             if (index >= 0 && !queuePlaying && !module.ExportSessionActive()) queue.erase(queue.begin() + index);
         }
+        else if (name == "queue.move") {
+            const int from = Index(map.value("from"), queue.size());
+            const int to = Index(map.value("to"), queue.size());
+            if (from >= 0 && to >= 0 && from != to && !queuePlaying && !module.ExportSessionActive()) {
+                const int item = queue[from];
+                queue.erase(queue.begin() + from);
+                queue.insert(queue.begin() + to, item);
+            }
+        }
         else if (name == "queue.play" && !queue.empty() && !module.ExportSessionActive()) {
             queueIndex = 0;
             queuePlaying = module.PlayMotionOnce(queue.front());
@@ -444,7 +453,9 @@ struct Live2DBridge::Impl {
         }
         const bool editable = loaded && !module.ExportSessionActive();
         QVariantMap capabilities;
-        for (const char* command : {"view.scale", "playback.speed", "view.reset", "animation.play", "live2d.volume", "live2d.loopAll",
+        for (const char* command : {"view.scale", "playback.speed", "view.reset", "live2d.volume", "live2d.loopAll"})
+            capabilities.insert(QString::fromLatin1(command), !module.ExportSessionActive());
+        for (const char* command : {"animation.play",
             "live2d.clearExpression", "live2d.clearOverrides", "live2d.resetGaze", "live2d.effect", "live2d.gaze", "live2d.gazeMode",
             "live2d.partValue", "live2d.partReset", "live2d.parameterValue", "live2d.parameterOverride", "live2d.parameterReset"})
             capabilities.insert(QString::fromLatin1(command), editable);
@@ -453,6 +464,7 @@ struct Live2DBridge::Impl {
         capabilities.insert("live2d.expression", editable && !expressionCatalog.empty());
         capabilities.insert("queue.add", loaded && !queuePlaying && !module.ExportSessionActive());
         capabilities.insert("queue.remove", loaded && !queuePlaying && !module.ExportSessionActive());
+        capabilities.insert("queue.move", loaded && !queuePlaying && !module.ExportSessionActive());
         capabilities.insert("queue.play", loaded && !queue.empty() && !module.ExportSessionActive());
         capabilities.insert("queue.stop", queuePlaying && !module.ExportSessionActive());
         capabilities.insert("queue.clear", !queue.empty() && !module.ExportSessionActive());

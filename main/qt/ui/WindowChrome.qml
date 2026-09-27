@@ -19,13 +19,14 @@ Item {
         objectName: "windowContextMenu"
         width: chrome.shell.metrics.s(260)
         font.pixelSize: chrome.shell.metrics.smallFont * chrome.shell.metrics.fontEmScale
-        background: Rectangle { color: chrome.shell.theme.popup; border.color: chrome.shell.theme.separator; radius: 8 * chrome.shell.metrics.pixel }
+        background: Rectangle { color: chrome.shell.theme.popup; border.color: chrome.shell.theme.line }
         MenuItem { text: qsTr("Setting"); onTriggered: chrome.shell.openSettings() }
         MenuItem { text: qsTr("Show controls"); enabled: chrome.shell.can("window.showControls"); onTriggered: { chrome.shell.panelsHidden = false; chrome.shell.send("window.showControls", null); } }
         MenuSeparator {}
         MenuItem { text: qsTr("Window frame"); enabled: chrome.shell.can("window.toggleChrome"); onTriggered: chrome.shell.send("window.toggleChrome", null) }
         MenuItem { text: qsTr("Click-through window"); checkable: true; checked: chrome.shell.read("clickThrough", false); enabled: chrome.shell.can("window.toggleClickThrough"); onTriggered: chrome.shell.send("window.toggleClickThrough", null) }
         MenuItem { text: qsTr("Allow drag resize"); checkable: true; checked: chrome.shell.read("resizeEnabled", true); enabled: chrome.shell.can("window.toggleResize"); onTriggered: chrome.shell.send("window.toggleResize", null) }
+        MenuItem { text: qsTr("Stage decoration"); checkable: true; checked: chrome.shell.read("stageDecor", true); enabled: chrome.shell.can("stage.decor"); onTriggered: chrome.shell.send("stage.decor", !chrome.shell.read("stageDecor", true)) }
         MenuItem { text: qsTr("Reverse zoom"); checkable: true; checked: chrome.shell.read("wheelInverted", false); enabled: chrome.shell.can("window.invertWheel"); onTriggered: chrome.shell.send("window.invertWheel", null) }
         MenuSeparator {}
         MenuItem { text: qsTr("Fit to canvas size"); enabled: chrome.shell.can("window.matchCanvas"); onTriggered: chrome.shell.send("window.matchCanvas", null) }

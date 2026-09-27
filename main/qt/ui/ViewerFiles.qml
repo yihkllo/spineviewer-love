@@ -36,54 +36,56 @@ ListView {
         }
     }
     onSourceFilesChanged: synchronize()
-    delegate: Rectangle {
+    spacing: shell.metrics.rowGap
+    delegate: SlRow {
         id: row
         required property var model
         readonly property var modelData: model
+        function field(key) { return modelData ? modelData[key] : undefined; }
         required property int index
-        width: files.width - (scroll.visible ? scroll.width : 0)
-        height: files.shell.metrics.smallFont + files.shell.metrics.spacing
-        color: mouse.containsMouse ? files.shell.theme.headerHover
-             : menu.opened || modelData.current ? files.shell.theme.header
-             : modelData.loaded ? files.shell.theme.selected : "transparent"
-        SlLabel { anchors.fill: parent; verticalAlignment: Text.AlignVCenter; metrics: files.shell.metrics; theme: files.shell.theme; lineHeight: metrics.smallFont; text: row.modelData.name }
-        MouseArea {
-            id: mouse
-            anchors.fill: parent
-            hoverEnabled: true
-            acceptedButtons: Qt.LeftButton | Qt.RightButton
-            onPressed: {
-                const item = Window.window ? Window.window.activeFocusItem : null;
-                if (item && (item instanceof TextInput || item instanceof TextEdit)) item.focus = false;
-            }
-            onClicked: function(event) {
-                if (event.button === Qt.RightButton) menu.popup();
-                else files.shell.send("file.play", row.modelData.path);
-            }
-            onPressAndHold: menu.popup()
+        width: files.width - (scroll.visible ? scroll.width + files.shell.metrics.rowGap : 0)
+        metrics: files.shell.metrics; theme: files.shell.theme
+        textSize: metrics.smallFont
+        number: index + 1
+        text: String(field("name") || "")
+        detail: field("favorite") ? "★" : ""
+        selected: menu.opened || !!field("current")
+        marked: !!field("loaded")
+        onClicked: function(event) {
+            if (event.button === Qt.RightButton) menu.popup();
+            else files.shell.send("file.play", row.field("path"));
         }
-        ToolTip.visible: mouse.containsMouse && !menu.opened && !!row.modelData.parent
-        ToolTip.text: row.modelData.parent || ""
+        onPressAndHold: menu.popup()
+        ToolTip.visible: row.hovered && !menu.opened && !!row.field("parent")
+        ToolTip.text: row.field("parent") || ""
         ToolTip.delay: 400
         Menu {
             id: menu
-            width: files.shell.metrics.s(240)
-            padding: 0
-            background: Rectangle { color: files.shell.theme.popup; border.color: files.shell.theme.separator }
+            width: files.shell.metrics.s(260)
+            topPadding: files.shell.metrics.s(6); bottomPadding: files.shell.metrics.s(6)
+            leftPadding: 0; rightPadding: 0
+            background: Rectangle {
+                implicitWidth: files.shell.metrics.s(260)
+                color: files.shell.theme.popup
+                border.color: files.shell.theme.line
+                Rectangle { width: parent.width; height: Math.max(2, files.shell.metrics.s(3)); color: files.shell.theme.accent }
+            }
             Repeater {
                 model: [
-                    {key:"file.favorite",label:row.modelData.favorite ? qsTr("Unfavorite") : qsTr("Favorite"),show:true},
-                    {key:"file.reveal",label:qsTr("Open Containing Folder"),show:true},
-                    {key:"file.addSpine",label:qsTr("Add Spine"),show:!files.shell.live2d}
+                    {key:"file.favorite",icon:"star",label:row.field("favorite") ? qsTr("Unfavorite") : qsTr("Favorite"),show:true},
+                    {key:"file.reveal",icon:"folder",label:qsTr("Open Containing Folder"),show:true},
+                    {key:"file.addSpine",icon:"plus",label:qsTr("Add Spine"),show:!files.shell.live2d}
                 ]
-                delegate: MenuItem {
+                delegate: SlMenuItem {
                     required property var modelData
+                    metrics: files.shell.metrics; theme: files.shell.theme
                     visible: modelData.show
-                    height: visible ? files.shell.metrics.s(34) : 0
+                    height: visible ? files.shell.metrics.s(42) : 0
                     text: modelData.label
-                    font.pixelSize: files.shell.metrics.mainFont * files.shell.metrics.fontEmScale
+                    iconName: modelData.icon
+                    font.pixelSize: files.shell.metrics.mainFont * files.shell.metrics.fontEmScale * .9
                     enabled: files.shell.can(modelData.key)
-                    onTriggered: files.shell.send(modelData.key, row.modelData.path)
+                    onTriggered: files.shell.send(modelData.key, row.field("path"))
                 }
             }
         }

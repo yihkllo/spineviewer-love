@@ -61,7 +61,7 @@ int main(int argc, char** argv) {
         state = bridge.state();
         Require(Close(state.value("offsetX"), 100) && Close(state.value("offsetY"), -200), "queued pans were dropped or reordered");
         Require(Close(state.value("timeScale"), 2.5f), "playback speed did not reach the module");
-        Require(Close(state.value("voiceVolume"), 0.8f), "unloaded voice state differs from the original module");
+        Require(Close(state.value("voiceVolume"), 0.25f), "unloaded voice volume is not remembered for the next model");
         const auto effects = state.value("effects").toMap();
         Require(!effects.value("breath").toBool() && effects.value("physics").toBool() && effects.value("eyeBlink").toBool(), "effect mutation overwrote other effects");
         const auto gaze = state.value("gaze").toMap();

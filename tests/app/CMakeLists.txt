@@ -1,5 +1,10 @@
 find_package(Qt6 ${SPINELOVE_QT_VERSION} EXACT REQUIRED COMPONENTS Gui Quick QuickControls2 Test)
 
+add_executable(spinelove_favorite_settings_test favorite_settings_test.cpp)
+target_link_libraries(spinelove_favorite_settings_test PRIVATE spinelove_sdk)
+spinelove_test_target(spinelove_favorite_settings_test)
+add_test(NAME viewer.favorite_settings COMMAND spinelove_favorite_settings_test)
+
 function(spinelove_app_test name source)
     add_executable(${name} ${source})
     target_link_libraries(${name} PRIVATE spinelove_qt_controller ${ARGN})

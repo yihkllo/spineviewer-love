@@ -25,6 +25,8 @@
 #include <QJsonArray>
 #include <QMap>
 #include <QSettings>
+#include "spinelove/settings_storage.h"
+#include "spinelove/favorite_settings.h"
 #include <QDir>
 #include <algorithm>
 #include <functional>
@@ -77,16 +79,12 @@ int main(int argc,char** argv){
     app.setApplicationName("SpineLoveEX");app.setOrganizationName("SpineLoveEX");
     app.setWindowIcon(QIcon(QStringLiteral(":/main/resources/app.ico")));
     const auto args=app.arguments();
+    const int isolatedSettings=args.indexOf("--settings-dir");
+    slqt::configureSettingsStorage(isolatedSettings>=0&&isolatedSettings+1<args.size()?args[isolatedSettings+1]:QString{});
     slqt::loadPlugins(QCoreApplication::applicationDirPath()+QStringLiteral("/pro"));
     if(const auto code=slqt::PluginRegistry::runCommand(args))return *code;
     app.setProperty("qaSilent",args.contains("--qa-silent"));
-    const int isolatedSettings=args.indexOf("--settings-dir");
-    if(isolatedSettings>=0&&isolatedSettings+1<args.size()){
-        QDir().mkpath(args[isolatedSettings+1]);
-        QSettings::setDefaultFormat(QSettings::IniFormat);
-        QSettings::setPath(QSettings::IniFormat,QSettings::UserScope,args[isolatedSettings+1]);
-    }
-    QSettings preferences(QSettings::defaultFormat(),QSettings::UserScope,"SpineLoveEX","QtMigration");
+    slqt::FavoriteSettings preferences(QSettings::defaultFormat(),QSettings::UserScope,"SpineLoveEX","QtMigration");
     const int legacyArg=args.indexOf("--legacy-data-dir");
     if(legacyArg>=0&&legacyArg+1<args.size()){
         const QDir source(args[legacyArg+1]);
@@ -101,7 +99,7 @@ int main(int argc,char** argv){
     const float desktopScale=app.primaryScreen()?float(app.primaryScreen()->geometry().width()*app.primaryScreen()->devicePixelRatio()/1920.0):1.f;
     preferences.setValue("uiScale",window_resolution_presets::UiScale(preferences.value("resolutionPreset",0).toInt(),desktopScale));
     if(args.contains("--opengl"))QQuickWindow::setGraphicsApi(QSGRendererInterface::OpenGL);
-    const int fontId=QFontDatabase::addApplicationFont(slqt::packagedAssetPath("NotoSansSC-Regular.ttf"));
+    const int fontId=QFontDatabase::addApplicationFont(slqt::packagedAssetPath("NotoSansSC-VF.ttf"));
     if(fontId>=0){const auto names=QFontDatabase::applicationFontFamilies(fontId);if(!names.isEmpty())app.setFont(QFont(names.front()));}
     qmlRegisterType<slqt::SpineScene>("SpineLove",1,0,"SpineScene");
     qmlRegisterType<slqt::UiPointerObserver>("SpineLove",1,0,"UiPointerObserver");

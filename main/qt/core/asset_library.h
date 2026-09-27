@@ -43,6 +43,8 @@ public:
     static QString localPath(const QUrl& url, QString* error = nullptr);
     static bool isSpineFileName(const QString& path);
     static bool isLive2DFileName(const QString& path);
+    static QString skeletonStem(const QString& path);
+    static QString chooseAtlas(const QString& stem, const QStringList& names);
     static QString matchingAtlas(const QString& skeletonPath);
     static AssetEntry inspect(const QString& path);
     static AssetBundle readSpineBundle(const QStringList& paths);

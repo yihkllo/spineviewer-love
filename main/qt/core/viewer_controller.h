@@ -3,7 +3,7 @@
 #include <QVariantMap>
 #include <QTimer>
 #include <QElapsedTimer>
-#include <QSettings>
+#include "spinelove/favorite_settings.h"
 #include <QPointF>
 #include <QSet>
 #include <QPointer>
@@ -66,6 +66,7 @@ private:
     void fit();
     void scanFolder(const QString& folder,bool openAll=false,bool allowModeFallback=false);
     void addLayer(const QString& path);
+    void openArchive(const QString& path);
     bool selectLayer(int index);
     void saveLayerControls();
     void restoreLayerControls();
@@ -76,6 +77,7 @@ private:
     void savePreferences();
     void beginExport(const QString& command,const QVariant& payload);
     QImage captureFrame(bool keepAlpha,QString* error=nullptr);
+    void prepareDecorTexture();
     bool renderExportBatch(const std::shared_ptr<SceneExportBatch>& batch,QList<QImage>& images,QString* error);
     bool windowCommand(const QString& command,const QVariant& value);
     void enterDesktopPet();
@@ -122,7 +124,7 @@ private:
     qint64 m_nextPetMotion=0;
     QElapsedTimer m_clock;
     QElapsedTimer m_petClock;
-    QSettings m_settings;
+    FavoriteSettings m_settings;
     ExportService m_exportService;
     bool m_captureAlpha=false,m_exportActive=false,m_exportClosing=false;
     std::shared_ptr<SceneCaptureRequest> m_captureRequest;
@@ -163,16 +165,27 @@ private:
     qreal m_dpr=1;
     bool m_viewportInitialized=false;
     bool m_viewportNotificationPending=false;
-    QPointF m_pointerStart,m_pointerLast,m_bgOffset;
+    QPointF m_pointerStart,m_pointerLast;
     QPoint m_petDragCursor,m_petDragWindow;
     QPointF m_hoverPosition{-1,-1};
     bool m_dragged=false,m_modal=false,m_favoritesOnly=false,m_skinMix=false,m_pma=true,m_resetOnLoad=false;
     bool m_queuePlaying=false,m_hoverEnabled=false,m_invertWheel=false;
     int m_queueIndex=0,m_wheelRemainder=0,m_wheelTarget=0,m_previewIndex=0;
     bool m_filePreviewPending=false;
-    float m_mix=0,m_bgScale=1;
-    SlTextureId m_background=0;
-    quint64 m_titleImageRevision=0;
+    float m_mix=0;
+    struct BackgroundLayer {
+        SlTextureId texture=0;
+        QString name;
+        QPointF offset;
+        float scale=1;
+        bool visible=true;
+    };
+    QList<BackgroundLayer> m_backgrounds;
+    int m_selectedBackground=-1;
+    bool hasBackground()const;
+    BackgroundLayer* activeBackground();
+    void clearBackgrounds();
+    SlTextureId m_decorTexture=0;
     QColor m_clearColor=Qt::black;
 };
 }
