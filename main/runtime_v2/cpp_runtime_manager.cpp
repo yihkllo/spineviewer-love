@@ -14,6 +14,7 @@ size_t RuntimeIndex(RuntimeKind kind)
 	case RuntimeKind::Cpp40: return 1;
 	case RuntimeKind::Cpp41: return 2;
 	case RuntimeKind::Cpp42: return 3;
+	case RuntimeKind::Cpp43: return 4;
 	default: return 0;
 	}
 }
@@ -33,6 +34,7 @@ CppRuntimeManager::CppRuntimeManager()
 	m_runtimes[RuntimeIndex(RuntimeKind::Cpp40)] = CreateCpp40Runtime();
 	m_runtimes[RuntimeIndex(RuntimeKind::Cpp41)] = CreateCpp41Runtime();
 	m_runtimes[RuntimeIndex(RuntimeKind::Cpp42)] = CreateCpp42Runtime();
+	m_runtimes[RuntimeIndex(RuntimeKind::Cpp43)] = CreateCpp43Runtime();
 }
 
 IRuntime* CppRuntimeManager::Runtime(RuntimeKind kind) const noexcept

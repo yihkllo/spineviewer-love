@@ -23,15 +23,18 @@ Column {
         text: section.title
         readonly property bool lit: section.framed && section.expanded
         contentItem: Item {
-            Text {
+            Item {
                 id: chevron
                 x: section.framed ? section.metrics.framePaddingX * 1.5 : 0
                 height: parent.height
-                width: font.pixelSize
-                text: section.expanded ? "▾" : "▸"
-                font.pixelSize: section.metrics.smallFont * section.metrics.fontEmScale * .9
-                color: header.lit ? section.theme.accent2 : section.theme.accent
-                verticalAlignment: Text.AlignVCenter
+                width: section.metrics.smallFont * section.metrics.fontEmScale * .9
+                SlIcon {
+                    anchors.centerIn: parent
+                    width: parent.width; height: width
+                    name: section.expanded ? "chevronDown" : "chevronRight"
+                    lineWidth: width / 7
+                    color: header.lit ? section.theme.accent2 : section.theme.accent
+                }
             }
             Text {
                 x: chevron.x + chevron.width + section.metrics.framePaddingX

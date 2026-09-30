@@ -181,8 +181,8 @@ bool ViewerController::windowCommand(const QString& c,const QVariant& v){
         if(m_petMode)return true;
         const auto values=v.toMap();bool widthOk=false,heightOk=false;
         const int width=values.value("width").toInt(&widthOk),height=values.value("height").toInt(&heightOk);
-        if(!widthOk||!heightOk||width<64||height<64||width>8192||height>8192||qint64(width)*height>33554432){
-            fail(tr("Render size must be between 64 and 8192 pixels per side, up to 32 megapixels."));return true;
+        if(!widthOk||!heightOk||width<64||height<64||width>16384||height>16384||qint64(width)*height>134217728){
+            fail(tr("Render size must be between 64 and 16384 pixels per side, up to 134,217,728 pixels in total."));return true;
         }
         m_renderSize=QSize(width,height);
         setViewport(m_previewSize,m_dpr);

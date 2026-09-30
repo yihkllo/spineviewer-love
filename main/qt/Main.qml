@@ -29,16 +29,8 @@ Window {
         SpineScene {
             id: scene
             objectName: "spineScene"
-            readonly property real targetWidth: ui.read("renderWidth", 0)
-            readonly property real targetHeight: ui.read("renderHeight", 0)
-            readonly property bool customSize: targetWidth > 0 && targetHeight > 0 && !ui.petMode && !ui.pluginActive
-            readonly property real areaWidth: Math.max(1, ui.width - ui.canvasLeft)
-            readonly property real areaHeight: Math.max(1, ui.height - (customSize ? ui.topInset : 0))
-            readonly property real previewScale: customSize ? Math.min(areaWidth / targetWidth, areaHeight / targetHeight) : 1
-            x: ui.canvasLeft + (areaWidth - width) / 2
-            y: customSize ? ui.topInset + (areaHeight - height) / 2 : 0
-            width: customSize ? targetWidth * previewScale : areaWidth
-            height: customSize ? targetHeight * previewScale : areaHeight
+            x: ui.renderArea.x; y: ui.renderArea.y
+            width: ui.renderArea.width; height: ui.renderArea.height
             controller: backend
         }
         Loader {
@@ -52,20 +44,5 @@ Window {
     DropArea {
         anchors.fill: parent
         onDropped: function(drop) { if (drop.hasUrls) { backend.openUrls(drop.urls); drop.acceptProposedAction(); } }
-    }
-    Dialog {
-        id: errorDialog
-        title: qsTr("Error")
-        modal: true
-        width: Math.min(560,root.width-40)
-        anchors.centerIn: parent
-        standardButtons: Dialog.Ok
-        onOpened: backend.dispatch("settings.modal", {source: "error", open: true})
-        onClosed: backend.dispatch("settings.modal", {source: "error", open: false})
-        Label { id: errorText; width: parent.width; wrapMode: Text.WordWrap; text: "" }
-    }
-    Connections {
-        target: backend
-        function onErrorOccurred(message) { errorText.text=message; errorDialog.open(); }
     }
 }

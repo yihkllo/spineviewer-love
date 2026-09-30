@@ -176,7 +176,7 @@ void CheckVersion(const char* version) {
 
 int main() {
     try {
-        for (const char* version : {"2.1", "3.1", "3.4", "3.5", "3.6", "3.7", "3.8", "4.0", "4.1", "4.2"}) {
+        for (const char* version : {"2.1", "3.1", "3.4", "3.5", "3.6", "3.7", "3.8", "4.0", "4.1", "4.2", "4.3"}) {
             std::cout << "Checking playback " << version << std::endl;
             CheckVersion(version);
         }

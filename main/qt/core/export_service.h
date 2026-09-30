@@ -69,8 +69,12 @@ public:
     static bool saveImage(const QString& path, ImageFormat format, const QImage& image,
                           bool keepAlpha, const QColor& matteColor, QString* error = nullptr);
     static QString findFfmpeg();
+    static void removeStaleFrameFolders(qint64 maxAgeSeconds);
     static QList<QStringList> movieArguments(const QString& frameFolder, const QString& outputPath,
                                              MovieFormat format, bool keepAlpha, int fps);
+    static constexpr int mp4MaxSide = 8192;
+    static constexpr qint64 mp4MaxPixels = 35651584;
+    static bool mp4Fits(QSize frameSize);
 
 signals:
     void progressChanged(int completedFrames, int totalFrames, const QString& status);
@@ -111,6 +115,7 @@ private:
     bool m_rendering = false;
     bool m_movie = false;
     bool m_ownedTemporaryDirectory = false;
+    bool m_createdFrameFolder = false;
     bool m_cancelled = false;
     bool m_keepStagedMovie = false;
     quint64 m_generation = 0;

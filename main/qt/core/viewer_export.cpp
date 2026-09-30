@@ -6,12 +6,11 @@
 
 #include <QEventLoop>
 #include <QCoreApplication>
-#include <QDesktopServices>
 #include <QDir>
+#include <QLocale>
 #include <QElapsedTimer>
 #include <QFileDialog>
 #include <QFileInfo>
-#include <QMessageBox>
 #include <QPushButton>
 #include <QUrl>
 #include <QQuickItem>
@@ -79,7 +78,7 @@ bool ViewerController::live2dExportCommand(const QString& command,QVariantMap ar
 
 void ViewerController::prepareDecorTexture(){
     if(m_decorTexture){m_recorder.ReleaseTexture(m_decorTexture);m_decorTexture=0;}
-    if(!m_window||!m_state.value("stageDecor",true).toBool()||hasBackground()||m_petMode||m_plugins->isOpen())return;
+    if(!m_window||!m_state.value("stageDecor",true).toBool()||m_petMode||m_plugins->isOpen())return;
     auto* decor=m_window->findChild<QQuickItem*>("stageDecor");
     auto* scene=m_window->findChild<QQuickItem*>("spineScene");
     if(!decor||!scene||!decor->isVisible()||decor->width()<=0||decor->height()<=0||m_viewport.isEmpty())return;
@@ -201,21 +200,10 @@ void ViewerController::beginExport(const QString& command,const QVariant& payloa
     }
     if(!m_state.value("loaded").toBool()){reject(tr("Nothing is loaded to export."));return;}
     const QVariantMap options=payload.toMap();
-    if(movie&&ExportService::findFfmpeg().isEmpty()){
-        const QString folder=QDir::toNativeSeparators(QCoreApplication::applicationDirPath());
-        const QString message=tr("Video export needs ffmpeg.exe, which was not found.")+"\n\n"
-            +tr("Put ffmpeg.exe in this folder, then export again:")+"\n"+folder;
-        if(!options.value("path").toString().isEmpty()||qApp->property("qaSilent").toBool()){reject(message);return;}
-        m_modal=true;
-        QMessageBox box(QMessageBox::Warning,tr("ffmpeg not found"),message);
-        const auto* download=box.addButton(tr("Download ffmpeg"),QMessageBox::ActionRole);
-        const auto* openFolder=box.addButton(tr("Open folder"),QMessageBox::ActionRole);
-        box.addButton(QMessageBox::Ok);
-        box.exec();
-        m_modal=false;m_clock.restart();
-        if(box.clickedButton()==download)QDesktopServices::openUrl(QUrl("https://github.com/BtbN/FFmpeg-Builds/releases"));
-        else if(box.clickedButton()==openFolder)QDesktopServices::openUrl(QUrl::fromLocalFile(folder));
-        m_state["exportFailed"]=true;m_state["exportStatus"]=tr("Video export needs ffmpeg.exe, which was not found.");
+    if(movie&&ExportService::findFfmpeg().isEmpty()){reject(tr("The bundled ffmpeg.exe is missing. Reinstall the program to export videos."));return;}
+    if(command=="export.mp4"&&!ExportService::mp4Fits(m_viewport)){
+        reject(tr("MP4 supports up to %1 px per side and %2 px in total, but this render is %3 × %4. Lower the render size, or export WebM or a PNG sequence.")
+            .arg(ExportService::mp4MaxSide).arg(QLocale::c().toString(ExportService::mp4MaxPixels)).arg(m_viewport.width()).arg(m_viewport.height()));
         return;
     }
     const bool jpeg=command=="export.jpg"||command=="export.jpgFrames";
@@ -248,7 +236,7 @@ void ViewerController::beginExport(const QString& command,const QVariant& payloa
         for(int n=2;QFileInfo::exists(folder);++n)folder=parent.filePath(QStringLiteral("%1 (%2)").arg(exportName).arg(n));
         path=folder;
     }
-    const QColor matte=hasBackground()?QColor(Qt::black):m_clearColor;
+    const QColor matte=m_clearColor;
     if(!keepAlpha)prepareDecorTexture();
     if(snapshot){
         m_exportActive=true;
@@ -327,13 +315,14 @@ void ViewerController::beginExport(const QString& command,const QVariant& payloa
             if(!restoreMotion.empty()){r->PlayMotionByName(restoreMotion.c_str());if(restoreLast>0)r->TickPlayback(restoreLast);}
             r->SetTimeScale(restoreSpeed);
         }
+        const bool cancelled=!success&&m_exportService.cancellationRequested()&&!m_exportClosing;
         m_captureAlpha=false;m_exportActive=false;
-        m_state["exportRunning"]=false;m_state["exportFailed"]=!success;
+        m_state["exportRunning"]=false;m_state["exportFailed"]=!success&&!cancelled;
         m_state["exportQueueActive"]=false;m_state["exportQueueIndex"]=0;
-        m_state["exportStatus"]=success?(movie?tr("Video export complete."):tr("Frame export complete.")):tr("Export failed.");
+        m_state["exportStatus"]=success?(movie?tr("Video export complete."):tr("Frame export complete.")):cancelled?tr("Export cancelled."):tr("Export failed.");
         m_state["exportRecoveryFolder"]=recovery;m_state["lastExportPath"]=success?path:QString{};
         m_clock.restart();refresh();record();
-        if(!success&&!m_exportClosing)fail(error+(recovery.isEmpty()?QString{}:tr("\nRendered frames were preserved in:\n")+recovery));
+        if(!success&&!cancelled&&!m_exportClosing)fail(error+(recovery.isEmpty()?QString{}:QStringLiteral("\n")+tr("Rendered frames were preserved in:")+QStringLiteral("\n")+recovery));
     };
     QObject::connect(&m_exportService,&ExportService::finished,this,finish);
     const auto render=[this,r,motions,keepAlpha,live,liveMotionIndices,playback,fps=request.fps](const QList<ExportFrameStep>& steps,QString* error){

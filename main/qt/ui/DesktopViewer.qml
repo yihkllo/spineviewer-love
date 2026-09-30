@@ -36,11 +36,22 @@ Item {
     readonly property bool petMode: read("petMode", false)
     readonly property bool decorActive: read("stageDecor", true) && !petMode && !pluginActive
     readonly property bool imageBackground: read("hasBackgroundImage", false)
-    readonly property bool checkerActive: read("stageChecker", false) && !imageBackground && !petMode && !pluginActive
+    readonly property bool checkerActive: read("stageChecker", false) && !petMode && !pluginActive
     readonly property bool chromeVisible: !panelsHidden && !petMode && !pluginActive
     readonly property real topInset: read("fullscreen", false) || petMode ? 0 : metrics.titleHeight
     readonly property real leftPanelEndX: panelsHidden || petMode || pluginActive ? 0 : metrics.panelBoundary
     readonly property real canvasLeft: leftPanelEndX
+    readonly property real renderTargetWidth: Number(read("renderWidth", 0))
+    readonly property real renderTargetHeight: Number(read("renderHeight", 0))
+    readonly property bool customRenderSize: renderTargetWidth > 0 && renderTargetHeight > 0 && !petMode && !pluginActive
+    readonly property rect renderArea: {
+        const areaWidth = Math.max(1, width - canvasLeft);
+        const areaHeight = Math.max(1, height - topInset);
+        if (!customRenderSize) return Qt.rect(canvasLeft, topInset, areaWidth, areaHeight);
+        const fit = Math.min(areaWidth / renderTargetWidth, areaHeight / renderTargetHeight);
+        const w = renderTargetWidth * fit, h = renderTargetHeight * fit;
+        return Qt.rect(canvasLeft + (areaWidth - w) / 2, topInset + (areaHeight - h) / 2, w, h);
+    }
     readonly property real renderPanelUnits: leftPanelEndX > 0 ? metrics.panelBoundary / metrics.scale : 0
     readonly property real titleHeight: topInset
     readonly property var tabs: live2d
@@ -81,6 +92,47 @@ Item {
         return value !== undefined ? value : fallback;
     }
     function can(name) { const capabilities = capabilitiesMap; return !!capabilities && capabilities[name] === true; }
+    function askName(title, initial, done) { namePrompt.ask(title, initial, done); }
+    function favoriteFolderLabel(id) {
+        const rows = read("favoriteFolders", []);
+        for (let i = 0; i < rows.length; ++i) if (rows[i].id === id) return rows[i].isDefault ? qsTr("Default") : rows[i].name;
+        return "";
+    }
+    function askUnfavorite(names, fromFolder, done) {
+        const many = names.length > 1;
+        if (fromFolder) {
+            const folder = favoriteFolderLabel(read("favoriteFolder", "default"));
+            confirmPrompt.ask(qsTr("Remove from folder"), "REMOVE",
+                many ? qsTr("Remove these %1 models from \"%2\"?").arg(names.length).arg(folder)
+                     : qsTr("Remove \"%1\" from \"%2\"?").arg(names[0]).arg(folder),
+                qsTr("Remove"), done);
+        } else {
+            confirmPrompt.ask(qsTr("Unfavorite"), "UNFAVORITE",
+                many ? qsTr("Unfavorite these %1 models? They will be removed from every favorites folder.").arg(names.length)
+                     : qsTr("Unfavorite \"%1\"? It will be removed from every favorites folder.").arg(names[0]),
+                qsTr("Unfavorite"), done);
+        }
+    }
+    property string favoriteDragName: ""
+    property var favoriteDragRow: ({})
+    property point favoriteDragPos
+    property bool favoriteDragCopy: false
+    property string favoriteDropFolder: ""
+    function favoriteDragMove(info, scenePos, modifiers) {
+        if (!favoriteDragName.length) favoriteDragRow = info;
+        favoriteDragName = info.name;
+        favoriteDragPos = desktop.mapFromItem(null, scenePos.x, scenePos.y);
+        favoriteDragCopy = (modifiers & Qt.ControlModifier) !== 0;
+        favoriteDropFolder = favoriteFoldersPanel.visible ? favoriteFoldersPanel.folderAt(scenePos) : "";
+    }
+    function favoriteDragEnd() { favoriteDragName = ""; favoriteDropFolder = ""; favoriteDragCopy = false; }
+    function favoriteDrop(paths, scenePos, modifiers) {
+        const target = favoriteFoldersPanel.visible ? favoriteFoldersPanel.folderAt(scenePos) : "";
+        const copy = (modifiers & Qt.ControlModifier) !== 0;
+        favoriteDragEnd();
+        if (!target) return;
+        send(copy ? "favorites.copy" : "favorites.move", {paths: paths, from: read("favoriteFolder", "default"), to: target});
+    }
     function send(name, value) { command(name, value); if (viewer) viewer.dispatch(name, value); }
     function toggleExport() { exportOpen = !exportOpen; if (exportOpen) exportEverOpened = true; }
     function openSettings(page, customSize) {
@@ -117,6 +169,8 @@ Item {
         shell: desktop
         canvasLeft: desktop.canvasLeft
         topInset: desktop.topInset
+        topRightCorner: !infoCard.visible
+        bottomRightCorner: !dock.visible
     }
     Canvas {
         id: checker
@@ -151,9 +205,32 @@ Item {
         objectName: "viewerCanvasHost"
         anchors.fill: parent
     }
+    Item {
+        id: renderFrame
+        objectName: "renderAreaFrame"
+        visible: desktop.customRenderSize && desktop.chromeVisible
+        x: desktop.canvasLeft; y: desktop.topInset
+        width: Math.max(0, parent.width - x); height: Math.max(0, parent.height - y)
+        readonly property real fx: desktop.renderArea.x - x
+        readonly property real fy: desktop.renderArea.y - y
+        readonly property real fw: desktop.renderArea.width
+        readonly property real fh: desktop.renderArea.height
+        readonly property color shade: desktop.theme.alpha(desktop.theme.ink, desktop.theme.dark ? .45 : .22)
+        Rectangle { width: parent.width; height: Math.max(0, renderFrame.fy); color: renderFrame.shade }
+        Rectangle { y: renderFrame.fy + renderFrame.fh; width: parent.width; height: Math.max(0, parent.height - y); color: renderFrame.shade }
+        Rectangle { y: renderFrame.fy; width: Math.max(0, renderFrame.fx); height: renderFrame.fh; color: renderFrame.shade }
+        Rectangle { x: renderFrame.fx + renderFrame.fw; y: renderFrame.fy; width: Math.max(0, parent.width - x); height: renderFrame.fh; color: renderFrame.shade }
+        Rectangle {
+            objectName: "renderAreaOutline"
+            x: renderFrame.fx; y: renderFrame.fy; width: renderFrame.fw; height: renderFrame.fh
+            color: "transparent"
+            border.color: desktop.theme.accent
+            border.width: Math.max(1, desktop.metrics.s(2))
+        }
+    }
     Column {
         objectName: "emptyHint"
-        visible: !desktop.loaded && desktop.chromeVisible
+        visible: !desktop.loaded && desktop.chromeVisible && desktop.read("files", []).length === 0
         x: desktop.canvasLeft + (desktop.width - desktop.canvasLeft - width) / 2
         y: desktop.topInset + (desktop.height - desktop.topInset - height) / 2
         spacing: desktop.metrics.s(24)
@@ -207,6 +284,63 @@ Item {
             fill: desktop.theme.glass
         }
         MouseArea { anchors.fill: parent; acceptedButtons: Qt.AllButtons; onWheel: function(wheel) { wheel.accepted = true; } }
+        MouseArea {
+            objectName: "fileListMargin"
+            x: 0
+            width: panel.width
+            y: tabBody.y + fileListView.y
+            height: fileListView.height
+            visible: desktop.tab === "files"
+            preventStealing: true
+            property point pressScene
+            property bool moved: false
+            property bool additive: false
+            onPressed: function(event) {
+                pressScene = mapToItem(null, event.x, event.y);
+                moved = false;
+                additive = (event.modifiers & Qt.ControlModifier) !== 0;
+            }
+            onPositionChanged: function(event) {
+                const scene = mapToItem(null, event.x, event.y);
+                if (!moved && Math.hypot(scene.x - pressScene.x, scene.y - pressScene.y) < desktop.metrics.s(6)) return;
+                if (!moved) { moved = true; fileListView.beginMarqueeAtScene(pressScene, additive); }
+                fileListView.updateMarquee(scene);
+            }
+            onReleased: {
+                if (moved) fileListView.endMarquee();
+                else if (!additive) fileListView.clearPicks();
+            }
+            onCanceled: fileListView.endMarquee()
+        }
+        MouseArea {
+            objectName: "slotListMargin"
+            x: 0
+            width: panel.width
+            y: tabBody.y
+            height: tabBody.height
+            visible: desktop.tab === "slot" && !desktop.live2d
+            preventStealing: true
+            property point pressScene
+            property bool moved: false
+            property bool additive: false
+            onPressed: function(event) {
+                pressScene = mapToItem(null, event.x, event.y);
+                if (!spineParts.slotMarqueeCovers(pressScene)) { event.accepted = false; return; }
+                moved = false;
+                additive = (event.modifiers & Qt.ControlModifier) !== 0;
+            }
+            onPositionChanged: function(event) {
+                const scene = mapToItem(null, event.x, event.y);
+                if (!moved && Math.hypot(scene.x - pressScene.x, scene.y - pressScene.y) < desktop.metrics.s(6)) return;
+                if (!moved) { moved = true; spineParts.slotBeginMarqueeAtScene(pressScene, additive); }
+                spineParts.slotUpdateMarquee(scene);
+            }
+            onReleased: {
+                if (moved) spineParts.slotEndMarquee();
+                else if (!additive) spineParts.slotClearPicks();
+            }
+            onCanceled: spineParts.slotEndMarquee()
+        }
         Row {
             id: tabRow
             x: panel.pad; y: panel.pad
@@ -326,8 +460,17 @@ Item {
                         onClicked: desktop.send("file.favoritesView", !desktop.read("favoritesOnly", false))
                     }
                 }
+                ViewerFavoriteFolders {
+                    id: favoriteFoldersPanel
+                    objectName: "favoriteFolders"
+                    width: parent.width
+                    visible: desktop.read("favoritesOnly", false)
+                    shell: desktop
+                }
                 ViewerFiles {
+                    id: fileListView
                     objectName: "fileList"
+                    marqueeLayer: panel
                     shell: desktop
                     width: parent.width
                     height: Math.max(0, parent.height - y)
@@ -373,6 +516,8 @@ Item {
                 clip: true
                 ViewerSpineTools {
                     id: spineParts
+                    objectName: "slotTools"
+                    slotMarqueeLayer: panel
                     width: parent.width - desktop.metrics.s(14)
                     part: "slots"
                     visible: !desktop.live2d && desktop.spineAvailable
@@ -412,8 +557,13 @@ Item {
         id: splitter
         objectName: "panelSplitter"
         visible: desktop.chromeVisible
-        x: panel.width - width / 2 - desktop.metrics.sideSlant * .5; y: desktop.topInset
-        width: desktop.metrics.s(12); height: desktop.height - y
+        readonly property real grip: desktop.metrics.s(12)
+        x: panel.width - desktop.metrics.sideSlant - grip / 2; y: desktop.topInset
+        width: desktop.metrics.sideSlant + grip; height: desktop.height - y
+        function edgeAt(localY) { return desktop.metrics.sideSlant * (1 - localY / Math.max(1, height)) + grip / 2; }
+        containmentMask: QtObject {
+            function contains(point: point): bool { return Math.abs(point.x - splitter.edgeAt(point.y)) <= splitter.grip / 2; }
+        }
         cursorShape: Qt.SizeHorCursor
         property real previousX: 0
         onPressed: function(mouse) { previousX = mapToItem(desktop, mouse.x, mouse.y).x; }
@@ -482,11 +632,86 @@ Item {
     ViewerLayers {
         shell: desktop
         anchorY: infoCard.visible ? infoCard.y + infoCard.height + desktop.metrics.s(12) : desktop.topInset + desktop.metrics.inset
-        visible: desktop.chromeVisible && desktop.loaded && desktop.read("loadedSpines", []).length > 1 && !desktop.live2d && !desktop.petMode && !desktop.pluginActive
+        visible: desktop.chromeVisible && desktop.read("showLoadedSpines", false) && desktop.read("layerStack", []).length > 0 && !desktop.petMode && !desktop.pluginActive
     }
-    ExportPanel { shell: desktop; visible: desktop.loaded && desktop.exportOpen && !desktop.petMode && !desktop.pluginActive }
+    ExportPanel { objectName: "exportView"; shell: desktop; visible: desktop.loaded && desktop.exportOpen && !desktop.petMode && !desktop.pluginActive }
     SettingsDialog { id: settings; shell: desktop }
     ReplaceConfirmation { shell: desktop }
+    SlNamePrompt { id: namePrompt; shell: desktop }
+    SlConfirmPrompt { id: confirmPrompt; shell: desktop }
+    ErrorDialog { id: errorDialog; shell: desktop }
+    Connections {
+        target: desktop.viewer
+        ignoreUnknownSignals: true
+        function onErrorOccurred(message) { errorDialog.show(message); }
+    }
+    Item {
+        id: favoriteGhost
+        objectName: "favoriteDragGhost"
+        visible: desktop.favoriteDragName.length > 0
+        z: 1000
+        x: desktop.favoriteDragPos.x - (desktop.favoriteDragRow.grabX || 0)
+        y: desktop.favoriteDragPos.y - (desktop.favoriteDragRow.grabY || 0)
+        width: desktop.favoriteDragRow.width || 0
+        height: ghostRow.height
+        opacity: .55
+        readonly property int count: desktop.favoriteDragRow.count || 1
+        Repeater {
+            model: Math.min(2, favoriteGhost.count - 1)
+            SlPoly {
+                required property int index
+                x: desktop.metrics.s(8) * (index + 1); y: desktop.metrics.s(8) * (index + 1)
+                z: -1 - index
+                width: favoriteGhost.width - desktop.metrics.s(10); height: favoriteGhost.height
+                br: height * .3
+                fill: desktop.theme.paper2
+                stroke: desktop.theme.line
+                strokeWidth: Math.max(1, desktop.metrics.pixel)
+            }
+        }
+        SlRow {
+            id: ghostRow
+            width: parent.width
+            metrics: desktop.metrics; theme: desktop.theme
+            textSize: metrics.smallFont
+            interactive: false
+            number: desktop.favoriteDragRow.number || 0
+            text: desktop.favoriteDragName
+            starVisible: true
+            starred: !!desktop.favoriteDragRow.starred
+        }
+        Rectangle {
+            objectName: "favoriteDragCount"
+            visible: favoriteGhost.count > 1
+            width: Math.max(height, dragCountText.implicitWidth + desktop.metrics.s(12)); height: desktop.metrics.s(26); radius: height / 2
+            x: parent.width - desktop.metrics.s(10) - width * .5; y: -height * .45
+            color: desktop.theme.accent
+            Text {
+                id: dragCountText
+                anchors.centerIn: parent
+                text: favoriteGhost.count
+                font.family: desktop.theme.numberFont
+                font.pixelSize: desktop.metrics.detailFont * desktop.metrics.fontEmScale
+                font.weight: Font.Bold
+                color: desktop.theme.accentInk
+            }
+        }
+        Rectangle {
+            objectName: "favoriteDragCopyBadge"
+            visible: desktop.favoriteDragCopy
+            width: desktop.metrics.s(22); height: width; radius: width / 2
+            x: (desktop.favoriteDragRow.grabX || 0) + desktop.metrics.s(10)
+            y: (desktop.favoriteDragRow.grabY || 0) + desktop.metrics.s(10)
+            color: desktop.theme.accent
+            SlIcon {
+                anchors.centerIn: parent
+                name: "plus"
+                width: parent.width * .7; height: width
+                lineWidth: width / 7
+                color: desktop.theme.accentInk
+            }
+        }
+    }
     WindowChrome { shell: desktop; visible: !desktop.petMode }
     PetContextMenu { shell: desktop }
 }

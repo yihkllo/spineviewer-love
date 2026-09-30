@@ -99,6 +99,7 @@ class SceneRenderer final : public QQuickRhiItemRenderer {
     std::vector<DrawCall> m_mainDraws;
     std::shared_ptr<Live2DBridge> m_live2d;
     std::unique_ptr<QRhiTexture> m_liveTexture;
+    QRhiTexture* m_liveRhi = nullptr;
     quint64 m_liveNative = 0;
     double m_lastLiveTime = 0;
     std::shared_ptr<const SceneSnapshot> m_lastLiveFrame;
@@ -130,7 +131,7 @@ private:
         m_bindings.clear();m_mainPipelines.clear();m_offscreenPipelines.clear();m_layoutBindings.reset();
         m_maskPool={};m_groupPool={};m_surfaceSize={};
         m_probeTarget.reset();m_probePass.reset();m_probeTexture.reset();
-        m_textures.clear();m_liveTexture.reset();m_liveNative=0;
+        m_textures.clear();m_liveTexture.reset();m_liveRhi=nullptr;m_liveNative=0;
         m_streams.clear();
         for(auto& u:m_modeUniforms)u.reset();
         m_sampler.reset();m_white.reset();m_mainPass=nullptr;m_mainSamples=0;
@@ -308,10 +309,16 @@ private:
         const quint64 handle=quint64(reinterpret_cast<quintptr>(m_live2d->nativeTexture()));
         if(!handle)return false;
         if(m_liveTexture&&m_liveNative==handle&&m_liveTexture->pixelSize()==m_live2d->textureSize())return true;
-        m_bindings.clear();m_liveTexture.reset();
+        m_bindings.clear();m_liveTexture.reset();m_liveRhi=nullptr;
         m_liveTexture.reset(rhi()->newTexture(QRhiTexture::RGBA8,m_live2d->textureSize(),1));
         if(!m_liveTexture->createFrom({handle,0})){m_liveTexture.reset();m_liveNative=0;return false;}
         m_liveNative=handle;
+        return true;
+    }
+    bool useRhiLiveTexture() {
+        auto* texture=m_live2d->rhiTexture();
+        if(!texture)return false;
+        if(m_liveRhi!=texture||m_liveTexture){m_bindings.clear();m_liveTexture.reset();m_liveNative=0;m_liveRhi=texture;}
         return true;
     }
     bool prepare(QRhiResourceUpdateBatch* batch) {
@@ -350,8 +357,23 @@ private:
         m_vertexData.clear();m_indexData.clear();m_mainDraws.clear();m_uniqueMasks.clear();m_groupOrder.clear();
         m_maskPool.used=0;m_groupPool.used=0;
         size_t transitionCount=0;
+        QRhiTexture* live=m_liveTexture?m_liveTexture.get():m_liveRhi;
+        bool liveDrawn=false;
+        const auto drawLive=[&]{
+            if(liveDrawn||!liveReady||!live)return;
+            liveDrawn=true;
+            const float w=float(m_frame->size.width()),h=float(m_frame->size.height());
+            const float top=!m_liveTexture&&rhi()->isYUpInFramebuffer()?1.f:0.f,bottom=1.f-top;
+            std::vector<SlVertex2D> quad(4);
+            quad[0].pos={0,0,0};quad[0].uv={0,top};quad[1].pos={w,0,0};quad[1].uv={1,top};
+            quad[2].pos={w,h,0};quad[2].uv={1,bottom};quad[3].pos={0,h,0};quad[3].uv={0,bottom};
+            append(m_mainDraws,quad,{0,1,2,2,3,0},pipeline(SlBlendMode::Normal,true,false,false),
+                bindings(m_modeUniforms[0].get(),live,nullptr));
+        };
         for(size_t i=0;i<m_frame->draws.size();++i){
             const auto& c=m_frame->draws[i];
+            if(c.vertices.empty()&&c.textureId==ViewerController::live2dLayerMarker){drawLive();continue;}
+            if(c.vertices.empty()&&c.textureId==ViewerController::live2dHiddenMarker){liveDrawn=true;continue;}
             const auto source=m_frame->transitions.constFind(int(i));
             if(source==m_frame->transitions.cend()){appendCommand(m_mainDraws,c,false);continue;}
             if(!m_transitionFs.isValid())continue;
@@ -371,14 +393,7 @@ private:
             append(m_mainDraws,c.vertices,c.indices,pipeline(SlBlendMode::Normal,true,true,false),
                 bindings(uniform,before->texture.get(),after->texture.get()));
         }
-        if(liveReady&&m_liveTexture){
-            const float w=float(m_frame->size.width()),h=float(m_frame->size.height());
-            std::vector<SlVertex2D> quad(4);
-            quad[0].pos={0,0,0};quad[0].uv={0,0};quad[1].pos={w,0,0};quad[1].uv={1,0};
-            quad[2].pos={w,h,0};quad[2].uv={1,1};quad[3].pos={0,h,0};quad[3].uv={0,1};
-            append(m_mainDraws,quad,{0,1,2,2,3,0},pipeline(SlBlendMode::Normal,true,false,false),
-                bindings(m_modeUniforms[0].get(),m_liveTexture.get(),nullptr));
-        }
+        drawLive();
         const bool streamed=!m_vertexData.empty()
             &&upload(stream.vertex,QRhiBuffer::VertexBuffer,m_vertexData.data(),quint32(m_vertexData.size()*sizeof(Vertex)),batch)
             &&upload(stream.index,QRhiBuffer::IndexBuffer,m_indexData.data(),quint32(m_indexData.size()*sizeof(unsigned short)),batch);
@@ -412,16 +427,22 @@ private:
             }
             bool liveReady=false;
             if(m_frame->live2d){
-#if defined(Q_OS_WIN)
                 m_live2d=m_frame->live2d;
                 const int height=std::max(1,m_frame->size.height());
-                cb->beginExternal();
-                const bool drawn=rhi()->backend()==QRhi::D3D11&&m_live2d->renderExportFrame(frame.live2dMotion,frame.live2dStep,
-                    frame.live2dAdvance,m_frame->size.width(),m_frame->size.height(),0,-m_frame->titleHeight/height);
-                cb->endExternal();
-                liveReady=drawn&&(i==0||m_liveTexture)&&wrapLiveTexture();
-                if(liveReady){m_lastLiveFrame=m_frame;m_lastLiveTime=m_frame->animationTime;}
+                if(m_live2d->usesRhi()){
+                    liveReady=m_live2d->renderExportFrameRhi(cb,frame.live2dMotion,frame.live2dStep,frame.live2dAdvance,
+                        m_frame->size.width(),m_frame->size.height(),0,-m_frame->titleHeight/height,i>0)&&useRhiLiveTexture();
+                }
+#if defined(Q_OS_WIN)
+                else{
+                    cb->beginExternal();
+                    const bool drawn=rhi()->backend()==QRhi::D3D11&&m_live2d->renderExportFrame(frame.live2dMotion,frame.live2dStep,
+                        frame.live2dAdvance,m_frame->size.width(),m_frame->size.height(),0,-m_frame->titleHeight/height);
+                    cb->endExternal();
+                    liveReady=drawn&&(i==0||m_liveTexture)&&wrapLiveTexture();
+                }
 #endif
+                if(liveReady){m_lastLiveFrame=m_frame;m_lastLiveTime=m_frame->animationTime;}
                 if(!liveReady){fail(QStringLiteral("Live2D export frame could not be rendered."));continue;}
             }
             auto* batch=rhi()->nextResourceUpdateBatch();
@@ -462,7 +483,7 @@ private:
         if(m_frame&&m_frame->live2d){
             m_live2d=m_frame->live2d;
 #if defined(Q_OS_WIN)
-            if(rhi()->backend()==QRhi::D3D11){
+            if(!Live2DBridge::rhiPreferred(rhi()->backend()==QRhi::D3D11)){
                 const auto* native=static_cast<const QRhiD3D11NativeHandles*>(rhi()->nativeHandles());
                 cb->beginExternal();
                 const bool ready=m_live2d->initialize(static_cast<ID3D11Device*>(native->dev),static_cast<ID3D11DeviceContext*>(native->context),m_frame->live2dShaderPath);
@@ -476,10 +497,19 @@ private:
                 m_lastLiveTime=m_frame->animationTime;
                 cb->endExternal();
                 if(liveReady)liveReady=wrapLiveTexture();
-            }else m_live2d->initialize(nullptr,nullptr,{});
-#else
-            m_live2d->initialize(nullptr,nullptr,{});
+            }else
 #endif
+            {
+                const float dt=m_frame->capture?0.f:float(std::clamp(m_frame->animationTime-m_lastLiveTime,0.0,0.1));
+                if(m_live2d->initializeRhi(rhi())){
+                    const bool alreadyRendered=m_lastLiveFrame==m_frame&&m_live2d->rhiTexture()
+                        &&m_live2d->textureSize()==m_frame->size;
+                    liveReady=alreadyRendered||m_live2d->renderRhi(cb,dt,m_frame->size.width(),m_frame->size.height(),0,-m_frame->titleHeight/std::max(1,m_frame->size.height()));
+                    if(liveReady)m_lastLiveFrame=m_frame;
+                }
+                m_lastLiveTime=m_frame->animationTime;
+                if(liveReady)liveReady=useRhiLiveTexture();
+            }
         }else if(m_frame){
             if(m_live2d){cb->beginExternal();m_live2d->processPendingCommands();cb->endExternal();}
             m_lastLiveTime=m_frame->animationTime;

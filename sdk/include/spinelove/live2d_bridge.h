@@ -9,6 +9,9 @@
 struct ID3D11Device;
 struct ID3D11DeviceContext;
 struct ID3D11Texture2D;
+class QRhi;
+class QRhiCommandBuffer;
+class QRhiTexture;
 
 class SL_SDK_API Live2DBridge final {
 public:
@@ -34,6 +37,14 @@ public:
     bool renderExportFrame(int motionIndex, bool advance, float advanceSeconds, int width, int height,
                            float centerOffsetX = 0, float centerOffsetY = 0);
     void endExportSession();
+
+    static bool rhiPreferred(bool d3d11Backend);
+    bool initializeRhi(QRhi* rhi);
+    bool renderRhi(QRhiCommandBuffer* cb, float deltaSeconds, int width, int height, float centerOffsetX = 0, float centerOffsetY = 0);
+    bool renderExportFrameRhi(QRhiCommandBuffer* cb, int motionIndex, bool advance, float advanceSeconds, int width, int height,
+                              float centerOffsetX = 0, float centerOffsetY = 0, bool continueCommands = false);
+    QRhiTexture* rhiTexture() const noexcept;
+    bool usesRhi() const noexcept;
 
 private:
     struct Impl;

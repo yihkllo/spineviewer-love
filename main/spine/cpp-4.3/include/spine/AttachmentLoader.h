@@ -1,0 +1,49 @@
+#ifndef Spine_AttachmentLoader_h
+#define Spine_AttachmentLoader_h
+
+#include <spine/RTTI.h>
+#include <spine/SpineObject.h>
+#include <spine/SpineString.h>
+
+namespace spine {
+	class Skin;
+
+	class Attachment;
+
+	class RegionAttachment;
+
+	class MeshAttachment;
+
+	class BoundingBoxAttachment;
+
+	class PathAttachment;
+
+	class PointAttachment;
+
+	class ClippingAttachment;
+
+	class Sequence;
+
+	class SP_API AttachmentLoader : public SpineObject {
+	public:
+		AttachmentLoader();
+
+		virtual ~AttachmentLoader();
+
+		virtual RegionAttachment *newRegionAttachment(Skin &skin, const String &placeholder, const String &name, const String &path,
+													  Sequence *sequence) = 0;
+
+		virtual MeshAttachment *newMeshAttachment(Skin &skin, const String &placeholder, const String &name, const String &path,
+												  Sequence *sequence) = 0;
+
+		virtual BoundingBoxAttachment *newBoundingBoxAttachment(Skin &skin, const String &placeholder, const String &name) = 0;
+
+		virtual PathAttachment *newPathAttachment(Skin &skin, const String &placeholder, const String &name) = 0;
+
+		virtual PointAttachment *newPointAttachment(Skin &skin, const String &placeholder, const String &name) = 0;
+
+		virtual ClippingAttachment *newClippingAttachment(Skin &skin, const String &placeholder, const String &name) = 0;
+	};
+}
+
+#endif

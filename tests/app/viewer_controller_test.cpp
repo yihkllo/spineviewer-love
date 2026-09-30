@@ -14,6 +14,7 @@
 #include <QQuickItem>
 #include <QQuickWindow>
 #include <QTemporaryDir>
+#include <algorithm>
 #include <QtTest>
 
 using slqt::ViewerController;
@@ -47,7 +48,9 @@ private slots:
         QCOMPARE(c.snapshot()->size,QSize(3840,4320));QCOMPARE(w.geometry(),geometry);
         c.setViewport({240,270},2);
         QCOMPARE(c.snapshot()->size,QSize(3840,4320));
-        c.dispatch("settings.renderSize",QVariantMap{{"width",8192},{"height",8192}});
+        c.dispatch("settings.renderSize",QVariantMap{{"width",16384},{"height",16384}});
+        QCOMPARE(c.snapshot()->size,QSize(3840,4320));
+        c.dispatch("settings.renderSize",QVariantMap{{"width",16385},{"height",64}});
         QCOMPARE(c.snapshot()->size,QSize(3840,4320));
         c.dispatch("settings.renderSize.reset");
         QVERIFY(c.renderSize().isEmpty());QCOMPARE(c.snapshot()->size,QSize(480,540));
@@ -57,6 +60,7 @@ private slots:
         QTemporaryDir d;QQuickWindow w;ViewerController c;setup(w,c);
         const QString path=d.path()+"/background.png";
         QImage picture(32,32,QImage::Format_RGBA8888);picture.fill(Qt::cyan);QVERIFY(picture.save(path));
+        c.openPaths({model(d.path(),"stage")});
         c.dispatch("background.open",path);
         c.dispatch("settings.renderSize",QVariantMap{{"width",3840},{"height",2160}});
         c.setViewport({960,540},1);
@@ -64,8 +68,28 @@ private slots:
         c.pointerPress({100,100},Qt::LeftButton,Qt::NoModifier);
         c.pointerMove({100,100},Qt::LeftButton,Qt::NoModifier);
         c.pointerMove({125,150},Qt::LeftButton,Qt::NoModifier);
+        c.pointerRelease({125,150},Qt::LeftButton,Qt::NoModifier);
+        QCOMPARE(c.snapshot()->draws.front().vertices.front().pos.x,before.x);
+        c.pointerPress({100,100},Qt::LeftButton,Qt::ControlModifier);
+        c.pointerMove({100,100},Qt::LeftButton,Qt::ControlModifier);
+        c.pointerMove({125,150},Qt::LeftButton,Qt::ControlModifier);
+        c.pointerRelease({125,150},Qt::LeftButton,Qt::ControlModifier);
         const auto after=c.snapshot()->draws.front().vertices.front().pos;
         QCOMPARE(after.x-before.x,100.f);QCOMPARE(after.y-before.y,200.f);
+        c.dispatch("background.open",path);
+        const auto lower=c.snapshot()->draws[0].vertices.front().pos,upper=c.snapshot()->draws[1].vertices.front().pos;
+        c.pointerPress({100,100},Qt::LeftButton,Qt::ControlModifier);
+        c.pointerMove({100,100},Qt::LeftButton,Qt::ControlModifier);
+        c.pointerMove({125,150},Qt::LeftButton,Qt::ControlModifier);
+        c.pointerRelease({125,150},Qt::LeftButton,Qt::ControlModifier);
+        QCOMPARE(c.snapshot()->draws[0].vertices.front().pos.x,lower.x);
+        QCOMPARE(c.snapshot()->draws[1].vertices.front().pos.x,upper.x);
+        c.dispatch("background.select",0);
+        c.pointerPress({100,100},Qt::LeftButton,Qt::NoModifier);
+        c.pointerMove({100,100},Qt::LeftButton,Qt::NoModifier);
+        c.pointerMove({125,150},Qt::LeftButton,Qt::NoModifier);
+        QCOMPARE(c.snapshot()->draws[1].vertices.front().pos.x-upper.x,100.f);
+        QCOMPARE(c.snapshot()->draws[0].vertices.front().pos.x,lower.x);
     }
     void frameClockRespectsPlaybackSuspension(){
         QTemporaryDir d;QQuickWindow w;ViewerController c;setup(w,c);w.show();
@@ -128,14 +152,101 @@ private slots:
         QCOMPARE(languages[1].toMap().value("id").toString(),QString("en"));
         c.dispatch("settings.language","zh_CN");
     }
-    void legacyFavoritesDecodeBomAndDropDuplicates(){
+    void legacyFavoritesDecodeBomDropDuplicatesAndKeepMissing(){
         QTemporaryDir d;const auto a=model(d.path(),QString::fromUtf8("中文模型"));
         const auto rows=a+"\r\n"+a+"\r\n"+d.path()+"/missing.json\r\n";
         const auto cache=d.path()+"/favorites.txt";
-        write(cache,QByteArray::fromHex("efbbbf")+rows.toUtf8());QCOMPARE(slqt::readLegacyFavorites(cache),QStringList{a});
+        QStringList expected{a,QDir::cleanPath(d.path()+"/missing.json")};std::sort(expected.begin(),expected.end());
+        write(cache,QByteArray::fromHex("efbbbf")+rows.toUtf8());QCOMPARE(slqt::readLegacyFavorites(cache),expected);
         QByteArray utf16=QByteArray::fromHex("fffe");for(QChar ch:rows){utf16.append(char(ch.unicode()&255));utf16.append(char(ch.unicode()>>8));}
-        write(cache,utf16);QCOMPARE(slqt::readLegacyFavorites(cache),QStringList{a});
+        write(cache,utf16);QCOMPARE(slqt::readLegacyFavorites(cache),expected);
         write(cache,QByteArray::fromHex("efbbbf")+"zh_CN\r\n");QCOMPARE(slqt::readLegacyText(cache).trimmed(),QString("zh_CN"));
+    }
+    void favoriteFoldersGroupMoveCopyAndPersist(){
+        QTemporaryDir d;const auto a=model(d.path(),"first"),b=model(d.path(),"second");
+        const auto names=[](ViewerController& c){QStringList out;for(const auto& row:c.state().value("files").toList())out.append(row.toMap().value("name").toString());return out;};
+        const auto folders=[](ViewerController& c){return c.state().value("favoriteFolders").toList();};
+        QString custom;
+        {
+            QQuickWindow w;ViewerController c;setup(w,c);c.openPaths({d.path()});
+            QCOMPARE(folders(c).size(),1);QVERIFY(folders(c)[0].toMap().value("isDefault").toBool());
+            c.dispatch("file.favorite",a);
+            c.dispatch("favorites.folderCreate",QString::fromUtf8("角色"));
+            QCOMPARE(folders(c).size(),2);custom=folders(c)[1].toMap().value("id").toString();
+            QCOMPARE(c.state().value("favoriteFolder").toString(),custom);QVERIFY(c.state().value("favoritesOnly").toBool());QVERIFY(names(c).isEmpty());
+            c.dispatch("favorites.copy",QVariantMap{{"path",a},{"to",custom}});
+            c.dispatch("favorites.copy",QVariantMap{{"path",b},{"to",custom}});
+            QCOMPARE(names(c),(QStringList{"first","second"}));
+            QCOMPARE(folders(c)[1].toMap().value("count").toInt(),2);
+            c.dispatch("file.favorite",a);QCOMPARE(names(c),QStringList{"second"});
+            c.dispatch("favorites.folderSelect","default");QCOMPARE(names(c),QStringList{"first"});
+            c.dispatch("favorites.move",QVariantMap{{"path",a},{"from","default"},{"to",custom}});QVERIFY(names(c).isEmpty());
+            c.dispatch("favorites.folderRename",QVariantMap{{"id",custom},{"name","group"}});
+            c.dispatch("favorites.folderRename",QVariantMap{{"id","default"},{"name","nope"}});
+        }
+        {
+            QQuickWindow w;ViewerController c;setup(w,c);c.openPaths({d.path()});
+            QCOMPARE(folders(c).size(),2);QCOMPARE(folders(c)[1].toMap().value("name").toString(),QString("group"));
+            QVERIFY(folders(c)[0].toMap().value("name").toString().isEmpty());
+            c.dispatch("favorites.folderSelect",custom);QCOMPARE(names(c),(QStringList{"first","second"}));
+            const auto row=c.state().value("files").toList()[0].toMap();QCOMPARE(row.value("folders").toStringList(),QStringList{custom});QVERIFY(row.value("favorite").toBool());
+            c.dispatch("favorites.remove",QVariantMap{{"path",b},{"folder",custom}});QCOMPARE(names(c),QStringList{"first"});
+            c.dispatch("favorites.folderDelete",custom);
+            QCOMPARE(folders(c).size(),1);QCOMPARE(c.state().value("favoriteFolder").toString(),QString("default"));QCOMPARE(names(c),QStringList{"first"});
+            c.dispatch("favorites.folderCreate",QVariantMap{{"name","moved"},{"path",a},{"action","move"},{"from","default"}});
+            QCOMPARE(c.state().value("favoriteFolder").toString(),QString("default"));QVERIFY(names(c).isEmpty());
+            QCOMPARE(folders(c)[1].toMap().value("count").toInt(),1);
+            c.dispatch("file.favoritesView",false);c.dispatch("file.favorite",a);
+            QCOMPARE(folders(c)[1].toMap().value("count").toInt(),0);
+            c.dispatch("favorites.folderDelete",folders(c)[1].toMap().value("id"));
+        }
+    }
+    void missingFavoritesSurviveUntilTheirDriveReturns(){
+        QTemporaryDir d;const auto drive=d.path()+"/drive",away=d.path()+"/away";
+        const auto a=model(drive,"gone"),b=model(d.path(),"stay");
+        const auto rows=[](ViewerController& c){QVariantMap out;for(const auto& row:c.state().value("files").toList())out.insert(row.toMap().value("name").toString(),row.toMap().value("missing"));return out;};
+        {
+            QQuickWindow w;ViewerController c;setup(w,c);c.openPaths({d.path()});
+            c.dispatch("favorites.copy",QVariantMap{{"paths",QStringList{a,b}},{"to","default"}});
+        }
+        QVERIFY(QDir().rename(drive,away));
+        {
+            QQuickWindow w;ViewerController c;setup(w,c);
+            c.dispatch("settings.language","en");c.dispatch("settings.language","zh_CN");
+            c.dispatch("file.favoritesView",true);
+            const auto shown=rows(c);
+            QCOMPARE(shown.size(),2);QVERIFY(shown.value("gone").toBool());QVERIFY(!shown.value("stay").toBool());
+            QCOMPARE(c.state().value("favoriteFolders").toList()[0].toMap().value("count").toInt(),2);
+            c.dispatch("file.play",a);
+            QVERIFY(!c.state().value("lastError").toString().isEmpty());QVERIFY(c.state().value("loadedSpines").toList().isEmpty());
+        }
+        QVERIFY(QDir().rename(away,drive));
+        {
+            QQuickWindow w;ViewerController c;setup(w,c);
+            c.dispatch("file.favoritesView",true);
+            const auto shown=rows(c);
+            QCOMPARE(shown.size(),2);QVERIFY(!shown.value("gone").toBool());QVERIFY(!shown.value("stay").toBool());
+            c.dispatch("favorites.unfavorite",QVariantMap{{"paths",QStringList{a,b}}});
+            QVERIFY(rows(c).isEmpty());
+        }
+    }
+    void favoriteFoldersTakeSeveralModelsAtOnce(){
+        QTemporaryDir d;const auto a=model(d.path(),"first"),b=model(d.path(),"second"),e=model(d.path(),"third");
+        QQuickWindow w;ViewerController c;setup(w,c);c.openPaths({d.path()});
+        const auto names=[&]{QStringList out;for(const auto& row:c.state().value("files").toList())out.append(row.toMap().value("name").toString());return out;};
+        c.dispatch("favorites.copy",QVariantMap{{"paths",QStringList{a,b,e}},{"to","default"}});
+        c.dispatch("file.favoritesView",true);QCOMPARE(names(),(QStringList{"first","second","third"}));
+        c.dispatch("favorites.folderCreate",QVariantMap{{"name","group"},{"paths",QStringList{a,b}},{"action","move"},{"from","default"}});
+        QCOMPARE(names(),QStringList{"third"});
+        const auto group=c.state().value("favoriteFolders").toList()[1].toMap().value("id").toString();
+        c.dispatch("favorites.move",QVariantMap{{"paths",QStringList{a,b}},{"from",group},{"to","default"}});
+        QCOMPARE(names(),(QStringList{"first","second","third"}));
+        c.dispatch("favorites.remove",QVariantMap{{"paths",QStringList{a,e}},{"folder","default"}});QCOMPARE(names(),QStringList{"second"});
+        c.dispatch("favorites.copy",QVariantMap{{"paths",QStringList{a,b}},{"to",group}});
+        c.dispatch("favorites.unfavorite",QVariantMap{{"paths",QStringList{a,b}}});
+        QVERIFY(names().isEmpty());
+        for(const auto& row:c.state().value("favoriteFolders").toList())QCOMPARE(row.toMap().value("count").toInt(),0);
+        c.dispatch("favorites.folderDelete",group);
     }
     void repeatedArrowPreviewsUntilRelease(){
         QTemporaryDir d;const auto a=model(d.path(),"model2");model(d.path(),"model10");model(d.path(),"model20");
@@ -224,6 +335,106 @@ private slots:
         QVERIFY(c.state().value("slots").toList()[0].toMap().value("visible").toBool());
         QCOMPARE(c.snapshot()->draws.size(),size_t(2));
     }
+    void backgroundsInterleaveWithLayers(){
+        QTemporaryDir d;const auto a=model(d.path(),"first"),b=model(d.path(),"second"),image=d.path()+"/sky.png";
+        QImage picture(4,4,QImage::Format_RGBA8888);picture.fill(Qt::red);QVERIFY(picture.save(image));
+        QQuickWindow w;ViewerController c;setup(w,c);c.openPaths({a});c.dispatch("file.addSpine",b);c.dispatch("background.open",image);
+        const auto kinds=[&]{QStringList out;for(const auto& row:c.state().value("layerStack").toList())out.append(row.toMap().value("kind").toString()+":"+row.toMap().value("name").toString());return out;};
+        const auto backgroundDraw=[&]{const auto s=c.snapshot();for(int i=0;i<int(s->draws.size());++i)if(s->textures.value(s->draws[size_t(i)].textureId).size()==QSize(4,4))return i;return -1;};
+        QCOMPARE(kinds(),QStringList({"spine:second","spine:first","background:sky"}));
+        QCOMPARE(backgroundDraw(),0);
+        c.dispatch("layer.stackMove",QVariantMap{{"from",2},{"to",1}});
+        QCOMPARE(kinds(),QStringList({"spine:second","background:sky","spine:first"}));
+        QCOMPARE(backgroundDraw(),1);
+        c.dispatch("layer.stackMove",QVariantMap{{"from",1},{"to",0}});
+        QCOMPARE(kinds(),QStringList({"background:sky","spine:second","spine:first"}));
+        QCOMPARE(backgroundDraw(),2);
+        c.dispatch("layer.stackMove",QVariantMap{{"from",2},{"to",1}});
+        QCOMPARE(kinds(),QStringList({"background:sky","spine:first","spine:second"}));
+        QCOMPARE(firstLayer(c),QString("first"));
+        QCOMPARE(backgroundDraw(),2);
+        c.dispatch("background.open",image);
+        QCOMPARE(kinds().last(),QString("background:sky"));
+        QVERIFY(!c.state().value("backgrounds").toList()[0].toMap().value("selected").toBool());
+    }
+    void layerCommandsStayAvailableInLive2DMode(){
+        QTemporaryDir d;const auto image=d.path()+"/sky.png";
+        QImage picture(4,4,QImage::Format_RGBA8888);picture.fill(Qt::red);QVERIFY(picture.save(image));
+        QQuickWindow w;ViewerController c;setup(w,c);c.dispatch("mode.toggle");c.dispatch("background.open",image);c.dispatch("background.open",image);
+        QCOMPARE(c.state().value("mode").toString(),QString("live2d"));
+        const auto caps=c.state().value("capabilities").toMap();
+        for(const auto& name:{"layer.select","layer.stackMove","layer.remove"})QVERIFY2(caps.value(name).toBool(),name);
+        c.dispatch("background.select",1);
+        c.dispatch("layer.stackMove",QVariantMap{{"from",1},{"to",0}});
+        QVERIFY(c.state().value("backgrounds").toList()[0].toMap().value("selected").toBool());
+    }
+    void backgroundsAloneAreSelectedForDragging(){
+        QTemporaryDir d;const auto a=model(d.path(),"first"),image=d.path()+"/sky.png";
+        QImage picture(4,4,QImage::Format_RGBA8888);picture.fill(Qt::red);QVERIFY(picture.save(image));
+        QQuickWindow w;ViewerController c;setup(w,c);
+        const auto selected=[&]{return c.state().value("backgrounds").toList().value(0).toMap().value("selected").toBool();};
+        c.dispatch("background.open",image);QVERIFY(selected());
+        c.openPaths({a});QVERIFY(!selected());
+        c.dispatch("layer.remove",0);QVERIFY(selected());
+        const auto before=c.snapshot()->draws.front().vertices.front().pos;
+        c.pointerPress({100,100},Qt::LeftButton,Qt::NoModifier);
+        c.pointerMove({100,100},Qt::LeftButton,Qt::NoModifier);
+        c.pointerMove({140,100},Qt::LeftButton,Qt::NoModifier);
+        c.pointerRelease({140,100},Qt::LeftButton,Qt::NoModifier);
+        QVERIFY(c.snapshot()->draws.front().vertices.front().pos.x>before.x);
+    }
+    void layerCardAppearsWithBackgroundsAndStaysUntilEmpty(){
+        QTemporaryDir d;const auto a=model(d.path(),"first"),b=model(d.path(),"second"),image=d.path()+"/sky.png";
+        QImage picture(4,4,QImage::Format_RGBA8888);picture.fill(Qt::red);QVERIFY(picture.save(image));
+        QQuickWindow w;ViewerController c;setup(w,c);
+        const auto shown=[&]{return c.state().value("showLoadedSpines").toBool();};
+        c.openPaths({a});QVERIFY(!shown());
+        c.dispatch("background.open",image);QVERIFY(shown());
+        c.dispatch("background.remove",0);QVERIFY(shown());
+        c.openPaths({b});QVERIFY(shown());
+        c.dispatch("layer.remove",0);QVERIFY(!shown());
+        c.dispatch("background.open",image);QVERIFY(shown());
+        c.dispatch("background.clear");QVERIFY(!shown());
+        c.openPaths({a});c.dispatch("file.addSpine",b);QVERIFY(shown());
+    }
+    void removingLayersKeepsBackgroundsInPlace(){
+        QTemporaryDir d;const auto a=model(d.path(),"first"),b=model(d.path(),"second"),image=d.path()+"/sky.png";
+        QImage picture(4,4,QImage::Format_RGBA8888);picture.fill(Qt::red);QVERIFY(picture.save(image));
+        QQuickWindow w;ViewerController c;setup(w,c);c.openPaths({a});c.dispatch("file.addSpine",b);c.dispatch("background.open",image);
+        c.dispatch("layer.stackMove",QVariantMap{{"from",2},{"to",1}});
+        const auto kinds=[&]{QStringList out;for(const auto& row:c.state().value("layerStack").toList())out.append(row.toMap().value("kind").toString()+":"+row.toMap().value("name").toString());return out;};
+        QCOMPARE(kinds(),QStringList({"spine:second","background:sky","spine:first"}));
+        QVERIFY(c.state().value("showLoadedSpines").toBool());
+        c.dispatch("background.remove",0);
+        QVERIFY(c.state().value("showLoadedSpines").toBool());
+        c.dispatch("background.open",image);
+        c.dispatch("layer.stackMove",QVariantMap{{"from",2},{"to",1}});
+        c.dispatch("layer.remove",1);
+        QCOMPARE(kinds(),QStringList({"spine:second","background:sky"}));
+        QCOMPARE(c.state().value("currentFileName").toString(),QString("second"));
+        QVERIFY(c.state().value("loaded").toBool());
+        QCOMPARE(c.snapshot()->draws.size(),size_t(2));
+        c.dispatch("background.remove",0);
+        QVERIFY(c.state().value("showLoadedSpines").toBool());
+        c.dispatch("background.open",image);
+        c.dispatch("layer.remove",0);
+        QCOMPARE(kinds(),QStringList({"background:sky"}));
+        QVERIFY(!c.state().value("loaded").toBool());
+        QVERIFY(c.state().value("showLoadedSpines").toBool());
+        c.dispatch("background.select",0);
+        const auto before=c.snapshot()->draws.front().vertices.front().pos;
+        c.pointerPress({100,100},Qt::LeftButton,Qt::NoModifier);
+        c.pointerMove({100,100},Qt::LeftButton,Qt::NoModifier);
+        c.pointerMove({130,100},Qt::LeftButton,Qt::NoModifier);
+        c.pointerRelease({130,100},Qt::LeftButton,Qt::NoModifier);
+        QVERIFY(c.snapshot()->draws.front().vertices.front().pos.x>before.x);
+        c.dispatch("background.remove",0);
+        QVERIFY(!c.state().value("showLoadedSpines").toBool());
+        c.dispatch("background.open",image);
+        QCOMPARE(c.snapshot()->draws.size(),size_t(1));
+        c.openPaths({a});
+        QCOMPARE(kinds(),QStringList({"spine:first","background:sky"}));
+    }
     void failedSecondLayerDoesNotLeaveOldRows(){
         QTemporaryDir d;const auto old=model(d.path(),"old"),good=model(d.path(),"new"),bad=model(d.path(),"bad");
         auto atlas=QByteArray::fromStdString(sl_test::Fixture("3.6").atlasData.front());atlas.replace("\nprobe\n","\nmissing-region\n");
@@ -249,13 +460,14 @@ private slots:
         auto rows=c.state().value("backgrounds").toList();QCOMPARE(rows.size(),2);
         QCOMPARE(rows[0].toMap().value("name").toString(),QString("second"));QVERIFY(rows[0].toMap().value("selected").toBool());
         QCOMPARE(c.snapshot()->draws.size(),size_t(2));
+        c.dispatch("background.select",0);
         c.dispatch("background.move",QVariantMap{{"from",0},{"to",1}});
         rows=c.state().value("backgrounds").toList();
         QCOMPARE(rows[1].toMap().value("name").toString(),QString("second"));QVERIFY(rows[1].toMap().value("selected").toBool());
         c.dispatch("background.visible",0);QCOMPARE(c.snapshot()->draws.size(),size_t(1));QVERIFY(c.state().value("hasBackgroundImage").toBool());
         c.dispatch("background.visible",1);QVERIFY(!c.state().value("hasBackgroundImage").toBool());
         c.dispatch("background.remove",1);rows=c.state().value("backgrounds").toList();
-        QCOMPARE(rows.size(),1);QCOMPARE(rows[0].toMap().value("name").toString(),QString("first"));QVERIFY(!rows[0].toMap().value("selected").toBool());
+        QCOMPARE(rows.size(),1);QCOMPARE(rows[0].toMap().value("name").toString(),QString("first"));QVERIFY(rows[0].toMap().value("selected").toBool());
         c.dispatch("background.clear");QVERIFY(c.state().value("backgrounds").toList().isEmpty());
     }
     void badBackgroundKeepsTheCurrentArtwork(){

@@ -8,6 +8,7 @@
 #include <QFile>
 #include <QTemporaryDir>
 
+#include <algorithm>
 #include <cmath>
 #include <limits>
 #include <iostream>
@@ -72,8 +73,15 @@ int main(int argc, char** argv)
     check(ExportService::saveImage(temporary.filePath("opaque.jpg"), slqt::ImageFormat::Jpeg,
                                   source, true, Qt::white, &error), "JPEG encoder is available and forces opaque output");
     const auto mp4 = ExportService::movieArguments("C:/a b", "C:/out & quoted.mp4", slqt::MovieFormat::Mp4, true, 60);
-    check(mp4.size() == 3 && mp4[0].contains("libx264") && mp4[1].contains("h264_mf") && mp4[2].contains("h264_nvenc"),
-          "MP4 encoder fallback order preserved");
+    check(mp4.size() == 6 && mp4[0].contains("hevc_nvenc") && mp4[1].contains("hevc_amf") && mp4[2].contains("hevc_qsv") && mp4[3].contains("hevc_mf") && mp4[4].contains("libkvazaar") && mp4[5].contains("libopenh264"),
+          "MP4 uses H.265, hardware encoders first, and falls back to H.264 only when no H.265 encoder works");
+    check(std::all_of(mp4.begin(), mp4.end() - 1, [](const QStringList& a) { return a.join(' ').contains("-tag:v hvc1"); }) && !mp4.back().contains("hvc1"),
+          "H.265 MP4 is tagged hvc1 so Apple players accept it");
+    check(ExportService::mp4Fits({7680, 4320}) && ExportService::mp4Fits({8192, 4352}) && ExportService::mp4Fits({8193, 100}),
+          "MP4 accepts sizes up to the H.265 limit, an odd extra column is trimmed");
+    check(!ExportService::mp4Fits({9999, 8130}) && !ExportService::mp4Fits({8194, 100}) && !ExportService::mp4Fits({6000, 6000}),
+          "MP4 refuses sizes past the H.265 limit instead of scaling them");
+    check(std::none_of(mp4.begin(), mp4.end(), [](const QStringList& a) { return a.join(' ').contains("scale="); }), "MP4 never rescales frames");
     check(mp4[0].contains("crop=trunc(iw/2)*2:trunc(ih/2)*2") && mp4[0].back() == "C:/out & quoted.mp4",
           "odd dimensions use original even crop; output path is a single process argument");
     const auto webm = ExportService::movieArguments("frames", "clip.webm", slqt::MovieFormat::Webm, true, 60);
@@ -129,6 +137,14 @@ int main(int argc, char** argv)
     cancelled.cancel();
     check(cancelledSignal && !cancelled.isRunning(), "cancellation reliably triggers restoration signal");
     check(QFileInfo::exists(request.outputPath), "cancellation never deletes user's frame output directory");
+    {
+        ExportService fresh;
+        slqt::ExportRequest freshRequest = request;
+        freshRequest.outputPath = QDir(request.outputPath).filePath(QStringLiteral("fresh_cancel"));
+        check(fresh.startFrames(freshRequest, renderer, &error), "fresh folder cancellation fixture starts");
+        fresh.cancel();
+        check(!QFileInfo::exists(freshRequest.outputPath), "cancellation removes a frame folder the export created");
+    }
     cancelled.cancel();
     check(cancelled.cancellationRequested(),"cancel is observable even before a frame job starts");
     cancelled.resetCancellation();

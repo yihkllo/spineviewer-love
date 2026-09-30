@@ -86,8 +86,16 @@ Column {
                 height: slider.height
                 metrics: playback.shell.metrics; theme: playback.shell.theme
                 lineHeight: metrics.smallFont
-                text: "↺"
+                text: ""
                 tip: qsTr("Reset")
+                SlIcon {
+                    anchors.centerIn: parent
+                    width: reset.metrics.smallFont * .72; height: width
+                    name: "reset"
+                    lineWidth: width / 11
+                    color: reset.inkColor
+                    opacity: reset.enabled ? .8 : .35
+                }
                 enabled: playback.shell.can(group.modelData.key)
                 onClicked: {
                     if (group.modelData.state === "scale" && playback.shell.live2d) playback.shell.send("view.reset", null);

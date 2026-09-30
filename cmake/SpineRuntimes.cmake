@@ -80,6 +80,10 @@ sl_spine_version(spinelove_spine_cpp_42 cpp-4.2 cpp cpp_adapter/cpp_runtime_adap
     SL_SPINE_SKELETON_HAS_UPDATE SL_SPINE_TEXTURE_REGION_API SL_SPINE_REGION_COMPUTE_USES_SLOT
     SL_SPINE_ATLAS_PAGE_HAS_TEXTURE SL_SPINE_ATLAS_PAGE_HAS_PMA SL_SPINE_WORLD_TRANSFORM_HAS_PHYSICS)
 
+sl_spine_version(spinelove_spine_cpp_43 cpp-4.3 cpp cpp43_adapter/cpp43_runtime_adapter.cpp ""
+    spine=sl_spine43 indexOf=sl_spine43_atlasIndexOf SL_SPINE_NAMESPACE=sl_spine43
+    SL_RUNTIME_FACTORY_NAME=CreateCpp43Runtime SL_RUNTIME_DISPLAY_VERSION="4.3")
+
 add_library(spinelove_runtime_v2 STATIC
     "${PROJECT_SOURCE_DIR}/main/runtime_v2/cpp_runtime_manager.cpp"
     "${PROJECT_SOURCE_DIR}/main/runtime_v2/spine21_cpp/spine21_runtime.cpp")
@@ -87,5 +91,5 @@ sl_spine_common(spinelove_runtime_v2)
 target_link_libraries(spinelove_runtime_v2 PUBLIC
     spinelove_spine_c_31 spinelove_spine_c_34
     spinelove_spine_cpp_35 spinelove_spine_cpp_36 spinelove_spine_cpp_37
-    spinelove_spine_cpp_38 spinelove_spine_cpp_40 spinelove_spine_cpp_41 spinelove_spine_cpp_42)
+    spinelove_spine_cpp_38 spinelove_spine_cpp_40 spinelove_spine_cpp_41 spinelove_spine_cpp_42 spinelove_spine_cpp_43)
 add_library(SpineLove::Runtime ALIAS spinelove_runtime_v2)

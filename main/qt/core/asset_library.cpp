@@ -83,12 +83,13 @@ QStringList scan(const QString& folder, bool live2d)
             if (!entry.isFile())
                 continue;
             const QString path = entry.absoluteFilePath();
-            if (!live2d && ArchiveCache::isArchive(path)) {
-                result.append(ArchiveCache::listSpine(path));
+            if (ArchiveCache::isArchive(path)) {
+                result.append(live2d ? ArchiveCache::listLive2D(path) : ArchiveCache::listSpine(path));
                 continue;
             }
             if (live2d ? AssetLibrary::isLive2DFileName(path)
-                       : AssetLibrary::isSpineFileName(path) && !AssetLibrary::matchingAtlas(path).isEmpty())
+                       : AssetLibrary::isSpineFileName(path) && !AssetLibrary::isUnityComponentFile(path, entry.size())
+                                     && !AssetLibrary::matchingAtlas(path).isEmpty())
                 result.append(path);
         }
     }
@@ -115,7 +116,24 @@ bool AssetLibrary::isSpineFileName(const QString& path)
 {
     return path.endsWith(QLatin1String(".json"), Qt::CaseInsensitive)
         || path.endsWith(QLatin1String(".skel"), Qt::CaseInsensitive)
-        || path.endsWith(QLatin1String(".skel.bytes"), Qt::CaseInsensitive);
+        || path.endsWith(QLatin1String(".skel.bytes"), Qt::CaseInsensitive)
+        || path.endsWith(QLatin1String(".json.txt"), Qt::CaseInsensitive)
+        || path.endsWith(QLatin1String(".skel.txt"), Qt::CaseInsensitive);
+}
+
+bool AssetLibrary::isJsonSkeletonName(const QString& path)
+{
+    return path.endsWith(QLatin1String(".json"), Qt::CaseInsensitive)
+        || path.endsWith(QLatin1String(".json.txt"), Qt::CaseInsensitive);
+}
+
+bool AssetLibrary::isUnityComponentFile(const QString& path, qint64 size)
+{
+    if (size < 0 || size >= 16384 || !path.endsWith(QLatin1String(".json"), Qt::CaseInsensitive))
+        return false;
+    const QString stem = QFileInfo(path).completeBaseName();
+    return stem.endsWith(QLatin1String("_Atlas"), Qt::CaseInsensitive)
+        || stem.endsWith(QLatin1String("_SkeletonData"), Qt::CaseInsensitive);
 }
 
 QString AssetLibrary::skeletonStem(const QString& path)
@@ -123,6 +141,8 @@ QString AssetLibrary::skeletonStem(const QString& path)
     const QString name = QFileInfo(path).fileName();
     if (name.endsWith(QLatin1String(".skel.bytes"), Qt::CaseInsensitive))
         return name.left(name.size() - 11);
+    if (name.endsWith(QLatin1String(".json.txt"), Qt::CaseInsensitive) || name.endsWith(QLatin1String(".skel.txt"), Qt::CaseInsensitive))
+        return name.left(name.size() - 9);
     return QFileInfo(path).completeBaseName();
 }
 

@@ -21,6 +21,7 @@ Column {
         }
     }
     ListView {
+        cacheBuffer: 0
         id: list
         objectName: "skinList"
         width: parent.width; height: Math.max(0, skins.height - y)

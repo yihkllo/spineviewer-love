@@ -328,23 +328,23 @@ Popup {
                         Action {
                             text: qsTr("Reset to Default##theme").split("##")[0]
                             enabled: dialog.shell.can("theme.reset")
-                            onClicked: dialog.shell.send("theme.reset", null)
+                            onClicked: { dialog.shell.send("theme.reset", null); Qt.callLater(function() { fontSize.value = fontSize.appliedFont; }); }
                         }
                     }
                     Column {
                         visible: dialog.page === 1
                         width: parent.width; spacing: 16 * dialog.u
-                        readonly property bool imageMode: dialog.shell.read("hasBackgroundImage", false)
-                        readonly property bool decorOn: !imageMode && dialog.shell.read("stageDecor", true)
+                        readonly property bool imageMode: dialog.shell.read("backgrounds", []).length > 0
+                        readonly property bool decorOn: dialog.shell.read("stageDecor", true)
                         readonly property bool starMode: decorOn && dialog.shell.read("stageDecorStyle", 0) === 1
                         readonly property bool decorMode: decorOn && !starMode
-                        readonly property bool checkerMode: !imageMode && !decorOn && dialog.shell.read("stageChecker", false)
+                        readonly property bool checkerMode: !decorOn && dialog.shell.read("stageChecker", false)
                         Action {
                             width: parent.width; selection: true
                             text: qsTr("Stage decoration (default)")
                             highlighted: parent.decorMode
                             enabled: dialog.shell.can("stage.decor")
-                            onClicked: { if (parent.imageMode) dialog.shell.send("background.clear", null); dialog.shell.send("stage.decorStyle", 0); dialog.shell.send("stage.decor", true); }
+                            onClicked: { dialog.shell.send("stage.decorStyle", 0); dialog.shell.send("stage.decor", true); }
                         }
                         Action {
                             objectName: "starBackground"
@@ -352,16 +352,16 @@ Popup {
                             text: qsTr("Starry stage")
                             highlighted: parent.starMode
                             enabled: dialog.shell.can("stage.decorStyle")
-                            onClicked: { if (parent.imageMode) dialog.shell.send("background.clear", null); dialog.shell.send("stage.decorStyle", 1); dialog.shell.send("stage.decor", true); }
+                            onClicked: { dialog.shell.send("stage.decorStyle", 1); dialog.shell.send("stage.decor", true); }
                         }
-                        readonly property bool solidMode: !imageMode && !decorOn && !checkerMode
+                        readonly property bool solidMode: !decorOn && !checkerMode
                         Action {
                             objectName: "solidBackground"
                             width: parent.width; selection: true
                             text: qsTr("Solid color")
                             highlighted: parent.solidMode
                             enabled: dialog.shell.can("stage.decor")
-                            onClicked: { if (parent.imageMode) dialog.shell.send("background.clear", null); dialog.shell.send("stage.decor", false); }
+                            onClicked: dialog.shell.send("stage.decor", false)
                         }
                         Row {
                             objectName: "solidColorOptions"
@@ -395,22 +395,33 @@ Popup {
                             text: qsTr("Checkerboard")
                             highlighted: parent.checkerMode
                             enabled: dialog.shell.can("stage.checker")
-                            onClicked: { if (parent.imageMode) dialog.shell.send("background.clear", null); dialog.shell.send("stage.checker", true); }
-                        }
-                        Action {
-                            width: parent.width; selection: true
-                            text: qsTr("Background image")
-                            highlighted: parent.imageMode
-                            enabled: dialog.shell.can("background.open")
-                            onClicked: dialog.shell.send("background.open", null)
+                            onClicked: dialog.shell.send("stage.checker", true)
                         }
                         Copy {
                             width: parent.width
                             wrapMode: Text.Wrap
-                            text: parent.imageMode ? qsTr("Click again to add another image. Hold Ctrl and drag on the canvas to move the top image.")
-                                : parent.decorOn ? qsTr("The stage decoration is exported as the background when transparency is off.")
+                            text: parent.decorOn ? qsTr("The stage decoration is exported as the background when transparency is off.")
                                 : parent.checkerMode ? qsTr("The checkerboard only previews transparency. With transparency off, exports use the render background color.")
                                 : qsTr("With transparency off, exports use this color as the background.")
+                        }
+                        Rectangle { width: parent.width; height: Math.max(1, dialog.u); color: dialog.line }
+                        Copy { text: qsTr("Background image"); font.pixelSize: dialog.typeSize; font.weight: Font.Bold }
+                        Action {
+                            objectName: "addBackgroundImage"
+                            width: parent.width
+                            text: qsTr("Add background image")
+                            iconName: "plus"
+                            enabled: dialog.shell.can("background.open")
+                            onClicked: dialog.shell.send("background.open", null)
+                        }
+                        Action {
+                            objectName: "clearBackgroundImages"
+                            visible: parent.imageMode
+                            width: parent.width
+                            text: qsTr("Remove all background images")
+                            iconName: "close"
+                            enabled: dialog.shell.can("background.clear")
+                            onClicked: dialog.shell.send("background.clear", null)
                         }
                     }
                     Flow {
@@ -460,7 +471,7 @@ Popup {
                             textSize: dialog.typeSize
                             widthKey: "canvasWidth"; heightKey: "canvasHeight"
                             commandName: "settings.renderSize"
-                            minWidth: 64; minHeight: 64; maxDimension: 8192; maxPixelCount: 33554432
+                            minWidth: 64; minHeight: 64; maxDimension: 16384; maxPixelCount: 134217728
                         }
                         Action {
                             text: qsTr("Reset to default")

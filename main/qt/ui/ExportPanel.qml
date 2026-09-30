@@ -20,13 +20,20 @@ Item {
     ]
     property int choice: 2
     readonly property var chosen: formats[choice]
-    readonly property bool ffmpegMissing: ["export.mp4", "export.webm", "export.gif"].indexOf(chosen.key) >= 0 && !shell.read("ffmpegAvailable", true)
     readonly property real fontPx: metrics.mainFont * metrics.fontEmScale
     readonly property real cut: metrics.s(42)
     anchors.fill: parent
     visible: shell.loaded && shell.exportOpen
-    onVisibleChanged: if (visible) shell.send("export.probe", null)
-    function start() { shell.send(chosen.key, {alpha: chosen.alpha && shell.read("exportAlpha", true)}); }
+    readonly property int frameWidth: Number(shell.read("canvasWidth", 0))
+    readonly property int frameHeight: Number(shell.read("canvasHeight", 0))
+    readonly property int mp4MaxSide: 8192
+    readonly property real mp4MaxPixels: 35651584
+    readonly property bool mp4TooLarge: {
+        const w = Math.floor(frameWidth / 2) * 2, h = Math.floor(frameHeight / 2) * 2;
+        return w > mp4MaxSide || h > mp4MaxSide || w * h > mp4MaxPixels;
+    }
+    readonly property bool blocked: chosen.key === "export.mp4" && mp4TooLarge
+    function start() { if (!blocked) shell.send(chosen.key, {alpha: chosen.alpha && shell.read("exportAlpha", true)}); }
     Rectangle {
         x: 0; y: exporter.shell.topInset
         width: parent.width; height: parent.height - y
@@ -59,13 +66,18 @@ Item {
                     Text { id: heading; text: qsTr("Export"); font.pixelSize: exporter.fontPx * 1.55; font.weight: Font.Black; font.letterSpacing: (exporter.fontPx * 1.55) * .15; color: exporter.theme.text }
                     Text { anchors.baseline: heading.baseline; text: "EXPORT"; font.family: exporter.theme.numberFont; font.weight: Font.Bold; font.italic: true; font.pixelSize: exporter.fontPx * 1.1; font.letterSpacing: (exporter.fontPx * 1.1) * .2; color: exporter.theme.mute }
                 }
-                Text {
+                Item {
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "✕"
-                    font.pixelSize: exporter.fontPx * 1.3
-                    color: closeMouse.containsMouse ? exporter.theme.text : exporter.theme.mute
-                    MouseArea { id: closeMouse; anchors.fill: parent; anchors.margins: -exporter.metrics.s(10); hoverEnabled: true; enabled: !exporter.running; onClicked: exporter.shell.exportOpen = false }
+                    width: exporter.fontPx * 2; height: width
+                    SlPoly { anchors.fill: parent; visible: closeMouse.containsMouse; fill: exporter.theme.buttonHover }
+                    SlIcon {
+                        anchors.centerIn: parent
+                        width: exporter.fontPx * .95; height: width
+                        name: "close"
+                        color: exporter.theme.text
+                    }
+                    MouseArea { id: closeMouse; anchors.fill: parent; hoverEnabled: true; enabled: !exporter.running; onClicked: exporter.shell.exportOpen = false }
                 }
             }
             Grid {
@@ -198,49 +210,21 @@ Item {
                 textSize: exporter.metrics.detailFont * exporter.metrics.fontEmScale
                 widthKey: "canvasWidth"; heightKey: "canvasHeight"
                 commandName: "settings.renderSize"
-                minWidth: 64; minHeight: 64; maxDimension: 8192; maxPixelCount: 33554432
+                minWidth: 64; minHeight: 64; maxDimension: 16384; maxPixelCount: 134217728
                 enabled: !exporter.running
             }
-            Item {
-                objectName: "ffmpegMissing"
-                visible: exporter.ffmpegMissing
+            Text {
+                objectName: "mp4SizeNote"
                 width: parent.width
-                height: warning.height + exporter.metrics.s(28)
-                Rectangle {
-                    anchors.fill: parent
-                    color: Qt.rgba(.88, .27, .35, .08)
-                    border.color: Qt.rgba(.88, .27, .35, .55)
-                    border.width: Math.max(1, exporter.metrics.pixel)
-                }
-                Rectangle { width: exporter.metrics.s(5); height: parent.height; color: "#e0455a" }
-                Column {
-                    id: warning
-                    x: exporter.metrics.s(24); y: exporter.metrics.s(14)
-                    width: parent.width - exporter.metrics.s(48)
-                    spacing: exporter.metrics.s(10)
-                    Text {
-                        width: parent.width
-                        text: qsTr("ffmpeg.exe was not found, so video formats cannot be exported. Put ffmpeg.exe in the program folder, then open this panel again.")
-                        wrapMode: Text.Wrap
-                        font.pixelSize: exporter.fontPx * .82
-                        color: exporter.theme.text
-                    }
-                    Row {
-                        spacing: exporter.metrics.s(12)
-                        SlButton {
-                            objectName: "ffmpegDownload"
-                            metrics: exporter.metrics; theme: exporter.theme; lineHeight: metrics.smallFont
-                            text: qsTr("Download ffmpeg")
-                            onClicked: exporter.shell.send("export.ffmpegDownload", null)
-                        }
-                        SlButton {
-                            objectName: "ffmpegFolder"
-                            metrics: exporter.metrics; theme: exporter.theme; lineHeight: metrics.smallFont
-                            text: qsTr("Open folder")
-                            onClicked: exporter.shell.send("export.ffmpegFolder", null)
-                        }
-                    }
-                }
+                visible: exporter.chosen.key === "export.mp4"
+                wrapMode: Text.WordWrap
+                font.pixelSize: exporter.metrics.detailFont * exporter.metrics.fontEmScale * .9
+                color: exporter.mp4TooLarge ? (exporter.theme.dark ? "#ff8a8a" : "#d23b3b") : exporter.theme.mute
+                text: exporter.mp4TooLarge
+                    ? qsTr("MP4 supports up to %1 px per side and %2 px in total, but this render is %3 × %4. Lower the render size, or export WebM or a PNG sequence.")
+                          .arg(exporter.mp4MaxSide).arg("35,651,584").arg(exporter.frameWidth).arg(exporter.frameHeight)
+                    : qsTr("MP4 uses H.265, up to %1 px per side and %2 px in total. The Windows Media Player may need the HEVC Video Extensions.")
+                          .arg(exporter.mp4MaxSide).arg("35,651,584")
             }
             Item {
                 id: progress
@@ -313,7 +297,7 @@ Item {
                     title: exporter.running ? qsTr("Cancel") : qsTr("Start export")
                     caption: exporter.running ? "STOP" : "GO"
                     dark: exporter.running
-                    enabled: exporter.running ? exporter.shell.can("export.cancel") : exporter.shell.can(exporter.chosen.key) && !exporter.ffmpegMissing
+                    enabled: exporter.running ? exporter.shell.can("export.cancel") : exporter.shell.can(exporter.chosen.key) && !exporter.blocked
                     onClicked: exporter.running ? exporter.shell.send("export.cancel", null) : exporter.start()
                 }
             }

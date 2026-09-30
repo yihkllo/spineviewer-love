@@ -21,6 +21,7 @@ enum class RuntimeKind
 	Cpp40,
 	Cpp41,
 	Cpp42,
+	Cpp43,
 };
 
 struct RuntimeInfo
@@ -180,6 +181,7 @@ std::unique_ptr<IRuntime> CreateCpp38Runtime();
 std::unique_ptr<IRuntime> CreateCpp40Runtime();
 std::unique_ptr<IRuntime> CreateCpp41Runtime();
 std::unique_ptr<IRuntime> CreateCpp42Runtime();
+std::unique_ptr<IRuntime> CreateCpp43Runtime();
 
 }
 

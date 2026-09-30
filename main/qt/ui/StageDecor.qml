@@ -209,16 +209,21 @@ Item {
             }
         }
     }
+    property bool topRightCorner: false
+    property bool bottomRightCorner: false
     Repeater {
-        model: [{left:true},{left:false}]
+        model: [{key:"tl",top:true,left:true},{key:"bl",top:false,left:true},{key:"tr",top:true,left:false},{key:"br",top:false,left:false}]
         delegate: Shape {
             id: corner
             required property var modelData
+            objectName: "stageCorner_" + modelData.key
             readonly property real size: decor.metrics.s(39)
-            x: decor.canvasLeft + decor.metrics.s(40)
-            y: modelData.left ? decor.topInset + decor.metrics.s(30) : decor.height - decor.metrics.s(40) - size
+            readonly property real ex: modelData.left ? 0 : size
+            readonly property real ey: modelData.top ? 0 : size
+            x: modelData.left ? decor.canvasLeft + decor.metrics.s(40) : decor.width - decor.metrics.s(40) - size
+            y: modelData.top ? decor.topInset + decor.metrics.s(30) : decor.height - decor.metrics.s(40) - size
             width: size; height: size
-            visible: !decor.exporting
+            visible: !decor.exporting && decor.variant === 0 && (modelData.left || (modelData.top ? decor.topRightCorner : decor.bottomRightCorner))
             opacity: decor.theme.dark ? .25 : .5
             preferredRendererType: Shape.CurveRenderer
             ShapePath {
@@ -227,9 +232,9 @@ Item {
                 strokeWidth: Math.max(1.5, decor.metrics.s(4.5))
                 joinStyle: ShapePath.MiterJoin
                 capStyle: ShapePath.FlatCap
-                startX: 0; startY: corner.modelData.left ? corner.size : 0
-                PathLine { x: 0; y: corner.modelData.left ? 0 : corner.size }
-                PathLine { x: corner.size; y: corner.modelData.left ? 0 : corner.size }
+                startX: corner.ex; startY: corner.size - corner.ey
+                PathLine { x: corner.ex; y: corner.ey }
+                PathLine { x: corner.size - corner.ex; y: corner.ey }
             }
         }
     }

@@ -113,6 +113,10 @@ if ($ImageFormatsRoot) {
         if (!$plugin.BaseName.EndsWith('d')) { Copy-Item -LiteralPath $plugin.FullName -Destination $imagePlugins -Force }
     }
 }
+if (!$FfmpegPath) {
+    $bundledFfmpeg = Join-Path $projectRoot 'third_party/ffmpeg/windows/ffmpeg.exe'
+    if (Test-Path -LiteralPath $bundledFfmpeg) { $FfmpegPath = $bundledFfmpeg }
+}
 if ($FfmpegPath) {
     $FfmpegPath = (Resolve-Path -LiteralPath $FfmpegPath).Path
     $targetFfmpeg = Join-Path $Destination 'ffmpeg.exe'
@@ -131,4 +135,5 @@ $multimediaSbom = Join-Path $MultimediaRoot 'sbom/qtmultimedia-6.8.3.spdx.json'
 if (Test-Path -LiteralPath $multimediaSbom) { Copy-Item -LiteralPath $multimediaSbom -Destination $licenseDirectory -Force }
 Copy-Item -LiteralPath $launcher -Destination (Join-Path $packageDirectory 'SpineLoveEX.exe') -Force
 Write-Output "Portable package: $packageDirectory"
-Write-Output 'Media playback uses the bundled Qt Multimedia codecs. Video export requires ffmpeg.exe beside the app or on PATH.'
+if ($FfmpegPath) { Write-Output 'Video export uses the bundled ffmpeg.exe.' }
+else { Write-Output 'Video export requires ffmpeg.exe beside the app or on PATH.' }

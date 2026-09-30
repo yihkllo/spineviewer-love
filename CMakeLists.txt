@@ -18,6 +18,8 @@ endif()
 if(MSVC)
     file(TO_NATIVE_PATH "${CMAKE_SOURCE_DIR}" SPINELOVE_SOURCE_MAP_FROM)
     add_compile_options(/experimental:deterministic "/pathmap:${SPINELOVE_SOURCE_MAP_FROM}=spinelove")
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+    add_compile_options("-ffile-prefix-map=${CMAKE_SOURCE_DIR}=spinelove")
 endif()
 
 option(SPINELOVE_BUILD_QT_APP "Build the Qt application, its SDK and plugins" OFF)

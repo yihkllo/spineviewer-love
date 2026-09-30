@@ -10,6 +10,9 @@ CheckBox {
     required property UiTheme theme
     property string tip: ""
     property real lineHeight: metrics.smallFont
+    property real inset: 0
+    property real trailing: 0
+    property color labelColor: theme.text
     font.pixelSize: lineHeight * metrics.fontEmScale
     padding: 0
     spacing: 6 * metrics.pixel
@@ -22,12 +25,14 @@ CheckBox {
     implicitHeight: Math.max(contentItem.implicitHeight, indicator.height)
     implicitWidth: text.length ? contentItem.implicitWidth : indicator.width
     opacity: enabled ? 1 : 0.45
-    readonly property bool hot: hovered && enabled
+    property bool pointerInside: hovered
+    readonly property bool hot: pointerInside && enabled
     HoverHandler { cursorShape: control.enabled ? Qt.PointingHandCursor : Qt.ArrowCursor }
     indicator: Item {
         readonly property real boxHeight: Math.round(control.lineHeight * .86 / control.metrics.pixel) * control.metrics.pixel
         implicitWidth: boxHeight * 2.3
         implicitHeight: boxHeight
+        x: control.inset
         y: (control.height - height) / 2
         SlPoly {
             anchors.fill: parent
@@ -53,10 +58,11 @@ CheckBox {
         }
     }
     contentItem: Text {
-        leftPadding: control.indicator.width + (control.text.length ? control.spacing : 0)
+        leftPadding: control.inset + control.indicator.width + (control.text.length ? control.spacing : 0)
+        rightPadding: control.trailing
         text: control.text
         textFormat: Text.PlainText
-        color: control.hot ? control.theme.accent : control.theme.text
+        color: control.hot ? control.theme.accent : control.labelColor
         font: control.font
         verticalAlignment: Text.AlignVCenter
         clip: true

@@ -1,7 +1,7 @@
 set(SPINELOVE_QT_VERSION "6.8.3" CACHE STRING "Exact Qt version used by the QRhi adapter; changing it requires rendering regression checks")
 find_package(Qt6 ${SPINELOVE_QT_VERSION} EXACT REQUIRED COMPONENTS Core Gui Widgets Qml Quick QuickControls2 ShaderTools Multimedia)
 set(CMAKE_AUTOMOC ON)
-include("${PROJECT_SOURCE_DIR}/cmake/Live2DWindows.cmake")
+include("${PROJECT_SOURCE_DIR}/cmake/Live2D.cmake")
 file(GLOB SPINELOVE_SDK_HEADERS CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/sdk/include/spinelove/*.h")
 add_library(spinelove_sdk SHARED ${SPINELOVE_SDK_HEADERS}
     plugin_api/plugin_registry.cpp
@@ -15,7 +15,16 @@ target_compile_definitions(spinelove_sdk PRIVATE SPINELOVE_SDK_BUILD NOMINMAX IN
 target_include_directories(spinelove_sdk
     PUBLIC "${PROJECT_SOURCE_DIR}/sdk/include"
     PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "${PROJECT_SOURCE_DIR}/main" "${PROJECT_SOURCE_DIR}/third_party/stb")
-target_link_libraries(spinelove_sdk PUBLIC Qt6::Core Qt6::Gui Qt6::Qml nlohmann_json PRIVATE SpineLove::Runtime spinelove_live2d_windows)
+target_link_libraries(spinelove_sdk PUBLIC Qt6::Core Qt6::Gui Qt6::Qml nlohmann_json PRIVATE SpineLove::Runtime Qt6::GuiPrivate)
+if(TARGET spinelove_live2d)
+    target_link_libraries(spinelove_sdk PRIVATE spinelove_live2d)
+    qt_add_shaders(spinelove_sdk "live2d_shaders" PREFIX "/live2d" BASE "${PROJECT_SOURCE_DIR}/main/live2d/shaders"
+        FILES "${PROJECT_SOURCE_DIR}/main/live2d/shaders/live2d.vert" "${PROJECT_SOURCE_DIR}/main/live2d/shaders/live2d.frag")
+    if(WIN32)
+        add_custom_command(TARGET spinelove_sdk POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:Qt6::Multimedia>" "$<TARGET_FILE_DIR:spinelove_sdk>")
+    endif()
+endif()
 add_library(spinelove_qt_plugin_host STATIC
     plugin_api/plugin_host.h plugin_api/plugin_host.cpp plugin_api/plugin_loader.h plugin_api/plugin_loader.cpp)
 target_compile_features(spinelove_qt_plugin_host PUBLIC cxx_std_17)
@@ -67,6 +76,10 @@ qt_add_resources(spinelove_qt "viewer_languages" PREFIX "/lang" BASE "${CMAKE_CU
 qt_add_shaders(spinelove_qt "viewer_shaders" PREFIX "/shaders" BASE "${CMAKE_CURRENT_SOURCE_DIR}/shaders" FILES shaders/spine.vert shaders/spine.frag shaders/scene_transition.frag)
 add_custom_command(TARGET spinelove_qt POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "${PROJECT_SOURCE_DIR}/main/resources/NotoSansSC-VF.ttf" "$<TARGET_FILE_DIR:spinelove_qt>/NotoSansSC-VF.ttf")
+if(WIN32 AND EXISTS "${PROJECT_SOURCE_DIR}/third_party/ffmpeg/windows/ffmpeg.exe")
+    add_custom_command(TARGET spinelove_qt POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${PROJECT_SOURCE_DIR}/third_party/ffmpeg/windows/ffmpeg.exe" "$<TARGET_FILE_DIR:spinelove_qt>/ffmpeg.exe")
+endif()
 add_custom_command(TARGET spinelove_qt POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:spinelove_qt>/render_d3d11/shaders"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "${PROJECT_SOURCE_DIR}/main/render_d3d11/shaders/sprite.hlsl" "$<TARGET_FILE_DIR:spinelove_qt>/render_d3d11/shaders/sprite.hlsl")

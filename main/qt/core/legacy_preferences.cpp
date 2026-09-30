@@ -18,7 +18,7 @@ QStringList readLegacyFavorites(const QString& path){
         if(row.endsWith('\r'))row.chop(1);
         if(row.isEmpty())continue;
         row=QDir::cleanPath(row);
-        if(QFileInfo::exists(row)&&!favorites.contains(row))favorites.append(row);
+        if(!favorites.contains(row))favorites.append(row);
     }
     std::sort(favorites.begin(),favorites.end());return favorites;
 }

@@ -8,17 +8,19 @@ Item {
     property real anchorY: shell.topInset + shell.metrics.inset
     readonly property UiMetrics metrics: shell.metrics
     readonly property UiTheme theme: shell.theme
-    readonly property var spines: shell.read("loadedSpines", [])
-    readonly property var backgrounds: shell.read("backgrounds", [])
+    readonly property var stack: shell.read("layerStack", [])
     property bool collapsed: false
     readonly property real pad: metrics.s(18)
     readonly property real rowH: metrics.s(40)
     readonly property real rowGap: metrics.s(4)
     readonly property real textPx: metrics.smallFont * metrics.fontEmScale
     width: metrics.s(340)
-    height: body.implicitHeight + pad * 1.7
-    x: shell.width - width - metrics.inset
-    y: anchorY
+    height: cardHeader.height + (collapsed ? 0 : body.spacing + stackList.height + content.spacing + hint.height) + pad * 1.7
+    property real dragX: 0
+    property real dragY: 0
+    onVisibleChanged: if (!visible) { dragX = 0; dragY = 0; }
+    x: Math.max(0, Math.min(shell.width - width, shell.width - width - metrics.inset + dragX))
+    y: Math.max(shell.topInset, Math.min(shell.height - rowH, anchorY + dragY))
     SlPoly { anchors.fill: parent; cutTL: layers.metrics.s(22); fill: layers.theme.glass }
     Column {
         id: body
@@ -26,6 +28,7 @@ Item {
         width: layers.width - layers.pad * 2
         spacing: layers.metrics.s(10)
         Item {
+            id: cardHeader
             objectName: "layerCardHeader"
             width: parent.width; height: layers.rowH * .8
             Row {
@@ -47,13 +50,22 @@ Item {
                 }
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
-                    text: layers.spines.length + layers.backgrounds.length
+                    text: layers.stack.length
                     font.family: layers.theme.numberFont; font.weight: Font.Bold; font.italic: true
                     font.pixelSize: layers.textPx
                     color: layers.theme.accent
                 }
             }
+            AddButton {
+                host: layers
+                objectName: "addBackgroundLayer"
+                anchors.right: collapse.left; anchors.rightMargin: layers.metrics.s(6)
+                anchors.verticalCenter: parent.verticalCenter
+                label: qsTr("Add background")
+                command: "background.open"
+            }
             IconButton {
+                id: collapse
                 host: layers
                 objectName: "layerCardCollapse"
                 anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
@@ -63,58 +75,25 @@ Item {
             }
             HoverHandler { cursorShape: Qt.SizeAllCursor }
             DragHandler {
-                target: layers
-                xAxis.minimum: 0; xAxis.maximum: Math.max(0, layers.shell.width - layers.width)
-                yAxis.minimum: layers.shell.topInset; yAxis.maximum: Math.max(layers.shell.topInset, layers.shell.height - layers.rowH)
+                target: null
+                property real startX: 0
+                property real startY: 0
+                onActiveChanged: if (active) { startX = layers.dragX; startY = layers.dragY; }
+                onTranslationChanged: { layers.dragX = startX + translation.x; layers.dragY = startY + translation.y; }
             }
         }
         Column {
+            id: content
             visible: !layers.collapsed
             width: parent.width
             spacing: layers.metrics.s(8)
-            SectionHead {
-                host: layers
-                title: qsTr("Spine"); caption: "SPINE"
-                command: "file.addSpine"
-                objectName: "addSpineLayer"
-            }
-            LayerList { host: layers; objectName: "spineLayers"; kind: "spine"; rows: layers.spines; numberBase: 0 }
-            SectionHead {
-                host: layers
-                title: qsTr("Backgrounds"); caption: "BACKGROUND"
-                command: "background.open"
-                objectName: "addBackgroundLayer"
-                addVisible: layers.backgrounds.length > 0
-            }
-            LayerList { host: layers; objectName: "backgroundLayers"; kind: "background"; rows: layers.backgrounds; numberBase: layers.spines.length }
-            Item {
-                objectName: "emptyBackground"
-                visible: layers.backgrounds.length === 0
-                width: parent.width; height: layers.rowH
-                SlPoly {
-                    anchors.fill: parent; br: height * .3
-                    fill: emptyMouse.containsMouse ? layers.theme.buttonHover : "transparent"
-                    stroke: layers.theme.line; strokeWidth: Math.max(1, layers.metrics.s(1.5))
-                }
-                Row {
-                    anchors.centerIn: parent
-                    spacing: layers.metrics.s(6)
-                    SlIcon { anchors.verticalCenter: parent.verticalCenter; width: layers.textPx; height: width; name: "plus"; color: layers.theme.mute }
-                    Text { anchors.verticalCenter: parent.verticalCenter; text: qsTr("Add background image"); font.pixelSize: layers.textPx; color: layers.theme.mute }
-                }
-                MouseArea {
-                    id: emptyMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    enabled: layers.shell.can("background.open")
-                    onClicked: layers.shell.send("background.open", "")
-                }
-            }
+            LayerList { id: stackList; host: layers; objectName: "stackLayers"; rows: layers.stack }
             Text {
+                id: hint
+                objectName: "layerCardHint"
                 width: parent.width
                 wrapMode: Text.WordWrap
-                text: qsTr("Drag on the canvas to move the selected layer, scroll to scale it. Drag rows to reorder.")
+                text: qsTr("Press and hold a row, then drag to reorder layers.")
                 font.pixelSize: layers.textPx * .82
                 color: layers.theme.mute
             }
@@ -144,53 +123,32 @@ Item {
         }
     }
 
-    component SectionHead: Item {
-        id: head
+    component AddButton: Item {
+        id: addButton
         required property var host
-        property string title
-        property string caption
+        property string label
         property string command
-        property bool addVisible: true
-        width: parent.width; height: host.textPx * 1.7
-        Row {
-            anchors.verticalCenter: parent.verticalCenter
-            spacing: host.metrics.s(6)
-            Rectangle { anchors.verticalCenter: parent.verticalCenter; width: host.metrics.s(3); height: host.textPx; color: host.theme.accent }
-            Text { anchors.verticalCenter: parent.verticalCenter; text: head.title; font.weight: Font.Bold; font.pixelSize: host.textPx; color: host.theme.text }
-            Text {
-                anchors.verticalCenter: parent.verticalCenter
-                text: head.caption
-                font.family: host.theme.numberFont; font.weight: Font.Bold
-                font.pixelSize: host.textPx * .72; font.letterSpacing: host.textPx * .12
-                color: host.theme.mute
-            }
+        width: addRow.width + host.metrics.s(22); height: host.textPx * 1.7
+        enabled: host.shell.can(addButton.command)
+        opacity: enabled ? 1 : .4
+        SlPoly {
+            anchors.fill: parent
+            tl: height * .3; br: height * .3
+            fill: addMouse.containsMouse ? addButton.host.theme.mix(addButton.host.theme.accent, "white", .15) : addButton.host.theme.accent
         }
-        Item {
-            objectName: head.objectName + "Button"
-            visible: head.addVisible
-            anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
-            width: addRow.width + host.metrics.s(22); height: parent.height
-            enabled: host.shell.can(head.command)
-            opacity: enabled ? 1 : .4
-            SlPoly {
-                anchors.fill: parent
-                tl: height * .3; br: height * .3
-                fill: addMouse.containsMouse ? host.theme.mix(host.theme.accent, "white", .15) : host.theme.accent
-            }
-            Row {
-                id: addRow
-                anchors.centerIn: parent
-                spacing: host.metrics.s(3)
-                SlIcon { anchors.verticalCenter: parent.verticalCenter; width: host.textPx * .85; height: width; name: "plus"; color: host.theme.accentInk }
-                Text { anchors.verticalCenter: parent.verticalCenter; text: qsTr("Add"); font.pixelSize: host.textPx * .85; font.weight: Font.Medium; color: host.theme.accentInk }
-            }
-            MouseArea {
-                id: addMouse
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: host.shell.send(head.command, "")
-            }
+        Row {
+            id: addRow
+            anchors.centerIn: parent
+            spacing: addButton.host.metrics.s(3)
+            SlIcon { anchors.verticalCenter: parent.verticalCenter; width: addButton.host.textPx * .85; height: width; name: "plus"; color: addButton.host.theme.accentInk }
+            Text { anchors.verticalCenter: parent.verticalCenter; text: addButton.label; font.pixelSize: addButton.host.textPx * .85; font.weight: Font.Medium; color: addButton.host.theme.accentInk }
+        }
+        MouseArea {
+            id: addMouse
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: addButton.host.shell.send(addButton.command, "")
         }
     }
 
@@ -198,12 +156,18 @@ Item {
         id: list
         required property var host
         property var rows: []
-        property string kind
-        property int numberBase: 0
         property int dragFrom: -1
         property int dragTo: -1
+        property bool settling: false
+        property bool instant: false
         readonly property real pitch: list.host.rowH + list.host.rowGap
-        readonly property bool spine: kind === "spine"
+        function commit() {
+            const from = dragFrom, to = dragTo;
+            instant = true;
+            dragFrom = -1; dragTo = -1; settling = false;
+            if (from >= 0 && to >= 0 && from !== to) list.host.shell.send("layer.stackMove", {from: from, to: to});
+            Qt.callLater(function() { list.instant = false; });
+        }
         width: parent.width
         height: Math.max(0, rows.length * pitch - list.host.rowGap)
         visible: rows.length > 0
@@ -214,6 +178,9 @@ Item {
                 required property int index
                 required property var modelData
                 readonly property bool dragging: list.dragFrom === index
+                readonly property bool spine: modelData.kind !== "background"
+                readonly property bool live2dModel: modelData.kind === "live2d"
+                readonly property int layerIndex: modelData.index
                 readonly property bool selected: modelData.selected === true
                 readonly property bool shown: modelData.visible !== false
                 readonly property color ink: selected ? list.host.theme.inkText : list.host.theme.text
@@ -221,8 +188,18 @@ Item {
                 property real shift: list.dragFrom < 0 || dragging ? 0
                                    : (index > list.dragFrom && index <= list.dragTo) ? -list.pitch
                                    : (index < list.dragFrom && index >= list.dragTo) ? list.pitch : 0
-                Behavior on shift { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
-                objectName: list.kind + "Layer_" + index
+                Behavior on shift { enabled: !list.instant; NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
+                scale: dragging && !list.settling ? 1.03 : 1
+                Behavior on scale { enabled: !list.instant; NumberAnimation { duration: 120; easing.type: Easing.OutBack } }
+                NumberAnimation {
+                    id: settle
+                    target: row
+                    property: "dragY"
+                    duration: 110
+                    easing.type: Easing.OutCubic
+                    onFinished: { row.dragY = 0; list.commit(); }
+                }
+                objectName: modelData.kind + "Layer_" + modelData.index
                 width: list.width; height: list.host.rowH
                 y: index * list.pitch + (dragging ? dragY : shift)
                 z: dragging ? 2 : 0
@@ -237,6 +214,7 @@ Item {
                     property real startY: 0
                     property bool moved: false
                     anchors.fill: parent
+                    enabled: !list.settling
                     hoverEnabled: true
                     preventStealing: true
                     cursorShape: moved ? Qt.ClosedHandCursor : Qt.PointingHandCursor
@@ -246,16 +224,17 @@ Item {
                         const dy = mapToItem(list, mouse.x, mouse.y).y - startY;
                         if (!moved && Math.abs(dy) < list.host.metrics.s(6)) return;
                         if (!moved) { moved = true; list.dragFrom = row.index; list.dragTo = row.index; }
-                        row.dragY = dy;
-                        list.dragTo = Math.max(0, Math.min(list.rows.length - 1, Math.round(row.index + dy / list.pitch)));
+                        row.dragY = Math.max(-row.index * list.pitch, Math.min((list.rows.length - 1 - row.index) * list.pitch, dy));
+                        list.dragTo = Math.max(0, Math.min(list.rows.length - 1, Math.round(row.index + row.dragY / list.pitch)));
                     }
                     onReleased: {
                         if (moved) {
-                            const from = list.dragFrom, to = list.dragTo;
-                            if (from !== to) list.host.shell.send(list.spine ? "layer.move" : "background.move", {from: from, to: to});
-                            list.dragFrom = -1; list.dragTo = -1; row.dragY = 0; moved = false;
+                            moved = false;
+                            list.settling = true;
+                            settle.to = (list.dragTo - list.dragFrom) * list.pitch;
+                            settle.start();
                         } else {
-                            list.host.shell.send(list.spine ? "layer.select" : "background.select", row.index);
+                            list.host.shell.send(row.spine ? "layer.select" : "background.select", row.layerIndex);
                         }
                     }
                     onCanceled: { list.dragFrom = -1; list.dragTo = -1; row.dragY = 0; moved = false; }
@@ -274,10 +253,18 @@ Item {
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
                         width: list.host.textPx * 1.5
-                        text: list.numberBase + row.index + 1
+                        text: row.index + 1
                         font.family: list.host.theme.numberFont; font.weight: Font.Bold; font.italic: true
                         font.pixelSize: list.host.textPx
                         color: row.selected ? list.host.theme.accent2 : list.host.theme.accent
+                    }
+                    SlIcon {
+                        anchors.verticalCenter: parent.verticalCenter
+                        visible: !row.spine
+                        width: list.host.textPx * .9; height: width
+                        name: "image"
+                        color: row.ink
+                        opacity: .7
                     }
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
@@ -296,19 +283,19 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     IconButton {
                         host: list.host
-                        objectName: list.kind + "Visible_" + row.index
+                        objectName: row.modelData.kind + "Visible_" + row.layerIndex
                         icon: row.shown ? "eye" : "eyeOff"
                         tint: row.ink
-                        enabled: list.host.shell.can(list.spine ? "layer.visible" : "background.visible")
-                        onClicked: list.host.shell.send(list.spine ? "layer.visible" : "background.visible", row.index)
+                        enabled: list.host.shell.can(row.spine ? "layer.visible" : "background.visible")
+                        onClicked: list.host.shell.send(row.spine ? "layer.visible" : "background.visible", row.layerIndex)
                     }
                     IconButton {
                         host: list.host
-                        objectName: list.kind + "Remove_" + row.index
-                        visible: !list.spine
+                        objectName: row.modelData.kind + "Remove_" + row.layerIndex
                         icon: "close"
                         tint: row.ink
-                        onClicked: list.host.shell.send("background.remove", row.index)
+                        enabled: list.host.shell.can(row.spine ? "layer.remove" : "background.remove")
+                        onClicked: list.host.shell.send(row.spine ? "layer.remove" : "background.remove", row.layerIndex)
                     }
                 }
             }

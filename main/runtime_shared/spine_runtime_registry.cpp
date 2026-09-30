@@ -40,9 +40,9 @@ namespace
 		return descriptor;
 	}
 
-	const std::array<RuntimeDescriptor, 10>& RuntimeCatalog()
+	const std::array<RuntimeDescriptor, 11>& RuntimeCatalog()
 	{
-		static const std::array<RuntimeDescriptor, 10> catalog =
+		static const std::array<RuntimeDescriptor, 11> catalog =
 		{
 			MakeRuntimeDescriptor(SlRuntimeHub::RuntimeLane::Runtime21, "2.1"),
 			MakeRuntimeDescriptor(SlRuntimeHub::RuntimeLane::Runtime31, "3.1"),
@@ -53,7 +53,8 @@ namespace
 			MakeRuntimeDescriptor(SlRuntimeHub::RuntimeLane::Runtime38, "3.8"),
 			MakeRuntimeDescriptor(SlRuntimeHub::RuntimeLane::Runtime40, "4.0"),
 			MakeRuntimeDescriptor(SlRuntimeHub::RuntimeLane::Runtime41, "4.1"),
-			MakeRuntimeDescriptor(SlRuntimeHub::RuntimeLane::Runtime42, "4.2")
+			MakeRuntimeDescriptor(SlRuntimeHub::RuntimeLane::Runtime42, "4.2"),
+			MakeRuntimeDescriptor(SlRuntimeHub::RuntimeLane::Runtime43, "4.3")
 		};
 		return catalog;
 	}
@@ -229,6 +230,7 @@ namespace
 		case SlRuntimeHub::RuntimeLane::Runtime40: return sl_runtime_v2::CreateCpp40Runtime();
 		case SlRuntimeHub::RuntimeLane::Runtime41: return sl_runtime_v2::CreateCpp41Runtime();
 		case SlRuntimeHub::RuntimeLane::Runtime42: return sl_runtime_v2::CreateCpp42Runtime();
+		case SlRuntimeHub::RuntimeLane::Runtime43: return sl_runtime_v2::CreateCpp43Runtime();
 		default: return nullptr;
 		}
 	}
@@ -475,8 +477,32 @@ namespace
 				BuildDrawList(m_renderFrame, m_renderDrawList, spineIndex);
 				renderer.Submit(m_renderDrawList, layer.textures);
 				drewAny = true;
+				if (&layer == ActiveLayer() && m_probeFrameGeneration != m_stateGeneration)
+				{
+					std::swap(m_probeFrame, m_renderFrame);
+					m_probeFrameGeneration = m_stateGeneration;
+				}
 			}
 			return drewAny;
+		}
+
+		bool RemoveSkeleton(size_t index)
+		{
+			if (index >= m_layers.size())
+				return false;
+			if (m_layers.size() == 1)
+			{
+				ClearSpines();
+				return true;
+			}
+			InvalidateProbeFrame();
+			if (!m_layers[index].textures.empty())
+				m_d3d11TextureReleaseQueue.push_back(std::move(m_layers[index].textures));
+			m_layers.erase(m_layers.begin() + static_cast<std::ptrdiff_t>(index));
+			if (m_selectedSpine > index || m_selectedSpine >= m_layers.size())
+				--m_selectedSpine;
+			SyncActiveMotionBookkeeping();
+			return true;
 		}
 
 		bool QueryLastRenderedBounds(SlRect& outBounds) const noexcept
@@ -1559,6 +1585,11 @@ namespace
 	}
 }
 
+struct SlRuntimeHub::RuntimeExtensions
+{
+	std::vector<std::unique_ptr<SlPlaybackRuntime>> slots;
+};
+
 SlRuntimeHub::SlRuntimeHub()
 {
 	RebuildRuntimePool();
@@ -1569,14 +1600,18 @@ SlRuntimeHub::~SlRuntimeHub() = default;
 bool SlRuntimeHub::RebuildRuntimePool()
 {
 	m_runtimePoolReady = true;
+	if (!m_runtimeExtensions) m_runtimeExtensions = std::make_unique<RuntimeExtensions>();
+	m_runtimeExtensions->slots.resize(static_cast<size_t>(RuntimeLane::End) - BaseRuntimeLaneCount);
 
 	const auto& catalog = RuntimeCatalog();
 	for (size_t descriptorIndex = 0; descriptorIndex < catalog.size(); ++descriptorIndex)
 	{
 		const RuntimeDescriptor& descriptor = catalog[descriptorIndex];
 		const size_t runtimeIndex = static_cast<size_t>(descriptor.slot);
-		m_runtimeSlots[runtimeIndex] = CreateStaticRuntime(descriptor.slot);
-		if (!m_runtimeSlots[runtimeIndex])
+		auto& runtime = runtimeIndex < BaseRuntimeLaneCount ? m_runtimeSlots[runtimeIndex]
+			: m_runtimeExtensions->slots[runtimeIndex - BaseRuntimeLaneCount];
+		runtime = CreateStaticRuntime(descriptor.slot);
+		if (!runtime)
 			m_runtimePoolReady = false;
 	}
 
@@ -1616,9 +1651,10 @@ SlPlaybackRuntime* SlRuntimeHub::RuntimeForLane(RuntimeLane slot) const
 		return nullptr;
 
 	const size_t index = static_cast<size_t>(slot);
-	if (index >= RuntimeLaneCount || !m_runtimeSlots[index])
-		return nullptr;
-	return m_runtimeSlots[index].get();
+	if (index < BaseRuntimeLaneCount) return m_runtimeSlots[index].get();
+	const size_t extension = index - BaseRuntimeLaneCount;
+	return m_runtimeExtensions && extension < m_runtimeExtensions->slots.size()
+		? m_runtimeExtensions->slots[extension].get() : nullptr;
 }
 
 bool SlRuntimeHub::LaneIsReady(RuntimeLane slot) const
@@ -1662,6 +1698,12 @@ bool SlRuntimeHub::RenderCurrentRuntimeD3D11(sl_d3d11::D3D11Renderer& renderer)
 	return RenderCurrentRuntime(bridge);
 }
 #endif
+
+bool SlRuntimeHub::RemoveCurrentRuntimeSkeleton(size_t index)
+{
+	auto* staticRuntime = dynamic_cast<StaticRuntimeAdapter*>(CurrentRuntime());
+	return staticRuntime != nullptr && staticRuntime->RemoveSkeleton(index);
+}
 
 bool SlRuntimeHub::QueryLastRenderedBounds(SlRect& outBounds) const noexcept
 {

@@ -1,5 +1,6 @@
 #include "spinelove/live2d_bridge.h"
 #include "spinelove/interaction_rules.h"
+#include "spinelove/texture_loader.h"
 #include "petting_tracker.h"
 
 #include <QDir>
@@ -9,20 +10,27 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <cstdio>
+#include <QDateTime>
 #include <QFileInfo>
+#include <QHash>
 #include <QJSValue>
 #include <QMutex>
 #include <QMutexLocker>
 #include <QThread>
 #include <algorithm>
 #include <array>
+#include <atomic>
+#include <chrono>
 #include <cmath>
 #include <deque>
 #include <vector>
 #include <unordered_map>
+#include <rhi/qrhi.h>
 
-#if defined(Q_OS_WIN)
+#if defined(SPINELOVE_HAS_LIVE2D)
 #include "../../live2d/live2d_module.h"
+#endif
+#if defined(SL_LIVE2D_D3D11)
 #include "../../render_d3d11/d3d11_renderer.h"
 #include "../../render_d3d11/d3d11_texture.h"
 #include <objbase.h>
@@ -65,6 +73,51 @@ int Index(const QVariant& value, std::size_t count) {
     const int index = value.toInt(&ok);
     return ok && index >= 0 && static_cast<std::size_t>(index) < count ? index : -1;
 }
+std::atomic<int> textureMode{0};
+bool RhiTexturesPreferred() {
+    const int mode = textureMode.load();
+    if (mode) return mode == 2;
+#if defined(SL_LIVE2D_D3D11)
+    return Live2DBridge::rhiPreferred(true);
+#else
+    return true;
+#endif
+}
+struct PrefetchedImage { QImage image; QDateTime modified; std::chrono::steady_clock::time_point parked; };
+QMutex prefetchMutex;
+QHash<QString, PrefetchedImage> prefetched;
+QString PrefetchKey(const QString& path) {
+#if defined(Q_OS_WIN)
+    return QFileInfo(path).absoluteFilePath().toLower();
+#else
+    return QFileInfo(path).absoluteFilePath();
+#endif
+}
+void PrefetchImage(const QString& path) {
+    const QFileInfo info(path);
+    if (!info.exists()) return;
+    QImage image = slqt::loadTextureImage(path, false);
+    if (image.isNull()) return;
+    const auto now = std::chrono::steady_clock::now();
+    QMutexLocker lock(&prefetchMutex);
+    for (auto it = prefetched.begin(); it != prefetched.end();)
+        it = now - it->parked > std::chrono::seconds(30) ? prefetched.erase(it) : std::next(it);
+    prefetched.insert(PrefetchKey(path), {std::move(image), info.lastModified(), now});
+}
+QImage TakePrefetched(const QString& path) {
+    const QFileInfo info(path);
+    QMutexLocker lock(&prefetchMutex);
+    const auto found = prefetched.find(PrefetchKey(path));
+    if (found == prefetched.end()) return {};
+    PrefetchedImage entry = std::move(found.value());
+    prefetched.erase(found);
+    return entry.modified == info.lastModified() ? std::move(entry.image) : QImage{};
+}
+QImage LoadLiveTexture(const std::wstring& path) {
+    const QString file = QString::fromStdWString(path);
+    QImage image = TakePrefetched(file);
+    return image.isNull() ? slqt::loadTextureImage(file, false) : image;
+}
 }
 
 struct Live2DBridge::Impl {
@@ -84,13 +137,21 @@ struct Live2DBridge::Impl {
     QString exportError;
     QString acknowledgedExportCommand;
     quint64 exportFrameSerial = 0;
-#if defined(Q_OS_WIN)
+#if defined(SL_LIVE2D_D3D11)
     Microsoft::WRL::ComPtr<ID3D11Device> device;
     Microsoft::WRL::ComPtr<ID3D11DeviceContext> context;
     std::unique_ptr<sl_d3d11::D3D11Renderer> textures;
-    live2d::Live2DModule module;
     SlTextureId target = 0;
     bool comOwned = false;
+#endif
+#if defined(SPINELOVE_HAS_LIVE2D)
+    live2d::Live2DModule module;
+    QRhi* rhi = nullptr;
+    QRhiCommandBuffer* commands = nullptr;
+    bool continueCommands = false;
+    std::unique_ptr<QRhiTexture> rhiTarget;
+    std::unique_ptr<QRhiRenderPassDescriptor> rhiPass;
+    std::unique_ptr<QRhiTextureRenderTarget> rhiRenderTarget;
     std::vector<int> queue;
     bool queuePlaying = false;
     std::size_t queueIndex = 0;
@@ -259,7 +320,9 @@ struct Live2DBridge::Impl {
             QVariantList hits;for(const auto& hit:module.NativeRaycast(Number(map.value("x")),Number(map.value("y")),candidates))hits.append(QVariantMap{{"drawableId",QString::fromStdString(hit.drawableId)},{"index",hit.index},{"partType",hit.partType}});
             nativeHitResults.append(QVariantMap{{"token",map.value("token")},{"epoch",map.value("epoch")},{"hits",hits}});while(nativeHitResults.size()>64)nativeHitResults.removeFirst();
         }
-        else if (name == "live2d.tap") { stopQueue(); module.TapAt(Number(map.value("x")), Number(map.value("y"))); }
+        else if (name == "live2d.mirror") module.Mirror();
+        else if (name == "live2d.rotate") module.RotateClockwise();
+        else if (name == "live2d.tap") { stopQueue(); module.TapAt(Number(map.value("x")), Number(map.value("y")), map.value("next", true).toBool()); }
         else if (name == "animation.play") {
             const int index = Index(value, module.MotionNames().size());
             if (index >= 0 && !module.ExportSessionActive()) { stopQueue(); module.PlayMotion(index); }
@@ -497,8 +560,39 @@ struct Live2DBridge::Impl {
 #endif
 
     bool onRenderThread() const { return renderThread == QThread::currentThreadId(); }
-#if defined(Q_OS_WIN)
+#if defined(SPINELOVE_HAS_LIVE2D)
+    bool hasTarget() const {
+#if defined(SL_LIVE2D_D3D11)
+        if (!module.UsesRhi()) return target != 0;
+#endif
+        return rhiTarget != nullptr;
+    }
+    bool drawRhi(float advance, bool exporting, int width, int height, float centerOffsetX, float centerOffsetY) {
+        if (!commands || !rhi) { error = "Live2D rendering has no command buffer."; return false; }
+        if (size != QSize(width, height) || !rhiTarget) {
+            rhiRenderTarget.reset(); rhiPass.reset(); rhiTarget.reset(); size = {};
+            auto texture = std::unique_ptr<QRhiTexture>(rhi->newTexture(QRhiTexture::RGBA8, QSize(width, height), 1,
+                QRhiTexture::RenderTarget | QRhiTexture::UsedAsTransferSource));
+            if (!texture->create()) { error = "Unable to allocate the Live2D render target."; return false; }
+            auto renderTarget = std::unique_ptr<QRhiTextureRenderTarget>(rhi->newTextureRenderTarget(QRhiTextureRenderTargetDescription(texture.get())));
+            auto pass = std::unique_ptr<QRhiRenderPassDescriptor>(renderTarget->newCompatibleRenderPassDescriptor());
+            renderTarget->setRenderPassDescriptor(pass.get());
+            if (!renderTarget->create()) { error = "Unable to allocate the Live2D render target."; return false; }
+            rhiTarget = std::move(texture); rhiPass = std::move(pass); rhiRenderTarget = std::move(renderTarget);
+            size = QSize(width, height);
+        }
+        float remaining = advance;
+        bool ok = true;
+        do {
+            const float step = exporting ? (std::min)(0.1f, remaining) : remaining;
+            ok = module.Tick(step);
+            remaining = exporting ? remaining - step : 0;
+        } while (ok && remaining > 0.000001f);
+        return ok && module.RenderRhi(rhi, commands, rhiRenderTarget.get(), width, height, centerOffsetX, centerOffsetY, true, continueCommands);
+    }
     bool drawTarget(float advance, bool exporting, int width, int height, float centerOffsetX, float centerOffsetY) {
+        if (module.UsesRhi()) return drawRhi(advance, exporting, width, height, centerOffsetX, centerOffsetY);
+#if defined(SL_LIVE2D_D3D11)
         if (size != QSize(width, height) || !target) {
             if (target) textures->ReleaseTexture(target);
             target = textures->CreateRenderTarget(width, height);
@@ -524,6 +618,9 @@ struct Live2DBridge::Impl {
         context->OMSetRenderTargets(1, &previous, previousDepth.Get());
         if (count) context->RSSetViewports(count, previousViewports);
         return ok;
+#else
+        return false;
+#endif
     }
 #endif
 };
@@ -553,24 +650,32 @@ QVariantMap Live2DBridge::state() const { QMutexLocker lock(&m->mutex); return m
 quint64 Live2DBridge::revision() const { QMutexLocker lock(&m->mutex); return m->publishedRevision; }
 
 void Live2DBridge::prefetchTextures(const QString& manifestPath) {
-#if defined(Q_OS_WIN)
+#if defined(SPINELOVE_HAS_LIVE2D)
     QFile file(manifestPath);
     if (!file.open(QIODevice::ReadOnly)) return;
     const auto textures = QJsonDocument::fromJson(file.readAll()).object().value("FileReferences").toObject().value("Textures").toArray();
     const QDir directory = QFileInfo(manifestPath).absoluteDir();
-    for (const auto& texture : textures)
-        if (!texture.toString().isEmpty()) sl_d3d11::PrefetchTexturePixels(QDir::toNativeSeparators(directory.filePath(texture.toString())).toStdWString().c_str());
+    [[maybe_unused]] const bool rhiTextures = RhiTexturesPreferred();
+    for (const auto& texture : textures) {
+        if (texture.toString().isEmpty()) continue;
+        const QString path = directory.filePath(texture.toString());
+#if defined(SL_LIVE2D_D3D11)
+        if (!rhiTextures) { sl_d3d11::PrefetchTexturePixels(QDir::toNativeSeparators(path).toStdWString().c_str()); continue; }
+#endif
+        PrefetchImage(path);
+    }
 #else
     Q_UNUSED(manifestPath);
 #endif
 }
 
 bool Live2DBridge::initialize(ID3D11Device* device, ID3D11DeviceContext* context, const QString& shaderPath) {
-#if defined(Q_OS_WIN)
+#if defined(SL_LIVE2D_D3D11)
     if (m->renderThread && !m->onRenderThread()) return false;
-    if (m->device.Get() == device && m->module.RenderingBackendAvailable()) return true;
+    if (m->device.Get() == device && m->module.RenderingBackendAvailable() && !m->module.UsesRhi()) return true;
     shutdown();
     m->renderThread = QThread::currentThreadId();
+    textureMode.store(1);
     if (!device || !context) { m->error = "Qt did not provide a D3D11 device/context."; m->publish(true); return false; }
     const HRESULT apartment = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
     m->comOwned = SUCCEEDED(apartment);
@@ -594,14 +699,93 @@ bool Live2DBridge::initialize(ID3D11Device* device, ID3D11DeviceContext* context
 #else
     Q_UNUSED(device); Q_UNUSED(context); Q_UNUSED(shaderPath);
     QMutexLocker lock(&m->mutex);
-    m->snapshot.insert("error", "The Live2D GLES/Metal backend has not been integrated on this platform yet.");
+    m->snapshot.insert("error", "Live2D D3D11 rendering is unavailable on this platform.");
     m->snapshot.insert("capabilities", QVariantMap{});
     return false;
 #endif
 }
 
+bool Live2DBridge::rhiPreferred(bool d3d11Backend) {
+    if (!d3d11Backend) return true;
+    static const bool forced = qEnvironmentVariable("SPINELOVE_LIVE2D_RENDERER").compare(QLatin1String("rhi"), Qt::CaseInsensitive) == 0;
+    return forced;
+}
+
+bool Live2DBridge::initializeRhi(QRhi* rhi) {
+#if defined(SPINELOVE_HAS_LIVE2D)
+    if (m->renderThread && !m->onRenderThread()) return false;
+    if (rhi && m->rhi == rhi && m->module.UsesRhi()) return true;
+    shutdown();
+    m->renderThread = QThread::currentThreadId();
+    if (!rhi) { m->error = "Qt did not provide a rendering device."; m->publish(true); return false; }
+    m->rhi = rhi;
+    textureMode.store(2);
+    if (!m->module.InitializeRhi(&LoadLiveTexture)) {
+        m->error = QString::fromUtf8(m->module.LastError().c_str()); m->publish(true); return false;
+    }
+    m->error.clear();
+    ++m->deviceGeneration;
+    if (m->recovery.valid) m->restoreAfterDeviceRecovery();
+    else if (!m->lastManifest.isEmpty()) m->open(m->lastManifest);
+    m->publish(true);
+    return true;
+#else
+    Q_UNUSED(rhi);
+    QMutexLocker lock(&m->mutex);
+    m->snapshot.insert("error", "Live2D is not available on this platform.");
+    m->snapshot.insert("capabilities", QVariantMap{});
+    return false;
+#endif
+}
+
+bool Live2DBridge::renderRhi(QRhiCommandBuffer* cb, float deltaSeconds, int width, int height, float centerOffsetX, float centerOffsetY) {
+#if defined(SPINELOVE_HAS_LIVE2D)
+    if (!m->module.UsesRhi()) return false;
+    m->commands = cb;
+    const bool ok = render(deltaSeconds, width, height, centerOffsetX, centerOffsetY);
+    m->commands = nullptr;
+    return ok;
+#else
+    Q_UNUSED(cb); Q_UNUSED(deltaSeconds); Q_UNUSED(width); Q_UNUSED(height); Q_UNUSED(centerOffsetX); Q_UNUSED(centerOffsetY);
+    return false;
+#endif
+}
+
+bool Live2DBridge::renderExportFrameRhi(QRhiCommandBuffer* cb, int motionIndex, bool advance, float advanceSeconds, int width, int height,
+                                        float centerOffsetX, float centerOffsetY, bool continueCommands) {
+#if defined(SPINELOVE_HAS_LIVE2D)
+    if (!m->module.UsesRhi()) return false;
+    m->commands = cb;
+    m->continueCommands = continueCommands;
+    const bool ok = renderExportFrame(motionIndex, advance, advanceSeconds, width, height, centerOffsetX, centerOffsetY);
+    m->commands = nullptr;
+    m->continueCommands = false;
+    return ok;
+#else
+    Q_UNUSED(cb); Q_UNUSED(motionIndex); Q_UNUSED(advance); Q_UNUSED(advanceSeconds); Q_UNUSED(width); Q_UNUSED(height);
+    Q_UNUSED(centerOffsetX); Q_UNUSED(centerOffsetY); Q_UNUSED(continueCommands);
+    return false;
+#endif
+}
+
+QRhiTexture* Live2DBridge::rhiTexture() const noexcept {
+#if defined(SPINELOVE_HAS_LIVE2D)
+    return m->module.UsesRhi() ? m->rhiTarget.get() : nullptr;
+#else
+    return nullptr;
+#endif
+}
+
+bool Live2DBridge::usesRhi() const noexcept {
+#if defined(SPINELOVE_HAS_LIVE2D)
+    return m->module.UsesRhi();
+#else
+    return false;
+#endif
+}
+
 bool Live2DBridge::processPendingCommands() {
-#if defined(Q_OS_WIN)
+#if defined(SPINELOVE_HAS_LIVE2D)
     if (!m->onRenderThread() || !m->module.RenderingBackendAvailable() || m->module.ExportSessionActive()) return false;
     std::deque<Command> commands;
     {
@@ -619,7 +803,7 @@ bool Live2DBridge::processPendingCommands() {
 }
 
 bool Live2DBridge::render(float deltaSeconds, int width, int height, float centerOffsetX, float centerOffsetY) {
-#if defined(Q_OS_WIN)
+#if defined(SPINELOVE_HAS_LIVE2D)
     if (!m->onRenderThread() || !m->module.RenderingBackendAvailable()) return false;
     std::deque<Command> commands;
     const bool sessionAtEntry = m->module.ExportSessionActive();
@@ -684,14 +868,14 @@ bool Live2DBridge::render(float deltaSeconds, int width, int height, float cente
     if (!m->module.HasImportedModel() || width <= 0 || height <= 0) {
         acknowledge(false); m->publish(!commands.empty()); return false;
     }
-    if (m->module.ExportSessionActive() && !transactionNeedsFrame && !m->forceExportFrame && m->target) {
+    if (m->module.ExportSessionActive() && !transactionNeedsFrame && !m->forceExportFrame && m->hasTarget()) {
         acknowledge(true); m->publish(!commands.empty()); return true;
     }
     const bool exporting = m->module.ExportSessionActive();
     const float advance = exporting || sessionAtEntry || transaction ? fixedDelta
         : (std::isfinite(deltaSeconds) ? (std::max)(0.0f, deltaSeconds) : 0.0f);
     const bool ok = m->drawTarget(advance, exporting, width, height, centerOffsetX, centerOffsetY);
-    if (!m->target) { acknowledge(false); m->publish(true); return false; }
+    if (!m->hasTarget()) { acknowledge(false); m->publish(true); return false; }
     m->advanceQueue();
     if (ok && exporting) m->forceExportFrame = false;
     acknowledge(ok);
@@ -708,8 +892,8 @@ bool Live2DBridge::render(float deltaSeconds, int width, int height, float cente
 }
 
 ID3D11Texture2D* Live2DBridge::nativeTexture() const noexcept {
-#if defined(Q_OS_WIN)
-    return m->textures && m->target ? m->textures->GetNativeTexture(m->target) : nullptr;
+#if defined(SL_LIVE2D_D3D11)
+    return !m->module.UsesRhi() && m->textures && m->target ? m->textures->GetNativeTexture(m->target) : nullptr;
 #else
     return nullptr;
 #endif
@@ -717,23 +901,29 @@ ID3D11Texture2D* Live2DBridge::nativeTexture() const noexcept {
 QSize Live2DBridge::textureSize() const noexcept { return m->size; }
 
 void Live2DBridge::shutdown() {
-#if defined(Q_OS_WIN)
+#if defined(SPINELOVE_HAS_LIVE2D)
     Q_ASSERT(!m->renderThread || m->onRenderThread());
     m->rememberForDeviceRecovery();
     m->module.Shutdown();
-    m->textures.reset(); m->target = 0; m->size = {};
+#if defined(SL_LIVE2D_D3D11)
+    m->textures.reset(); m->target = 0;
     m->context.Reset(); m->device.Reset();
+#endif
+    m->rhiRenderTarget.reset(); m->rhiPass.reset(); m->rhiTarget.reset(); m->rhi = nullptr; m->commands = nullptr;
+    m->size = {};
     m->queuePlaying = false; m->queue.clear(); m->queueIndex = 0;
     m->forceExportFrame = false;
     m->petting.reset();
+#if defined(SL_LIVE2D_D3D11)
     if (m->comOwned) { CoUninitialize(); m->comOwned = false; }
+#endif
     m->renderThread = nullptr;
     m->publish(true);
 #endif
 }
 
 bool Live2DBridge::beginExportSession(int motionIndex, float fps) {
-#if defined(Q_OS_WIN)
+#if defined(SPINELOVE_HAS_LIVE2D)
     if (!m->onRenderThread() || motionIndex < 0 || static_cast<std::size_t>(motionIndex) >= m->module.MotionNames().size() || !std::isfinite(fps) || fps <= 0) return false;
     if (m->module.ExportSessionActive()) return false;
     m->stopQueue();
@@ -747,7 +937,7 @@ bool Live2DBridge::beginExportSession(int motionIndex, float fps) {
 #endif
 }
 bool Live2DBridge::exportSessionSwitchMotion(int motionIndex) {
-#if defined(Q_OS_WIN)
+#if defined(SPINELOVE_HAS_LIVE2D)
     const bool ok = m->onRenderThread() && motionIndex >= 0 && m->module.ExportSessionSwitchMotion(static_cast<std::size_t>(motionIndex));
     if (ok) m->forceExportFrame = true;
     return ok;
@@ -757,12 +947,12 @@ bool Live2DBridge::exportSessionSwitchMotion(int motionIndex) {
 }
 bool Live2DBridge::renderExportFrame(int motionIndex, bool advance, float advanceSeconds, int width, int height,
                                      float centerOffsetX, float centerOffsetY) {
-#if defined(Q_OS_WIN)
+#if defined(SPINELOVE_HAS_LIVE2D)
     if (!m->onRenderThread() || !m->module.RenderingBackendAvailable() || !m->module.ExportSessionActive()
         || !m->module.HasImportedModel() || width <= 0 || height <= 0) return false;
     if (motionIndex >= 0 && !exportSessionSwitchMotion(motionIndex)) return false;
     if (!std::isfinite(advanceSeconds) || advanceSeconds < 0 || advanceSeconds > 1) return false;
-    if (!advance && !m->forceExportFrame && m->target && m->size == QSize(width, height)) return true;
+    if (!advance && !m->forceExportFrame && m->hasTarget() && m->size == QSize(width, height)) return true;
     const bool ok = m->drawTarget(advance ? advanceSeconds : 0.0f, true, width, height, centerOffsetX, centerOffsetY);
     if (ok) { m->forceExportFrame = false; ++m->exportFrameSerial; }
     return ok;
@@ -772,7 +962,7 @@ bool Live2DBridge::renderExportFrame(int motionIndex, bool advance, float advanc
 #endif
 }
 void Live2DBridge::endExportSession() {
-#if defined(Q_OS_WIN)
+#if defined(SPINELOVE_HAS_LIVE2D)
     if (!m->onRenderThread()) return;
     m->module.EndExportSession();
     m->forceExportFrame = false;

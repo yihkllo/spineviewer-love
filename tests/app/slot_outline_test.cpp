@@ -48,6 +48,29 @@ int main()
     mesh.worldVertices={0,0,4,0,4,4,0,4};mesh.triangles={0,1,99};mesh.isRegion=false;mesh.hullLength=0;
     const auto malformed=slqt::buildSlotOutline(mesh,QImage{},SlIdentityMatrix4(),green);
     check(malformed.draws.commands.empty(),"bad triangle indices do not access beyond vertex memory");
+    {
+        ReadSlotMeshData moving;moving.textureHandle=2;moving.worldVertices={0,0,4,0,4,4,0,4};moving.uvs={0,0,1,0,1,1,0,1};moving.triangles={0,1,2,2,3,0};moving.isRegion=true;
+        QImage island(4,4,QImage::Format_ARGB32_Premultiplied);island.fill(Qt::transparent);
+        for(const auto& p:{QPoint(1,1),QPoint(2,1),QPoint(1,2),QPoint(2,2)})island.setPixelColor(p,Qt::white);
+        slqt::SlotOutlineCache cache;
+        const auto direct=slqt::buildSlotOutline(moving,island,SlIdentityMatrix4(),green);
+        const auto first=cache.build("slot",moving,island,SlIdentityMatrix4(),green);
+        check(first.method==slqt::SlotOutlineMethod::AlphaContour&&first.contourPointCount==direct.contourPointCount&&cache.rasterCount()==1,
+              "the cache matches the direct outline and reads ARGB32 alpha without converting the atlas");
+        check(std::abs(first.draws.commands[0].vertices[0].pos.x-direct.draws.commands[0].vertices[0].pos.x)<.0001f,"cached dots start where direct dots do");
+        for(size_t i=0;i<moving.worldVertices.size();i+=2){moving.worldVertices[i]+=7;moving.worldVertices[i+1]+=3;}
+        const auto moved=cache.build("slot",moving,island,SlIdentityMatrix4(),green);
+        check(cache.rasterCount()==1&&moved.contourPointCount==first.contourPointCount,"a moving slot reuses its alpha contour instead of rescanning the texture");
+        check(std::abs(moved.draws.commands[0].vertices[0].pos.x-(first.draws.commands[0].vertices[0].pos.x+7))<.0001f
+              &&std::abs(moved.draws.commands[0].vertices[0].pos.y-(first.draws.commands[0].vertices[0].pos.y+3))<.0001f,
+              "reused contour dots follow the current mesh vertices");
+        for(auto& value:moving.worldVertices)value*=3;
+        cache.build("slot",moving,island,SlIdentityMatrix4(),green);
+        check(cache.rasterCount()==2,"a strongly rescaled slot rescans so the contour stays dense");
+        moving.uvs={0,0,.5f,0,.5f,.5f,0,.5f};
+        cache.build("slot",moving,island,SlIdentityMatrix4(),green);
+        check(cache.rasterCount()==3,"a different attachment region rescans");
+    }
     std::cout<<"Slot-outline compatibility checks: "<<failures<<" failures\n";
     return failures==0?0:1;
 }

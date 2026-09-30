@@ -18,8 +18,17 @@ Column {
     property int maxPixelCount: 268435456
     readonly property int actualWidth: Number(shell.read(widthKey, 1280))
     readonly property int actualHeight: Number(shell.read(heightKey, 720))
-    readonly property bool validSize: widthInput.acceptableInput && heightInput.acceptableInput
-                                     && Number(widthInput.text) * Number(heightInput.text) <= maxPixelCount
+    readonly property int typedWidth: widthInput && widthInput.text.length ? Number(widthInput.text) : 0
+    readonly property int typedHeight: heightInput && heightInput.text.length ? Number(heightInput.text) : 0
+    function grouped(value) { return String(value).replace(/\B(?=(\d{3})+(?!\d))/g, ","); }
+    readonly property string limitProblem: {
+        if (!typedWidth || !typedHeight) return "";
+        if (typedWidth > maxDimension || typedHeight > maxDimension) return qsTr("Each side can be at most %1 px.").arg(maxDimension);
+        if (typedWidth < minWidth || typedHeight < minHeight) return qsTr("Width must be at least %1 px and height at least %2 px.").arg(minWidth).arg(minHeight);
+        if (typedWidth * typedHeight > maxPixelCount) return qsTr("%1 px in total is over the %2 px limit.").arg(grouped(typedWidth * typedHeight)).arg(grouped(maxPixelCount));
+        return "";
+    }
+    readonly property bool validSize: typedWidth > 0 && typedHeight > 0 && limitProblem.length === 0
     spacing: 10 * metrics.pixel
     function sync() {
         if (edited || !widthInput || !heightInput) return;
@@ -43,17 +52,18 @@ Column {
         font.pixelSize: editor.textSize
         color: editor.theme.text
         selectionColor: editor.theme.selected
-        selectedTextColor: "white"
+        selectedTextColor: editor.theme.text
         padding: 10 * editor.metrics.pixel
+        leftPadding: 14 * editor.metrics.pixel
+        hoverEnabled: true
         selectByMouse: true
         inputMethodHints: Qt.ImhDigitsOnly
         onTextEdited: editor.edited = true
         onAccepted: editor.apply()
-        background: Rectangle {
-            radius: 8 * editor.metrics.pixel
-            color: editor.theme.frame
-            border.width: editor.metrics.pixel
-            border.color: input.activeFocus ? editor.theme.selected : editor.theme.separator
+        background: SlFieldFrame {
+            metrics: editor.metrics; theme: editor.theme
+            focused: input.activeFocus
+            hovered: input.hovered
         }
     }
     Row {
@@ -64,7 +74,7 @@ Column {
             SizeInput {
                 id: widthInput
                 objectName: "customWindowWidth"
-                validator: IntValidator { bottom: editor.minWidth; top: editor.maxDimension }
+                validator: RegularExpressionValidator { regularExpression: /[0-9]{0,6}/ }
                 Accessible.name: qsTr("Width (px)")
             }
         }
@@ -74,10 +84,19 @@ Column {
             SizeInput {
                 id: heightInput
                 objectName: "customWindowHeight"
-                validator: IntValidator { bottom: editor.minHeight; top: editor.maxDimension }
+                validator: RegularExpressionValidator { regularExpression: /[0-9]{0,6}/ }
                 Accessible.name: qsTr("Height (px)")
             }
         }
+    }
+    Text {
+        objectName: "sizeLimitHint"
+        width: parent.width
+        visible: editor.limitProblem.length > 0
+        text: editor.limitProblem
+        color: editor.theme.dark ? "#ff8a8a" : "#d23b3b"
+        font.pixelSize: editor.textSize * .92
+        wrapMode: Text.WordWrap
     }
     SlButton {
         objectName: "applyCustomWindowSize"

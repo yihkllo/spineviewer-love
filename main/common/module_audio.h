@@ -7,12 +7,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
-#include <unordered_map>
 #include <vector>
-
-struct IXAudio2;
-struct IXAudio2MasteringVoice;
-struct IXAudio2SourceVoice;
 
 namespace slaudio
 {
@@ -39,7 +34,7 @@ namespace slaudio
 
 		bool boot();
 		void shut();
-		bool ready() const noexcept { return m_x2 != nullptr; }
+		bool ready() const noexcept { return m_engine != nullptr; }
 
 		bool bgm_start(const std::wstring& file_path, float volume);
 		void bgm_stop();
@@ -62,37 +57,11 @@ namespace slaudio
 		void on_voice_end(voice_end_callback cb) { m_voice_end_cb = std::move(cb); }
 
 	private:
-		struct voice_sink;
-		struct se_slot;
+		struct engine;
+		struct state;
 
-		std::shared_ptr<const pcm_clip> decode_or_cache(const std::wstring& path);
-
-		void release_bgm_voice();
-		void release_voice_voice();
-
-		IXAudio2* m_x2 = nullptr;
-		IXAudio2MasteringVoice* m_master = nullptr;
-		bool m_mf_started = false;
-
-		IXAudio2SourceVoice* m_bgm_voice = nullptr;
-		std::shared_ptr<const pcm_clip> m_bgm_clip;
-		std::unique_ptr<voice_sink> m_bgm_sink;
-		float m_bgm_volume = 0.5f;
-		std::atomic<bool> m_bgm_active{ false };
-
-		IXAudio2SourceVoice* m_voice_voice = nullptr;
-		std::shared_ptr<const pcm_clip> m_voice_clip;
-		std::unique_ptr<voice_sink> m_voice_sink;
-		float m_voice_volume = 1.0f;
-		std::atomic<bool> m_voice_active{ false };
-		std::atomic<bool> m_voice_ended{ false };
-		std::uint64_t m_voice_start_tick = 0;
-
-		std::vector<std::unique_ptr<se_slot>> m_se_slots;
-
-		mutable std::mutex m_cache_mutex;
-		std::unordered_map<std::wstring, std::shared_ptr<const pcm_clip>> m_cache;
-
+		std::shared_ptr<engine> m_engine;
+		std::shared_ptr<state> m_state;
 		voice_end_callback m_voice_end_cb;
 	};
 }

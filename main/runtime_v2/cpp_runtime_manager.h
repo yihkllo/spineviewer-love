@@ -17,7 +17,7 @@ public:
 	IRuntime* Resolve(const char* version) const noexcept;
 
 private:
-	static constexpr size_t kRuntimeCount = 4;
+	static constexpr size_t kRuntimeCount = 5;
 	std::array<std::unique_ptr<IRuntime>, kRuntimeCount> m_runtimes;
 };
 

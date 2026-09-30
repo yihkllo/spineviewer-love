@@ -14,6 +14,7 @@ public:
     static bool isArchive(const QString& path);
     static QString extract(const QString& archivePath, QString* error = nullptr);
     static QStringList listSpine(const QString& archivePath, QString* error = nullptr);
+    static QStringList listLive2D(const QString& archivePath);
     static QString sourceArchive(const QString& path);
     static QString archiveOf(const QString& path);
     static QString displayPath(const QString& path);

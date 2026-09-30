@@ -25,6 +25,7 @@ Column {
     SlTextField {
         id: filter
         width: parent.width
+        search: true
         placeholderText: values.parts ? qsTr("Filter parts") : qsTr("Filter parameters")
         metrics: values.shell.metrics; theme: values.shell.theme
     }

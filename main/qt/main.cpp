@@ -11,6 +11,7 @@
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickWindow>
+#include <QQuickItem>
 #include <QFontDatabase>
 #include <QIcon>
 #include <QFile>
@@ -73,6 +74,17 @@ public:
 private:QHash<QString,QString> m_strings;
 };
 
+static QObject* qaFind(QQuickItem* item,const QString& name,bool visibleOnly){
+    if(!item||(visibleOnly&&!item->isVisible()))return nullptr;
+    if(item->objectName()==name)return item;
+    if(auto* direct=item->findChild<QObject*>(name,Qt::FindDirectChildrenOnly))return direct;
+    for(auto* child:item->childItems())if(auto* found=qaFind(child,name,visibleOnly))return found;
+    return nullptr;
+}
+static QObject* qaFind(QQuickItem* item,const QString& name){
+    if(auto* found=qaFind(item,name,true))return found;
+    return qaFind(item,name,false);
+}
 int main(int argc,char** argv){
     auto format=QSurfaceFormat::defaultFormat();format.setAlphaBufferSize(8);QSurfaceFormat::setDefaultFormat(format);
     QApplication app(argc,argv);
@@ -175,6 +187,29 @@ int main(int argc,char** argv){
                 for(const auto& entry:commands){
                     const auto object=entry.toObject();const auto command=object.value("command").toString();
                     if(command=="qa.window.restore"){if(window)window->showNormal();qaLastAction->restart();continue;}
+                    if(command=="qa.set"){
+                        const auto call=object.value("value").toObject();const auto name=call.value("object").toString();
+                        QObject* target=window?qaFind(window->contentItem(),name):nullptr;
+                        if(!target&&window)target=window->findChild<QObject*>(name);
+                        if(target)target->setProperty(call.value("property").toString().toUtf8().constData(),call.value("value").toVariant());
+                        qaLastAction->restart();continue;
+                    }
+                    if(command=="qa.invoke"){
+                        const auto call=object.value("value").toObject();const auto name=call.value("object").toString();
+                        QObject* target=window?qaFind(window->contentItem(),name):nullptr;
+                        if(!target&&window)target=window->findChild<QObject*>(name);
+                        const auto args=call.value("args").toArray().toVariantList();
+                        const auto method=call.value("method").toString().toUtf8();
+                        const auto a=[&](int i){return i<args.size()?args[i]:QVariant{};};
+                        if(target)switch(args.size()){
+                        case 0:QMetaObject::invokeMethod(target,method.constData());break;
+                        case 1:QMetaObject::invokeMethod(target,method.constData(),Q_ARG(QVariant,a(0)));break;
+                        case 2:QMetaObject::invokeMethod(target,method.constData(),Q_ARG(QVariant,a(0)),Q_ARG(QVariant,a(1)));break;
+                        case 3:QMetaObject::invokeMethod(target,method.constData(),Q_ARG(QVariant,a(0)),Q_ARG(QVariant,a(1)),Q_ARG(QVariant,a(2)));break;
+                        default:QMetaObject::invokeMethod(target,method.constData(),Q_ARG(QVariant,a(0)),Q_ARG(QVariant,a(1)),Q_ARG(QVariant,a(2)),Q_ARG(QVariant,a(3)));break;
+                        }
+                        qaLastAction->restart();continue;
+                    }
                     if(command=="qa.state.dump"){
                         auto state=qaState(controller,window);if(window){state["windowVisibility"]=int(window->visibility());state["windowGeometry"]=QVariantMap{{"x",window->x()},{"y",window->y()},{"width",window->width()},{"height",window->height()}};}
                         QFile output(object.value("value").toObject().value("path").toString());

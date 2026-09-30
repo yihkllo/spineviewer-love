@@ -1,4 +1,5 @@
 #pragma once
+#include <limits>
 #include <QObject>
 #include <QVariantMap>
 #include <QTimer>
@@ -16,6 +17,7 @@
 #include "export_service.h"
 #include "spinelove/scene_capture_request.h"
 #include "../render/scene_export_batch.h"
+#include "../render/slot_outline.h"
 
 class QQuickWindow;
 class QMenu;
@@ -28,6 +30,8 @@ class ViewerController final : public QObject {
     Q_PROPERTY(QObject* lists READ lists CONSTANT)
     Q_PROPERTY(QObject* plugins READ plugins CONSTANT)
 public:
+    static constexpr std::uint64_t live2dLayerMarker=std::numeric_limits<SlTextureId>::max();
+    static constexpr std::uint64_t live2dHiddenMarker=live2dLayerMarker-1;
     explicit ViewerController(QObject* parent=nullptr);
     QVariantMap state() const { return m_state; }
     QVariantMap publishedState() const { return m_publishedState; }
@@ -105,6 +109,7 @@ private:
     PluginHost* m_plugins=nullptr;
     bool m_pluginsWasOpen=false;
     SceneRecorder m_recorder;
+    slqt::SlotOutlineCache m_outlineCache;
     std::shared_ptr<const SceneSnapshot> m_snapshot;
     QPointer<QQuickWindow> m_window;
     QRect m_petReturnGeometry,m_fullscreenReturnGeometry;
@@ -141,8 +146,24 @@ private:
         QStringList files,favorites,layers;
         QString current,livePath;
         bool valid=false,live=false,liveLoaded=false,favoritesOnly=false;
+        int favoriteRevision=-1;
+        QString favoriteFolder;
         QVariantList rows;
     } m_fileRows;
+    struct FavoriteFolder {
+        QString id,name;
+        QStringList items;
+    };
+    QList<FavoriteFolder> m_favoriteFolders;
+    QString m_favoriteFolder=QStringLiteral("default");
+    int m_favoriteRevision=0;
+    QSet<QString> m_missingFavorites;
+    bool checkFavoriteFiles();
+    void loadFavoriteFolders();
+    void syncFavorites();
+    FavoriteFolder* favoriteFolder(const QString& id);
+    static QStringList favoritePaths(const QVariantMap& m);
+    QVariantList favoriteFolderRows() const;
     QStringList m_files,m_layers,m_favorites,m_queue,m_pendingPaths;
     QSet<int> m_selectedSkins,m_tracks,m_hiddenSlots;
     QSet<QString> m_modalPanels;
@@ -184,9 +205,12 @@ private:
         QPointF offset;
         float scale=1;
         bool visible=true;
+        int level=0;
     };
     QList<BackgroundLayer> m_backgrounds;
     int m_selectedBackground=-1;
+    int m_lastCharacterCount=0;
+    bool m_live2dHidden=false;
     bool hasBackground()const;
     BackgroundLayer* activeBackground();
     void clearBackgrounds();

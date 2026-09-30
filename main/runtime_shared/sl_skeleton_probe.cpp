@@ -176,12 +176,16 @@ namespace
 		if (text.empty() || text.size() > 31)
 			return false;
 
+		const size_t numericLength = text.size() >= 5 && text.compare(text.size() - 5, 5, "-beta") == 0
+			? text.size() - 5 : text.size();
+		if (numericLength == 0 || text[numericLength - 1] == '.') return false;
 		bool hasDot = false;
-		for (size_t i = 0; i < text.size(); ++i)
+		for (size_t i = 0; i < numericLength; ++i)
 		{
 			const unsigned char c = static_cast<unsigned char>(text[i]);
 			if (c == '.')
 			{
+				if (i == 0 || text[i - 1] == '.') return false;
 				hasDot = true;
 				continue;
 			}

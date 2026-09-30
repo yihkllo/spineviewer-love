@@ -8,6 +8,7 @@
 #include <QSaveFile>
 #include <QScopedValueRollback>
 #include <QStandardPaths>
+#include <QDateTime>
 #include <QTemporaryDir>
 #include <QTemporaryFile>
 #include <QThread>
@@ -212,6 +213,12 @@ QString ExportService::findFfmpeg()
     return QStandardPaths::findExecutable(name);
 }
 
+bool ExportService::mp4Fits(QSize frameSize)
+{
+    const int width = frameSize.width() / 2 * 2, height = frameSize.height() / 2 * 2;
+    return width > 0 && height > 0 && width <= mp4MaxSide && height <= mp4MaxSide && qint64(width) * height <= mp4MaxPixels;
+}
+
 QList<QStringList> ExportService::movieArguments(const QString& frameFolder, const QString& outputPath,
                                                 MovieFormat format, bool keepAlpha, int fps)
 {
@@ -220,10 +227,13 @@ QList<QStringList> ExportService::movieArguments(const QString& frameFolder, con
                            QDir(frameFolder).filePath("frame_%05d.png")};
     if (format == MovieFormat::Mp4) {
         const QStringList prefix = base + QStringList{"-vf", "crop=trunc(iw/2)*2:trunc(ih/2)*2"};
-        const QStringList tail{"-pix_fmt", "yuv420p", "-movflags", "+faststart", outputPath};
-        return {prefix + QStringList{"-c:v", "libx264", "-crf", "17"} + tail,
-                prefix + QStringList{"-c:v", "h264_mf", "-b:v", "12M"} + tail,
-                prefix + QStringList{"-c:v", "h264_nvenc", "-cq", "18"} + tail};
+        const QStringList tail{"-tag:v", "hvc1", "-movflags", "+faststart", outputPath};
+        return {prefix + QStringList{"-c:v", "hevc_nvenc", "-preset", "p5", "-rc", "vbr", "-cq", "20", "-b:v", "0", "-pix_fmt", "yuv420p"} + tail,
+                prefix + QStringList{"-c:v", "hevc_amf", "-quality", "quality", "-rc", "cqp", "-qp_i", "20", "-qp_p", "22", "-pix_fmt", "nv12"} + tail,
+                prefix + QStringList{"-c:v", "hevc_qsv", "-preset", "slower", "-global_quality", "22", "-pix_fmt", "nv12"} + tail,
+                prefix + QStringList{"-c:v", "hevc_mf", "-rate_control", "quality", "-quality", "80", "-pix_fmt", "nv12"} + tail,
+                prefix + QStringList{"-c:v", "libkvazaar", "-kvazaar-params", "preset=veryfast,qp=22", "-pix_fmt", "yuv420p"} + tail,
+                prefix + QStringList{"-c:v", "libopenh264", "-b:v", "12M", "-pix_fmt", "yuv420p", "-movflags", "+faststart", outputPath}};
     }
     if (format == MovieFormat::Gif && keepAlpha)
         return {base + QStringList{"-vf", "split[s0][s1];[s0]palettegen=max_colors=256:reserve_transparent=1[p];[s1][p]paletteuse=dither=sierra2_4a:alpha_threshold=128",
@@ -287,6 +297,7 @@ bool ExportService::start(const ExportRequest& request, RenderFrames render, boo
         total += count;
     }
     QString folder, stagedMovie;
+    bool createdFolder = false;
     if (movie) {
         const QFileInfo output(request.outputPath);
         if (!QFileInfo(output.absolutePath()).isDir())
@@ -306,6 +317,7 @@ bool ExportService::start(const ExportRequest& request, RenderFrames render, boo
         stagedMovie = encoded.fileName();
         folder = temporary.path();
     } else {
+        createdFolder = !QFileInfo::exists(request.outputPath);
         if (!QDir().mkpath(request.outputPath))
             return failWith(error, QStringLiteral("Could not create export directory."));
         folder = QFileInfo(request.outputPath).absoluteFilePath();
@@ -326,6 +338,7 @@ bool ExportService::start(const ExportRequest& request, RenderFrames render, boo
     m_stagedMoviePath = stagedMovie;
     m_keepStagedMovie = false;
     m_ownedTemporaryDirectory = movie;
+    m_createdFrameFolder = createdFolder;
     m_movie = movie;
     m_running = true;
     m_cancelled = false;
@@ -480,7 +493,7 @@ void ExportService::encodeNext()
         return;
     }
     if (m_encodeAttempt >= m_encodeArguments.size()) {
-        finish(false, QStringLiteral("Video encoding failed.\n%1").arg(m_encoderError));
+        finish(false, tr("Video encoding failed: no video encoder on this computer could encode this video. Try WebM or a PNG sequence, or lower the render size.") + QStringLiteral("\n\n") + m_encoderError.trimmed().right(1500));
         return;
     }
     const auto generation = m_generation;
@@ -519,10 +532,13 @@ void ExportService::finish(bool success, const QString& error)
         QMutexLocker lock(&m_writeMutex);
         m_writeError.clear();
     }
-    const QString recovery = !success && m_movie ? m_frameFolder : QString{};
-    if (success && m_ownedTemporaryDirectory)
+    const bool keepFrames = !m_cancelled;
+    const QString recovery = !success && m_movie && keepFrames ? m_frameFolder : QString{};
+    if (m_ownedTemporaryDirectory && (success || !keepFrames))
         QDir(m_frameFolder).removeRecursively();
-    m_ownedTemporaryDirectory = false;
+    if (!success && m_cancelled && !m_movie && m_createdFrameFolder)
+        QDir(m_frameFolder).removeRecursively();
+    m_ownedTemporaryDirectory = m_createdFrameFolder = false;
     removeStagedMovie();
     m_render = {};
     emit finished(success, error, recovery);
@@ -548,6 +564,15 @@ bool ExportService::commitMovie(QString* error)
     }
     m_stagedMoviePath.clear();
     return true;
+}
+
+void ExportService::removeStaleFrameFolders(qint64 maxAgeSeconds)
+{
+    const QDateTime now = QDateTime::currentDateTime();
+    const auto entries = QDir(QDir::tempPath()).entryInfoList({QStringLiteral("spinelove_frames_*")}, QDir::Dirs | QDir::NoDotAndDotDot);
+    for (const auto& entry : entries)
+        if (entry.lastModified().secsTo(now) >= maxAgeSeconds)
+            QDir(entry.absoluteFilePath()).removeRecursively();
 }
 
 void ExportService::removeStagedMovie()

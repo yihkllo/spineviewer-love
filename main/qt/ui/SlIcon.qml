@@ -6,6 +6,7 @@ Shape {
     id: icon
     property string name
     property color color: "white"
+    property color fillColor: "transparent"
     property real lineWidth: width / 12
     readonly property real k: width / 24
     function num(v) { return (v * k).toFixed(3); }
@@ -44,8 +45,8 @@ Shape {
         if (name === "star") {
             const points = [];
             for (let i = 0; i < 10; ++i) {
-                const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 4.2 : 9.5;
-                points.push([12 + Math.cos(a) * r, 12.8 + Math.sin(a) * r]);
+                const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 4.4 : 8.8;
+                points.push([12 + Math.cos(a) * r, 12.6 + Math.sin(a) * r]);
             }
             return poly(points);
         }
@@ -62,21 +63,36 @@ Shape {
         if (name === "frame")
             return open([[3, 8], [3, 3], [8, 3]]) + open([[16, 3], [21, 3], [21, 8]]) + open([[21, 16], [21, 21], [16, 21]]) + open([[8, 21], [3, 21], [3, 16]])
                  + poly([[9, 9], [15, 9], [15, 15], [9, 15]]);
+        if (name === "alert")
+            return poly([[12, 3.6], [21.4, 19.8], [2.6, 19.8]]) + line(12, 9.4, 12, 13.8) + line(12, 16.9, 12, 16.95);
         if (name === "close")
             return line(6, 6, 18, 18) + line(18, 6, 6, 18);
+        if (name === "reset")
+            return "M " + num(7.5) + " " + num(7.64) + " A " + num(7) + " " + num(7) + " 0 1 1 " + num(5.11) + " " + num(14.22) + " "
+                 + open([[11.5, 7.64], [7.5, 7.64], [8.2, 3.7]]);
+        if (name === "search")
+            return ellipse(10.5, 10.5, 6.5, 6.5) + line(15.5, 15.5, 20.5, 20.5);
+        if (name === "pin")
+            return poly([[8.5, 3.5], [15.5, 3.5], [14.5, 9], [18, 13.5], [6, 13.5], [9.5, 9]]) + line(12, 13.5, 12, 21);
+        if (name === "edit")
+            return poly([[15.5, 4], [20, 8.5], [9, 19.5], [4, 20], [4.5, 15]]) + line(13, 6.5, 17.5, 11);
+        if (name === "copy")
+            return poly([[9, 9], [20, 9], [20, 20], [9, 20]]) + open([[15, 9], [15, 4], [4, 4], [4, 15], [9, 15]]);
         if (name === "plus")
             return line(12, 5, 12, 19) + line(5, 12, 19, 12);
         if (name === "grip")
             return line(5, 8, 19, 8) + line(5, 12, 19, 12) + line(5, 16, 19, 16);
         if (name === "chevronUp")
             return "M " + num(6) + " " + num(15) + " L " + num(12) + " " + num(9) + " L " + num(18) + " " + num(15) + " ";
+        if (name === "chevronRight")
+            return "M " + num(9) + " " + num(6) + " L " + num(15) + " " + num(12) + " L " + num(9) + " " + num(18) + " ";
         if (name === "chevronDown")
             return "M " + num(6) + " " + num(9) + " L " + num(12) + " " + num(15) + " L " + num(18) + " " + num(9) + " ";
         return "";
     }
     preferredRendererType: Shape.CurveRenderer
     ShapePath {
-        fillColor: "transparent"
+        fillColor: icon.fillColor
         strokeColor: icon.color
         strokeWidth: icon.lineWidth
         joinStyle: ShapePath.RoundJoin

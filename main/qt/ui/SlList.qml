@@ -4,6 +4,7 @@ import QtQuick.Controls.Basic
 import QtQuick.Window
 
 ListView {
+    cacheBuffer: 0
     id: list
     required property UiMetrics metrics
     required property UiTheme theme

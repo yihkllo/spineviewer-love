@@ -104,7 +104,6 @@ Item {
             anchors.fill: parent
             enabled: row.slideEnabled
             preventStealing: true
-            cursorShape: enabled ? Qt.SizeHorCursor : Qt.ArrowCursor
             function emit(mouseX) {
                 const r = Math.max(0, Math.min(1, (mouseX - track.knob * .5) / track.usable));
                 row.moved(row.from + r * row.span);

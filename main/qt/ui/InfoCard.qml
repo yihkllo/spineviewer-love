@@ -58,21 +58,35 @@ Item {
                 elide: Text.ElideRight
                 color: card.theme.text
             }
-            Text {
+            Item {
                 id: star
                 anchors.verticalCenter: parent.verticalCenter
                 visible: card.currentFile !== null
                 width: card.currentFile !== null ? card.metrics.mainFont * card.metrics.fontEmScale * 1.4 : 0
-                horizontalAlignment: Text.AlignHCenter
-                text: card.currentFile && card.currentFile.favorite ? "★" : "☆"
-                font.pixelSize: card.metrics.mainFont * card.metrics.fontEmScale * 1.25
-                color: card.currentFile && card.currentFile.favorite ? card.theme.accent2 : card.theme.mute
+                height: width
+                readonly property bool favorite: !!(card.currentFile && card.currentFile.favorite)
+                SlStar {
+                    id: infoStar
+                    objectName: "infoCardStar"
+                    anchors.centerIn: parent
+                    size: parent.width * 1.25
+                    starred: star.favorite
+                    hovered: starHover.hovered
+                    restColor: card.theme.mute
+                    activeColor: card.theme.accent2
+                }
                 MouseArea {
                     anchors.fill: parent
                     anchors.margins: -card.metrics.s(8)
                     enabled: card.shell.can("file.favorite")
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: card.shell.send("file.favorite", card.currentFile.path)
+                    onClicked: {
+                        const file = card.currentFile;
+                        if (!star.favorite) { infoStar.arm(); card.shell.send("file.favorite", file.path); return; }
+                        const fromFolder = card.shell.read("favoritesOnly", false) && (file.folders || []).indexOf(card.shell.read("favoriteFolder", "default")) >= 0;
+                        card.shell.askUnfavorite([file.name], fromFolder, function() { card.shell.send("file.favorite", file.path); });
+                    }
+                    HoverHandler { id: starHover; enabled: parent.enabled }
                 }
             }
         }
@@ -104,12 +118,12 @@ Item {
             }
             Column {
                 id: actions
-                visible: !card.live2d
                 anchors.verticalCenter: parent.verticalCenter
                 width: card.metrics.s(104)
                 spacing: card.metrics.s(6)
                 Repeater {
-                    model: card.live2d ? []
+                    model: card.live2d
+                        ? [{key:"live2d.mirror",label:qsTr("Mirror##flip").split("##")[0]},{key:"live2d.rotate",label:qsTr("Rotate##flip").split("##")[0]}]
                         : [{key:"spine.mirror",label:qsTr("Mirror##flip").split("##")[0]},{key:"spine.rotate",label:qsTr("Rotate##flip").split("##")[0]}]
                     delegate: SlButton {
                         required property var modelData
@@ -118,7 +132,7 @@ Item {
                         metrics: card.metrics; theme: card.theme
                         lineHeight: metrics.smallFont
                         text: modelData.label
-                        enabled: card.shell.can(modelData.key)
+                        enabled: card.live2d ? card.shell.loaded : card.shell.can(modelData.key)
                         onClicked: card.shell.send(modelData.key, null)
                     }
                 }

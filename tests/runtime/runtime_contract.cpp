@@ -21,6 +21,7 @@ const RuntimeCase cases[] = {
     {"3.6", RuntimeKind::Cpp36, CreateCpp36Runtime}, {"3.7", RuntimeKind::Cpp37, CreateCpp37Runtime},
     {"3.8", RuntimeKind::Cpp38, CreateCpp38Runtime}, {"4.0", RuntimeKind::Cpp40, CreateCpp40Runtime},
     {"4.1", RuntimeKind::Cpp41, CreateCpp41Runtime}, {"4.2", RuntimeKind::Cpp42, CreateCpp42Runtime},
+    {"4.3", RuntimeKind::Cpp43, CreateCpp43Runtime},
 };
 
 void Require(bool condition, const std::string& message) {

@@ -1,12 +1,19 @@
 #ifndef SPINELOVE_LIVE2D_MODULE_H_
 #define SPINELOVE_LIVE2D_MODULE_H_
 
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
 #include <array>
 #include <unordered_map>
 #include "native_layer_state.h"
+
+#include <QImage>
+
+class QRhi;
+class QRhiCommandBuffer;
+class QRhiRenderTarget;
 
 struct ID3D11Device;
 struct ID3D11DeviceContext;
@@ -94,7 +101,15 @@ namespace sl_d3d11
 		Live2DModule(const Live2DModule&) = delete;
 		Live2DModule& operator=(const Live2DModule&) = delete;
 
+		using TextureLoader = std::function<QImage(const std::wstring&)>;
+
 		bool Initialize(ID3D11Device* device, ID3D11DeviceContext* context, sl_d3d11::D3D11Renderer* textureRenderer);
+		bool InitializeRhi(TextureLoader loader);
+		bool UsesRhi() const noexcept;
+		bool Tick(float deltaSeconds);
+		bool RenderRhi(QRhi* rhi, QRhiCommandBuffer* cb, QRhiRenderTarget* target, int viewportWidth, int viewportHeight,
+			float centerOffsetX = 0.0f, float centerOffsetY = 0.0f, bool captureBounds = false, bool append = false);
+		void ReleaseRhi() noexcept;
 		void Shutdown() noexcept;
 		bool ImportModel(const std::wstring& manifestPath);
 		void Clear() noexcept;
@@ -116,7 +131,9 @@ namespace sl_d3d11
 		bool PlayExpression(size_t index);
 		bool PlayRandomExpression();
 		void ClearExpression();
-		bool TapAt(float normalizedX, float normalizedY);
+		bool TapAt(float normalizedX, float normalizedY, bool stepOnMiss = true);
+		void Mirror();
+		void RotateClockwise();
 		std::string HitAreaAt(float normalizedX, float normalizedY) const;
 		void SetTimeScale(float value) noexcept;
 		float TimeScale() const noexcept;

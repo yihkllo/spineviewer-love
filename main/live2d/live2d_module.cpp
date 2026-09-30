@@ -1,23 +1,35 @@
 #include "live2d_module.h"
 #include "unity_playback.h"
 
-#include <Windows.h>
 #include <algorithm>
+#include <cctype>
+#include <chrono>
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
+#include <cstring>
+#include <cwctype>
 #include <filesystem>
 #include <fstream>
-#include <malloc.h>
 #include <mutex>
 #include <set>
 #include <vector>
 #include <unordered_map>
 #include <utility>
 
+#if defined(_WIN32)
+#include <malloc.h>
+#include <Windows.h>
+#endif
+
 #include "../common/module_audio.h"
 #include "nlohmann/json.hpp"
+#if defined(SL_LIVE2D_D3D11)
 #include "../render_d3d11/d3d11_renderer.h"
+#endif
 #include "../common/sl_text_codec.h"
+#include "live2d_rhi_renderer.h"
+#include "spinelove/sl_gfx_types.h"
 
 #include <CubismDefaultParameterId.hpp>
 #include <CubismFramework.hpp>
@@ -32,7 +44,9 @@
 #include <Motion/CubismExpressionMotionManager.hpp>
 #include <Motion/CubismMotion.hpp>
 #include <Physics/CubismPhysics.hpp>
+#if defined(SL_LIVE2D_D3D11)
 #include <Rendering/D3D11/CubismRenderer_D3D11.hpp>
+#endif
 
 namespace fs = std::filesystem;
 namespace Csm = Live2D::Cubism::Framework;
@@ -53,12 +67,57 @@ namespace
 		const size_t suffixLength = std::wcslen(suffix);
 		if (text.size() < suffixLength)
 			return false;
-		return _wcsicmp(text.c_str() + text.size() - suffixLength, suffix) == 0;
+		const wchar_t* tail = text.c_str() + text.size() - suffixLength;
+		for (size_t i = 0; i < suffixLength; ++i)
+			if (std::towlower(tail[i]) != std::towlower(suffix[i])) return false;
+		return true;
+	}
+
+	bool StartsWithInsensitive(const std::string& text, const char* prefix)
+	{
+		const size_t length = std::strlen(prefix);
+		if (text.size() < length)
+			return false;
+		for (size_t i = 0; i < length; ++i)
+			if (std::tolower(static_cast<unsigned char>(text[i])) != std::tolower(static_cast<unsigned char>(prefix[i]))) return false;
+		return true;
+	}
+
+	fs::path PathOf(const std::wstring& path)
+	{
+#if defined(_WIN32)
+		return fs::path(path);
+#else
+		return fs::u8path(sl_text::WideToUtf8(path));
+#endif
+	}
+
+	fs::path PathFromUtf8(const std::string& path)
+	{
+#if defined(_WIN32)
+		return fs::path(sl_text::Utf8ToWide(path));
+#else
+		return fs::u8path(path);
+#endif
+	}
+
+	std::wstring WideOf(const fs::path& path)
+	{
+#if defined(_WIN32)
+		return path.wstring();
+#else
+		return sl_text::Utf8ToWide(path.u8string());
+#endif
+	}
+
+	unsigned RandomSeed()
+	{
+		return static_cast<unsigned>(std::chrono::steady_clock::now().time_since_epoch().count());
 	}
 
 	std::string ModelDisplayName(const std::wstring& path)
 	{
-		std::wstring name = fs::path(path).filename().wstring();
+		std::wstring name = WideOf(PathOf(path).filename());
 		constexpr wchar_t suffix[] = L".model3.json";
 		if (EndsWithInsensitive(name, suffix))
 			name.resize(name.size() - std::wcslen(suffix));
@@ -85,7 +144,7 @@ namespace
 	{
 		if (relativeUtf8 == nullptr || *relativeUtf8 == '\0')
 			return {};
-		return directory / fs::path(sl_text::Utf8ToWide(relativeUtf8));
+		return directory / PathFromUtf8(relativeUtf8);
 	}
 
 	class CubismAllocator final : public Csm::ICubismAllocator
@@ -95,23 +154,40 @@ namespace
 		void Deallocate(void* memory) override { std::free(memory); }
 		void* AllocateAligned(const Csm::csmSizeType size, const Csm::csmUint32 alignment) override
 		{
+#if defined(_WIN32)
 			return _aligned_malloc(size, alignment);
+#else
+			void* memory = nullptr;
+			return posix_memalign(&memory, (std::max)(static_cast<size_t>(alignment), sizeof(void*)), size) == 0 ? memory : nullptr;
+#endif
 		}
-		void DeallocateAligned(void* memory) override { _aligned_free(memory); }
+		void DeallocateAligned(void* memory) override
+		{
+#if defined(_WIN32)
+			_aligned_free(memory);
+#else
+			std::free(memory);
+#endif
+		}
 	};
 
 	void CubismLog(const char* message)
 	{
 		if (message == nullptr)
 			return;
+#if defined(_WIN32)
 		::OutputDebugStringA("[Live2D] ");
 		::OutputDebugStringA(message);
 		::OutputDebugStringA("\n");
+#else
+		std::fprintf(stderr, "[Live2D] %s\n", message);
+#endif
 	}
 
 	CubismAllocator sharedAllocator;
 	std::mutex frameworkMutex;
 	unsigned frameworkUsers = 0;
+	unsigned d3dUsers = 0;
 	ID3D11Device* frameworkDevice = nullptr;
 
 	class Live2DModel final : public Csm::CubismUserModel
@@ -141,9 +217,10 @@ namespace
 			bool enabled = false;
 		};
 
-		Live2DModel(sl_d3d11::D3D11Renderer* textureRenderer, slaudio::audio_deck* audio)
+		Live2DModel(sl_d3d11::D3D11Renderer* textureRenderer, slaudio::audio_deck* audio, const live2d::Live2DModule::TextureLoader* loader)
 			: m_textureRenderer(textureRenderer)
 			, m_audio(audio)
+			, m_loader(loader)
 		{
 			using namespace Csm::DefaultParameterId;
 			Csm::CubismIdManager* ids = Csm::CubismFramework::GetIdManager();
@@ -175,18 +252,20 @@ namespace
 					Csm::ACubismMotion::Delete(entry.motion);
 			}
 			m_expressions.clear();
+#if defined(SL_LIVE2D_D3D11)
 			if (m_textureRenderer != nullptr)
 			{
 				for (SlTextureId texture : m_textures)
 					m_textureRenderer->ReleaseTexture(texture);
 			}
+#endif
 		}
 
 		bool Load(const std::wstring& manifestPath, std::string& error)
 		{
-			m_directory = fs::path(manifestPath).parent_path();
+			m_directory = PathOf(manifestPath).parent_path();
 			std::vector<csmByte> bytes;
-			if (!ReadBytes(fs::path(manifestPath), bytes))
+			if (!ReadBytes(PathOf(manifestPath), bytes))
 			{
 				error = "Could not read the model3 file.";
 				return false;
@@ -237,13 +316,28 @@ namespace
 				const auto* counts=_model->GetDrawableMaskCounts();const auto** masks=_model->GetDrawableMasks();
 				for(Csm::csmInt32 i=0;i<_model->GetDrawableCount();++i)if(counts[i]>0){std::vector<Csm::csmInt32> set(masks[i],masks[i]+counts[i]);std::sort(set.begin(),set.end());maskSets.insert(std::move(set));}
 			}
-			CreateRenderer((std::max)(1,static_cast<int>((maskSets.size()+35)/36)));
-			if (auto* renderer = GetRenderer<Csm::Rendering::CubismRenderer_D3D11>())
+			const int maskBuffers=(std::max)(1,static_cast<int>((maskSets.size()+35)/36));
+			std::vector<int> disabled;
+			if(!metadata.is_discarded()&&metadata.contains("SpineLove"))
+				for(const auto& value:metadata["SpineLove"].value("DisabledDrawables",nlohmann::json::array()))
+					if(value.is_number_integer()){const int index=value.get<int>();if(index>=0&&index<_model->GetDrawableCount())disabled.push_back(index);}
+#if defined(SL_LIVE2D_D3D11)
+			if (m_textureRenderer != nullptr)
 			{
-				renderer->SetClippingMaskBufferSize(kClippingMaskBufferSize, kClippingMaskBufferSize);
-				if(!metadata.is_discarded()&&metadata.contains("SpineLove"))
-					for(const auto& value:metadata["SpineLove"].value("DisabledDrawables",nlohmann::json::array()))
-						if(value.is_number_integer()){const int index=value.get<int>();if(index>=0&&index<_model->GetDrawableCount())renderer->SetDrawableDisabled(index);}
+				CreateRenderer(maskBuffers);
+				if (auto* renderer = GetRenderer<Csm::Rendering::CubismRenderer_D3D11>())
+				{
+					renderer->SetClippingMaskBufferSize(kClippingMaskBufferSize, kClippingMaskBufferSize);
+					for (const int index : disabled) renderer->SetDrawableDisabled(index);
+				}
+			}
+			else
+#endif
+			{
+				m_rhiRenderer = std::make_unique<live2d::RhiRenderer>();
+				m_rhiRenderer->SetClippingMaskBufferSize(kClippingMaskBufferSize, kClippingMaskBufferSize);
+				m_rhiRenderer->Initialize(_model, maskBuffers);
+				for (const int index : disabled) m_rhiRenderer->SetDrawableDisabled(index);
 			}
 			if (!LoadTextures(error))
 				return false;
@@ -276,11 +370,41 @@ namespace
 		void Draw(int width, int height, float centerOffsetX, float centerOffsetY,
 			float scale, float offsetX, float offsetY, live2d::RenderBounds* outBounds,const std::array<float,6>* sceneTransform=nullptr)
 		{
-			if (_model == nullptr || width <= 0 || height <= 0)
-				return;
+#if defined(SL_LIVE2D_D3D11)
 			auto* renderer = GetRenderer<Csm::Rendering::CubismRenderer_D3D11>();
-			if (renderer == nullptr)
+			Csm::CubismMatrix44 mvp;
+			if (renderer == nullptr || !Prepare(width, height, centerOffsetX, centerOffsetY, scale, offsetX, offsetY, outBounds, sceneTransform, mvp))
 				return;
+            renderer->SetMvpMatrix(&mvp);
+            if(m_unity.enabled())renderer->SetModelColor(1,1,1,m_unity.opacity());
+            renderer->DrawModel();
+#else
+			(void)width; (void)height; (void)centerOffsetX; (void)centerOffsetY; (void)scale; (void)offsetX; (void)offsetY; (void)outBounds; (void)sceneTransform;
+#endif
+		}
+
+		bool DrawRhi(live2d::RhiShared& shared, QRhiCommandBuffer* cb, QRhiRenderTarget* target, int width, int height, float centerOffsetX, float centerOffsetY,
+			float scale, float offsetX, float offsetY, live2d::RenderBounds* outBounds,const std::array<float,6>* sceneTransform, bool append)
+		{
+			auto* renderer = m_rhiRenderer.get();
+			Csm::CubismMatrix44 mvp;
+			if (renderer == nullptr || !Prepare(width, height, centerOffsetX, centerOffsetY, scale, offsetX, offsetY, outBounds, sceneTransform, mvp))
+				return false;
+			renderer->SetMvpMatrix(&mvp);
+			if(m_unity.enabled())renderer->SetModelColor(1,1,1,m_unity.opacity());
+			return renderer->Record(shared, cb, target, append);
+		}
+
+		void ReleaseGpu() noexcept
+		{
+			if (m_rhiRenderer) m_rhiRenderer->ReleaseGpu();
+		}
+
+		bool Prepare(int width, int height, float centerOffsetX, float centerOffsetY,
+			float scale, float offsetX, float offsetY, live2d::RenderBounds* outBounds,const std::array<float,6>* sceneTransform, Csm::CubismMatrix44& mvp)
+		{
+			if (_model == nullptr || width <= 0 || height <= 0)
+				return false;
 
 			Csm::CubismMatrix44 view;
 			view.LoadIdentity();
@@ -293,19 +417,22 @@ namespace
 			m_lastView = view;
 			m_lastViewValid = true;
 
-			Csm::CubismMatrix44 mvp = view;
+			mvp = view;
 			if (m_nativeCoordinates && sceneTransform) {
 				const auto& a=*sceneTransform;const float aspect=float(width)/float(height);
 				float matrix[16]={a[0]/aspect,a[1],0,0,a[2]/aspect,a[3],0,0,0,0,1,0,a[4]/aspect,a[5],0,1};
 				mvp.SetMatrix(matrix);
-			} else if (!m_nativeCoordinates) mvp.MultiplyByMatrix(_modelMatrix);
+			} else if (!m_nativeCoordinates) {
+				Csm::CubismMatrix44 orient;
+				float values[16]={m_orient[0],m_orient[1],0,0,m_orient[2],m_orient[3],0,0,0,0,1,0,0,0,0,1};
+				orient.SetMatrix(values);
+				mvp.MultiplyByMatrix(&orient);
+				mvp.MultiplyByMatrix(_modelMatrix);
+			}
 
 			if (outBounds != nullptr)
 				*outBounds = ComputePixelBounds(mvp, width, height);
-
-            renderer->SetMvpMatrix(&mvp);
-            if(m_unity.enabled())renderer->SetModelColor(1,1,1,m_unity.opacity());
-            renderer->DrawModel();
+			return true;
 		}
 
 		bool PlayMotion(size_t index, bool forceOneShot = false)
@@ -396,7 +523,7 @@ namespace
 			std::vector<size_t> candidates;
 			for (size_t i = 0; i < m_motions.size(); ++i)
 			{
-				if (_strnicmp(m_motions[i].group.c_str(), "tap", 3) == 0)
+				if (StartsWithInsensitive(m_motions[i].group, "tap"))
 					candidates.push_back(i);
 			}
 			if (candidates.empty())
@@ -410,7 +537,7 @@ namespace
 
 		static bool IsIdleGroupName(const std::string& group)
 		{
-			return _strnicmp(group.c_str(), "idle", 4) == 0;
+			return StartsWithInsensitive(group, "idle");
 		}
 
 		std::string HitTest(float normalizedX, float normalizedY) const
@@ -418,8 +545,11 @@ namespace
 			if (_model == nullptr || m_setting == nullptr || !m_lastViewValid)
 				return {};
 			Csm::CubismMatrix44 view = m_lastView;
-			const float viewX = view.InvertTransformX(normalizedX);
-			const float viewY = view.InvertTransformY(normalizedY);
+			const float screenX = view.InvertTransformX(normalizedX);
+			const float screenY = view.InvertTransformY(normalizedY);
+			const float det = m_orient[0] * m_orient[3] - m_orient[1] * m_orient[2];
+			const float viewX = (m_orient[3] * screenX - m_orient[2] * screenY) / det;
+			const float viewY = (-m_orient[1] * screenX + m_orient[0] * screenY) / det;
 			for (int i = 0; i < m_setting->GetHitAreasCount(); ++i)
 			{
 				const Csm::CubismIdHandle id = m_setting->GetHitAreaId(i);
@@ -462,17 +592,29 @@ namespace
             }
             return hits;
         }
-		bool TapAt(float normalizedX, float normalizedY)
+		void Mirror() noexcept
+		{
+			m_orient[0] = -m_orient[0];
+			m_orient[2] = -m_orient[2];
+		}
+
+		void RotateClockwise() noexcept
+		{
+			const float a = m_orient[0], b = m_orient[1], c = m_orient[2], d = m_orient[3];
+			m_orient[0] = b; m_orient[1] = -a; m_orient[2] = d; m_orient[3] = -c;
+		}
+
+		bool TapAt(float normalizedX, float normalizedY, bool stepOnMiss)
 		{
 			const std::string area = HitTest(normalizedX, normalizedY);
 			if (!area.empty())
 			{
-				if (_strnicmp(area.c_str(), "head", 4) == 0 && !m_expressions.empty())
+				if (StartsWithInsensitive(area, "head") && !m_expressions.empty())
 					return PlayRandomExpression();
 				return PlayRandomTapMotion();
 			}
 
-			if (m_motions.empty())
+			if (!stepOnMiss || m_motions.empty())
 				return false;
 			const size_t next = m_currentMotion < 0
 				? 0
@@ -651,7 +793,7 @@ namespace
 				motion->IsLoopFadeIn(touched.loopFadeIn);
 			}
 			m_export.touchedMotions.clear();
-			std::srand(::GetTickCount());
+			std::srand(RandomSeed());
 			ResetDragManager();
 
 			m_oneShotActive = false;
@@ -1013,7 +1155,7 @@ namespace
 					motion->SetEffectIds(m_eyeBlinkIds, m_lipSyncIds);
 					motion->IsLoop(true);
 
-					std::string fileName = file == nullptr ? key : fs::path(sl_text::Utf8ToWide(file)).filename().replace_extension().string();
+					std::string fileName = file == nullptr ? key : PathFromUtf8(file).filename().replace_extension().string();
 					if (EndsWithInsensitive(sl_text::Utf8ToWide(fileName), L".motion3"))
 						fileName.resize(fileName.size() - 8);
 					MotionEntry entry;
@@ -1056,7 +1198,7 @@ namespace
 		{
 			try
 			{
-				std::ifstream manifestFile(fs::path(manifestPath), std::ios::binary);
+				std::ifstream manifestFile(PathOf(manifestPath), std::ios::binary);
 				if (!manifestFile)
 					return;
 				const nlohmann::json manifest = nlohmann::json::parse(manifestFile, nullptr, false);
@@ -1068,7 +1210,7 @@ namespace
 				if (displayFile.empty())
 					return;
 
-				std::ifstream displayStream(m_directory / fs::path(sl_text::Utf8ToWide(displayFile)), std::ios::binary);
+				std::ifstream displayStream(m_directory / PathFromUtf8(displayFile), std::ios::binary);
 				if (!displayStream)
 					return;
 				const nlohmann::json displayInfo = nlohmann::json::parse(displayStream, nullptr, false);
@@ -1120,7 +1262,7 @@ namespace
 				const char* rawName = m_setting->GetExpressionName(i);
 				std::string name = rawName != nullptr && rawName[0] != '\0'
 					? rawName
-					: fs::path(sl_text::Utf8ToWide(file != nullptr ? file : "")).filename().string();
+					: PathFromUtf8(file != nullptr ? file : "").filename().string();
 				Csm::ACubismMotion* motion = LoadExpression(bytes.data(), static_cast<csmSizeInt>(bytes.size()), name.c_str());
 				if (motion == nullptr)
 					continue;
@@ -1139,16 +1281,33 @@ namespace
 				return;
 			m_audio->voice_stop();
 			if (!entry.soundFile.empty())
-				m_audio->voice_start(entry.soundFile.wstring(), m_voiceVolume, false);
+				m_audio->voice_start(WideOf(entry.soundFile), m_voiceVolume, false);
 		}
 
 		bool LoadTextures(std::string& error)
 		{
 			if (m_textureRenderer == nullptr)
 			{
-				error = "The D3D11 texture renderer is unavailable.";
-				return false;
+				auto* renderer = m_rhiRenderer.get();
+				if (renderer == nullptr || m_loader == nullptr || !*m_loader)
+				{
+					error = "The Live2D texture loader is unavailable.";
+					return false;
+				}
+				for (int i = 0; i < m_setting->GetTextureCount(); ++i)
+				{
+					QImage image = (*m_loader)(WideOf(AssetPath(m_directory, m_setting->GetTextureFileName(i))));
+					if (image.isNull())
+					{
+						error = "A texture referenced by the model could not be loaded.";
+						return false;
+					}
+					renderer->SetTexture(i, std::move(image));
+				}
+				renderer->IsPremultipliedAlpha(false);
+				return true;
 			}
+#if defined(SL_LIVE2D_D3D11)
 			auto* renderer = GetRenderer<Csm::Rendering::CubismRenderer_D3D11>();
 			for (int i = 0; i < m_setting->GetTextureCount(); ++i)
 			{
@@ -1165,6 +1324,10 @@ namespace
 			}
 			renderer->IsPremultipliedAlpha(false);
 			return true;
+#else
+			error = "The D3D11 texture renderer is unavailable.";
+			return false;
+#endif
 		}
 
 		fs::path m_directory;
@@ -1173,6 +1336,8 @@ namespace
 		std::unique_ptr<Csm::CubismModelSettingJson> m_setting;
 		sl_d3d11::D3D11Renderer* m_textureRenderer = nullptr;
 		slaudio::audio_deck* m_audio = nullptr;
+		const live2d::Live2DModule::TextureLoader* m_loader = nullptr;
+		std::unique_ptr<live2d::RhiRenderer> m_rhiRenderer;
 		std::vector<SlTextureId> m_textures;
 		std::vector<MotionEntry> m_motions;
 		std::vector<ExpressionEntry> m_expressions;
@@ -1195,6 +1360,7 @@ namespace
 		live2d::EffectSettings m_effects;
 		ExportState m_export;
 		Csm::CubismMatrix44 m_lastView;
+		float m_orient[4] = {1.0f, 0.0f, 0.0f, 1.0f};
 		bool m_lastViewValid = false;
         std::vector<bool> m_nativeVisibilityUpdated;
 		bool m_oneShotActive = false;
@@ -1214,6 +1380,9 @@ struct live2d::Live2DModule::Impl
 	ID3D11Device* device = nullptr;
 	ID3D11DeviceContext* context = nullptr;
 	sl_d3d11::D3D11Renderer* textureRenderer = nullptr;
+	live2d::Live2DModule::TextureLoader loader;
+	std::unique_ptr<live2d::RhiShared> rhiShared;
+	bool rhi = false;
 	slaudio::audio_deck audio;
 	std::unique_ptr<Live2DModel> model;
 	std::wstring manifestPath;
@@ -1243,10 +1412,29 @@ struct live2d::Live2DModule::Impl
 live2d::Live2DModule::Live2DModule() : m_impl(std::make_unique<Impl>()) {}
 live2d::Live2DModule::~Live2DModule() { Shutdown(); }
 
+namespace
+{
+	bool StartFramework(std::string& error)
+	{
+		if (frameworkUsers)
+			return true;
+		Csm::CubismFramework::Option option{};
+		option.LogFunction = &CubismLog;
+		option.LoggingLevel = Csm::CubismFramework::Option::LogLevel_Warning;
+		if (!Csm::CubismFramework::StartUp(&sharedAllocator, &option)) {
+			error = "Cubism Framework failed to start.";
+			return false;
+		}
+		Csm::CubismFramework::Initialize();
+		return true;
+	}
+}
+
 bool live2d::Live2DModule::Initialize(ID3D11Device* device, ID3D11DeviceContext* context, sl_d3d11::D3D11Renderer* textureRenderer)
 {
+#if defined(SL_LIVE2D_D3D11)
 	if (m_impl->initialized)
-		return true;
+		return !m_impl->rhi;
 	if (device == nullptr || context == nullptr || textureRenderer == nullptr)
 	{
 		m_impl->lastError = "The D3D11 rendering device is unavailable.";
@@ -1255,30 +1443,61 @@ bool live2d::Live2DModule::Initialize(ID3D11Device* device, ID3D11DeviceContext*
 
 	{
 		std::lock_guard<std::mutex> guard(frameworkMutex);
-		if (frameworkUsers && frameworkDevice != device) {
+		if (d3dUsers && frameworkDevice != device) {
 			m_impl->lastError = "Cubism is waiting for the previous rendering device to close.";
 			return false;
 		}
-		if (!frameworkUsers) {
-			Csm::CubismFramework::Option option{};
-			option.LogFunction = &CubismLog;
-			option.LoggingLevel = Csm::CubismFramework::Option::LogLevel_Warning;
-			if (!Csm::CubismFramework::StartUp(&sharedAllocator, &option)) {
-				m_impl->lastError = "Cubism Framework failed to start.";
-				return false;
-			}
-			Csm::CubismFramework::Initialize();
+		if (!StartFramework(m_impl->lastError))
+			return false;
+		if (!d3dUsers) {
 			Csm::Rendering::CubismRenderer_D3D11::InitializeConstantSettings(1, device);
 			frameworkDevice = device;
 		}
 		++frameworkUsers;
+		++d3dUsers;
 	}
-	std::srand(::GetTickCount());
+	std::srand(RandomSeed());
 	m_impl->device = device;
 	m_impl->context = context;
 	m_impl->textureRenderer = textureRenderer;
+	m_impl->rhi = false;
 	m_impl->initialized = true;
 	return true;
+#else
+	(void)device; (void)context; (void)textureRenderer;
+	m_impl->lastError = "The D3D11 rendering device is unavailable.";
+	return false;
+#endif
+}
+
+bool live2d::Live2DModule::InitializeRhi(TextureLoader loader)
+{
+	if (m_impl->initialized)
+		return m_impl->rhi;
+	if (!loader)
+	{
+		m_impl->lastError = "The Live2D texture loader is unavailable.";
+		return false;
+	}
+	{
+		std::lock_guard<std::mutex> guard(frameworkMutex);
+		if (!StartFramework(m_impl->lastError))
+			return false;
+		++frameworkUsers;
+	}
+	std::srand(RandomSeed());
+	m_impl->loader = std::move(loader);
+	m_impl->rhi = true;
+	m_impl->initialized = true;
+	return true;
+}
+
+bool live2d::Live2DModule::UsesRhi() const noexcept { return m_impl->initialized && m_impl->rhi; }
+
+void live2d::Live2DModule::ReleaseRhi() noexcept
+{
+	if (m_impl->model) m_impl->model->ReleaseGpu();
+	m_impl->rhiShared.reset();
 }
 
 void live2d::Live2DModule::Shutdown() noexcept
@@ -1286,21 +1505,28 @@ void live2d::Live2DModule::Shutdown() noexcept
 	if (!m_impl)
 		return;
 	Clear();
+	m_impl->rhiShared.reset();
 	if (m_impl->initialized)
 	{
 		std::lock_guard<std::mutex> guard(frameworkMutex);
-		if (--frameworkUsers == 0) {
+#if defined(SL_LIVE2D_D3D11)
+		if (!m_impl->rhi && --d3dUsers == 0) {
 			Csm::Rendering::CubismRenderer_D3D11::OnDeviceLost();
 			Csm::Rendering::CubismRenderer_D3D11::DeleteShaderManager();
 			Csm::Rendering::CubismRenderer_D3D11::DeleteRenderStateManager();
+			frameworkDevice = nullptr;
+		}
+#endif
+		if (--frameworkUsers == 0) {
 			Csm::CubismFramework::Dispose();
 			Csm::CubismFramework::CleanUp();
-			frameworkDevice = nullptr;
 		}
 	}
 	m_impl->device = nullptr;
 	m_impl->context = nullptr;
 	m_impl->textureRenderer = nullptr;
+	m_impl->loader = nullptr;
+	m_impl->rhi = false;
 	m_impl->initialized = false;
 }
 
@@ -1324,7 +1550,7 @@ bool live2d::Live2DModule::ImportModel(const std::wstring& manifestPath)
 		return false;
 	}
 
-	auto model = std::make_unique<Live2DModel>(m_impl->textureRenderer, &m_impl->audio);
+	auto model = std::make_unique<Live2DModel>(m_impl->textureRenderer, &m_impl->audio, m_impl->rhi ? &m_impl->loader : nullptr);
 	if (!model->Load(manifestPath, m_impl->lastError))
 		return false;
 	m_impl->manifestPath = manifestPath;
@@ -1368,11 +1594,46 @@ void live2d::Live2DModule::Clear() noexcept
 	m_impl->lastRenderBoundsValid = false;
 }
 
+bool live2d::Live2DModule::Tick(float deltaSeconds)
+{
+	if (!m_impl->initialized || !m_impl->model)
+		return false;
+	m_impl->model->Update(deltaSeconds, m_impl->timeScale);
+	return true;
+}
+
+bool live2d::Live2DModule::RenderRhi(QRhi* rhi, QRhiCommandBuffer* cb, QRhiRenderTarget* target, int viewportWidth, int viewportHeight,
+	float centerOffsetX, float centerOffsetY, bool captureBounds, bool append)
+{
+	m_impl->lastRenderBoundsValid = false;
+	if (!m_impl->initialized || !m_impl->rhi || !m_impl->model || rhi == nullptr || viewportWidth <= 0 || viewportHeight <= 0)
+		return false;
+	if (!m_impl->rhiShared || m_impl->rhiShared->Rhi() != rhi)
+	{
+		m_impl->model->ReleaseGpu();
+		m_impl->rhiShared = std::make_unique<live2d::RhiShared>(rhi);
+	}
+	if (!m_impl->rhiShared->Valid())
+	{
+		m_impl->lastError = "The Live2D shaders are unavailable.";
+		return false;
+	}
+	if (captureBounds)
+		m_impl->lastRenderBounds = { 0.0f, 0.0f, -1.0f, -1.0f };
+	const bool drawn = m_impl->model->DrawRhi(*m_impl->rhiShared, cb, target, viewportWidth, viewportHeight, centerOffsetX, centerOffsetY, m_impl->modelScale,
+		m_impl->viewOffsetX, m_impl->viewOffsetY,
+		captureBounds ? &m_impl->lastRenderBounds : nullptr,m_impl->hasSceneTransform?&m_impl->sceneTransform:nullptr, append);
+	m_impl->lastRenderBoundsValid = drawn && captureBounds &&
+		m_impl->lastRenderBounds.width >= 0.0f && m_impl->lastRenderBounds.height >= 0.0f;
+	return drawn;
+}
+
 bool live2d::Live2DModule::TickAndRender(float deltaSeconds, int viewportWidth, int viewportHeight,
 	float centerOffsetX, float centerOffsetY, bool captureBounds)
 {
 	m_impl->lastRenderBoundsValid = false;
-	if (!m_impl->initialized || !m_impl->model || viewportWidth <= 0 || viewportHeight <= 0)
+#if defined(SL_LIVE2D_D3D11)
+	if (!m_impl->initialized || m_impl->rhi || !m_impl->model || viewportWidth <= 0 || viewportHeight <= 0)
 		return false;
 	Csm::Rendering::CubismRenderer_D3D11::StartFrame(
 		m_impl->device, m_impl->context,
@@ -1387,6 +1648,10 @@ bool live2d::Live2DModule::TickAndRender(float deltaSeconds, int viewportWidth, 
 		m_impl->lastRenderBounds.width >= 0.0f && m_impl->lastRenderBounds.height >= 0.0f;
 	Csm::Rendering::CubismRenderer_D3D11::EndFrame(m_impl->device);
 	return true;
+#else
+	(void)deltaSeconds; (void)viewportWidth; (void)viewportHeight; (void)centerOffsetX; (void)centerOffsetY; (void)captureBounds;
+	return false;
+#endif
 }
 
 bool live2d::Live2DModule::QueryLastRenderedBounds(RenderBounds& outBounds) const noexcept
@@ -1433,9 +1698,21 @@ void live2d::Live2DModule::ClearExpression()
 		m_impl->model->ClearExpression();
 }
 
-bool live2d::Live2DModule::TapAt(float normalizedX, float normalizedY)
+void live2d::Live2DModule::Mirror()
 {
-	return m_impl->model != nullptr && m_impl->model->TapAt(normalizedX, normalizedY);
+	if (m_impl->model != nullptr)
+		m_impl->model->Mirror();
+}
+
+void live2d::Live2DModule::RotateClockwise()
+{
+	if (m_impl->model != nullptr)
+		m_impl->model->RotateClockwise();
+}
+
+bool live2d::Live2DModule::TapAt(float normalizedX, float normalizedY, bool stepOnMiss)
+{
+	return m_impl->model != nullptr && m_impl->model->TapAt(normalizedX, normalizedY, stepOnMiss);
 }
 
 std::string live2d::Live2DModule::HitAreaAt(float normalizedX, float normalizedY) const

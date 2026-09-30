@@ -1,0 +1,8 @@
+#ifndef SPINE_VERSION_H_
+#define SPINE_VERSION_H_
+
+#define SPINE_MAJOR_VERSION 4
+#define SPINE_MINOR_VERSION 3
+#define SPINE_VERSION_STRING "4.3"
+
+#endif

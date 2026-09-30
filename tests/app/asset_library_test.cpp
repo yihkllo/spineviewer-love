@@ -108,6 +108,15 @@ int main(int argc, char** argv)
     const QString binaryPath = makeSkeleton(root, "binary.skel", binary);
     check(slqt::AssetLibrary::inspect(binaryPath).kind == slqt::AssetKind::SpineBinary,
           "fixed-hash Spine binary version probing is unchanged");
+    for (const QByteArray version : {QByteArray("4.3.26"), QByteArray("4.3.75-beta")}) {
+        QByteArray header(8, '\0');
+        header.append(char(version.size() + 1));
+        header.append(version);
+        const auto path = makeSkeleton(root, "runtime43.skel", header);
+        check(slqt::AssetLibrary::inspect(path).spineVersion == QString::fromLatin1(version), "4.3 binary version is retained");
+        const auto jsonPath = makeSkeleton(root, "runtime43.json", skeletonJson(version));
+        check(slqt::AssetLibrary::inspect(jsonPath).spineVersion == QString::fromLatin1(version), "4.3 JSON version is retained");
+    }
     const QString oldBinary = makeSkeleton(root, "legacy.skel", QByteArray("\x02h\x06" "3.8.1", 8));
     check(slqt::AssetLibrary::inspect(oldBinary).spineVersion == "3.8.1", "string-hash legacy binary header remains recognized");
     const auto mixed = slqt::AssetLibrary::readSpineBundle({model, binaryPath});
@@ -150,6 +159,48 @@ int main(int argc, char** argv)
     const auto scan = slqt::AssetLibrary::scanSpine(root);
     check(!scan.contains(noAtlas), "browser excludes skeleton suffixes without a sibling atlas");
     check(scan.contains(invalid), "browser remains cheap suffix/atlas scan; validation is deferred until open");
+    {
+        const QString unity = QDir(root).filePath("unity");
+        QDir().mkpath(unity);
+        const QString real = makeSkeleton(unity, "hero.json");
+        const QString sibling = QDir(unity).filePath("hero_idle.json");
+        check(writeFile(sibling, skeletonJson()), "prefix skeleton fixture exists");
+        const QString atlasInfo = QDir(unity).filePath("hero_Atlas.json"), dataInfo = QDir(unity).filePath("hero_SkeletonData.json");
+        check(writeFile(atlasInfo, "{\"m_GameObject\":{},\"m_Name\":\"hero_Atlas\"}") && writeFile(dataInfo, "{\"m_GameObject\":{},\"m_Name\":\"hero_SkeletonData\"}"), "Unity component fixtures exist");
+        const QString bigData = QDir(unity).filePath("big_SkeletonData.json");
+        check(writeFile(QDir(unity).filePath("big.atlas"), "page.png\nsize: 1,1\n") && writeFile(bigData, skeletonJson() + QByteArray(20000, ' ')), "large skeleton named like a component exists");
+        const auto found = slqt::AssetLibrary::scanSpine(unity);
+        check(found.contains(real) && found.contains(sibling), "real skeletons beside Unity component files stay listed");
+        check(!found.contains(atlasInfo) && !found.contains(dataInfo), "small Unity _Atlas and _SkeletonData component files are not listed");
+        check(found.contains(bigData), "a skeleton larger than 16 KB is kept even with a component-like name");
+        const QString zipPath = QDir(root).filePath("unity.zip");
+        check(writeZip(zipPath, {{"m/hero.json", skeletonJson()}, {"m/hero.atlas", "page.png\nsize: 1,1\n"}, {"m/hero_Atlas.json", "{\"m_GameObject\":{}}"}, {"m/hero_SkeletonData.json", "{\"m_GameObject\":{}}"}}), "Unity zip fixture exists");
+        const auto zipped = slqt::ArchiveCache::listSpine(zipPath);
+        check(zipped.size() == 1 && zipped.front().endsWith("m/hero.json"), "archives skip Unity component files too");
+    }
+    {
+        const QString texts = QDir(root).filePath("texts");
+        QDir().mkpath(texts);
+        const QString jsonText = QDir(texts).filePath("girl.json.txt"), skelText = QDir(texts).filePath("boy.skel.txt");
+        check(writeFile(jsonText, skeletonJson()) && writeFile(QDir(texts).filePath("girl.atlas.txt"), "girl.png\nsize: 1,1\n"), "JSON text skeleton fixture exists");
+        check(writeFile(skelText, binary) && writeFile(QDir(texts).filePath("boy.atlas"), "boy.png\nsize: 1,1\n"), "binary text skeleton fixture exists");
+        check(writeFile(QDir(texts).filePath("notes.txt"), "{}"), "plain text fixture exists");
+        check(slqt::AssetLibrary::skeletonStem(jsonText) == "girl" && slqt::AssetLibrary::skeletonStem(skelText) == "boy", "text skeleton stems drop both suffixes");
+        check(slqt::AssetLibrary::isJsonSkeletonName(jsonText) && !slqt::AssetLibrary::isJsonSkeletonName(skelText), "only .json.txt counts as a JSON skeleton name");
+        const auto found = slqt::AssetLibrary::scanSpine(texts);
+        check(found.size() == 2 && found.contains(jsonText) && found.contains(skelText), "folders list .json.txt and .skel.txt skeletons with their atlases");
+        const auto jsonEntry = slqt::AssetLibrary::inspect(jsonText), skelEntry = slqt::AssetLibrary::inspect(skelText);
+        check(jsonEntry.kind == slqt::AssetKind::SpineJson && jsonEntry.displayName == "girl"
+                  && jsonEntry.atlasPath == QDir::cleanPath(QDir(texts).filePath("girl.atlas.txt")), "a .json.txt skeleton opens as JSON with its atlas");
+        check(skelEntry.kind == slqt::AssetKind::SpineBinary && skelEntry.displayName == "boy", "a .skel.txt skeleton opens as binary");
+        check(slqt::AssetLibrary::readSpineBundle({jsonText}).isValid(), "a .json.txt skeleton reads into a bundle");
+        const QString zipPath = QDir(root).filePath("texts.zip");
+        check(writeZip(zipPath, {{"m/girl.json.txt", skeletonJson()}, {"m/girl.skel.txt", binary}, {"m/girl.atlas.txt", "girl.png\nsize: 1,1\n"},
+                                 {"n/solo.json.txt", skeletonJson()}, {"n/solo.atlas", "solo.png\nsize: 1,1\n"}}), "text skeleton zip fixture exists");
+        const auto zipped = slqt::ArchiveCache::listSpine(zipPath);
+        check(zipped.size() == 2 && zipped.front().endsWith("m/girl.skel.txt") && zipped.back().endsWith("n/solo.json.txt"),
+              "archives list text skeletons and prefer the binary one over JSON with the same name");
+    }
     check(slqt::AssetLibrary::scanLive2D(root).contains(live2d), "Live2D recursive browser finds model3 manifest");
     QString nested = QDir(root).filePath("depths");
     QString atDepth7, atDepth8, atDepth12, atDepth13;

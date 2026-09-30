@@ -17,16 +17,37 @@
 #include <QQuickWindow>
 #include <QQuickItem>
 #include <QKeyEvent>
+#include <QThreadPool>
 #include <QScreen>
 #include <QCursor>
 #include <QCloseEvent>
 #include <QRegularExpression>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QUuid>
 #include <algorithm>
 #include <cmath>
+#include <functional>
 
 namespace slqt {
 void applyWindowCorners(QWindow* window,bool round);
 namespace {
+class LayeredRenderer final:public SlSceneRenderer{
+public:
+    LayeredRenderer(SlSceneRenderer& target,std::vector<int> order,std::function<void(int)> before):m_target(target),m_order(std::move(order)),m_before(std::move(before)){}
+    SlTextureId LoadTextureUtf8(const char* path,bool premultiplyAlpha)override{return m_target.LoadTextureUtf8(path,premultiplyAlpha);}
+    void ReleaseTexture(SlTextureId texture)noexcept override{m_target.ReleaseTexture(texture);}
+    void Submit(const SlDrawList& commands,const std::unordered_map<std::uint64_t,SlTextureId>& textures)override{
+        if(m_next<m_order.size())m_before(m_order[m_next++]);
+        m_target.Submit(commands,textures);
+    }
+private:
+    SlSceneRenderer& m_target;
+    std::vector<int> m_order;
+    std::function<void(int)> m_before;
+    size_t m_next=0;
+};
 QString from(const std::string& s){return QString::fromUtf8(s.data(),qsizetype(s.size()));}
 QString modelName(const QString& path){auto name=QFileInfo(path).fileName();if(name.endsWith(".model3.json",Qt::CaseInsensitive)){name.chop(12);return name;}return AssetLibrary::skeletonStem(path);}
 QVariantList indexes(const QSet<int>& s){auto list=s.values();std::sort(list.begin(),list.end());QVariantList v;for(int i:list)v.append(i);return v;}
@@ -67,14 +88,15 @@ ViewerController::ViewerController(QObject* parent):QObject(parent),m_settings(Q
         windowCommand("plugin.portrait",m_plugins->state().value("portrait").toBool());
         m_pluginsWasOpen=open;syncPluginSuspension();m_clock.restart();refresh();record();
     });
-    connect(qApp,&QGuiApplication::applicationStateChanged,this,[this]{syncPluginSuspension();});
+    connect(qApp,&QGuiApplication::applicationStateChanged,this,[this](Qt::ApplicationState state){syncPluginSuspension();if(state==Qt::ApplicationActive&&checkFavoriteFiles())refresh();});
     const double uiScale=m_settings.value("uiScale",1.0).toDouble();
     m_favorites=m_settings.value("favorites").toStringList();
     m_favorites.removeDuplicates();
-    m_favorites.erase(std::remove_if(m_favorites.begin(),m_favorites.end(),[](const QString& path){return !ArchiveCache::exists(path);}),m_favorites.end());
     std::sort(m_favorites.begin(),m_favorites.end());
+    loadFavoriteFolders();
+    checkFavoriteFiles();
     m_state={{"mode","spine"},{"uiScale",uiScale},{"baseFontPixels",16.0*uiScale},{"titleScale",uiScale},{"windowTitle","spinelove"},
-        {"windowIcon",QUrl("qrc:/app.png")},{"exportAlpha",true},{"exportQueue",false},{"exportImageFps",30},{"exportVideoFps",60},{"exportGifFps",50},{"ffmpegAvailable",!ExportService::findFfmpeg().isEmpty()},
+        {"windowIcon",QUrl("qrc:/app.png")},{"exportAlpha",true},{"exportQueue",false},{"exportImageFps",30},{"exportVideoFps",60},{"exportGifFps",50},
         {"language",startupLanguage(m_settings.value("language").toString())},{"themeHue",0.74},{"themeSaturation",0.83},{"themeBrightness",1.0},{"darkTheme",false},{"themeCustomized",false},
         {"resolutionPreset",m_settings.value("resolutionPreset",0)},{"stageDecor",m_settings.value("stageDecor",true).toBool()},{"stageChecker",m_settings.value("stageChecker",false).toBool()&&!m_settings.value("stageDecor",true).toBool()},{"stageDecorStyle",std::clamp(m_settings.value("stageDecorStyle",0).toInt(),0,1)},{"infoCardHidden",m_settings.value("infoCardHidden",false).toBool()},{"exportButtonHidden",m_settings.value("exportButtonHidden",false).toBool()},{"spineRuntimeAvailable",true},{"slotHoverColor","#00ff00"},{"slotBoundsVisible",false}};
     QVariantList languages;for(const auto& language:uiLanguages)
@@ -85,6 +107,7 @@ ViewerController::ViewerController(QObject* parent):QObject(parent),m_settings(Q
     m_settings.remove("renderWindowHeight");
     m_petMoveTimer.setSingleShot(true);m_petMoveTimer.setInterval(8);
     connect(&m_petMoveTimer,&QTimer::timeout,this,&ViewerController::applyDesktopPetMove);
+    QThreadPool::globalInstance()->start([]{ExportService::removeStaleFrameFolders(24*60*60);});
     m_clock.start();refresh();record();
 }
 QObject* ViewerController::plugins()const{return m_plugins;}
@@ -182,14 +205,68 @@ void ViewerController::setViewport(QSizeF logical,qreal dpr){
     }
 }
 void ViewerController::fail(const QString& error){m_state["lastError"]=error;publishState();emit errorOccurred(error);}
-void ViewerController::savePreferences(){m_settings.setValue("favorites",m_favorites);m_settings.setValue("language",m_state.value("language"));m_settings.sync();}
+void ViewerController::loadFavoriteFolders(){
+    m_favoriteFolders.clear();
+    const auto saved=QJsonDocument::fromJson(m_settings.value("folderFavorites").toString().toUtf8()).array();
+    for(const auto& entry:saved){
+        const auto o=entry.toObject();FavoriteFolder folder{o.value("id").toString(),o.value("name").toString().trimmed(),{}};
+        if(folder.id.isEmpty()||favoriteFolder(folder.id))continue;
+        for(const auto& item:o.value("items").toArray()){const auto p=item.toString();if(m_favorites.contains(p)&&!folder.items.contains(p))folder.items.append(p);}
+        if(folder.id!=QStringLiteral("default")&&folder.name.isEmpty())continue;
+        m_favoriteFolders.append(folder);
+    }
+    const auto found=std::find_if(m_favoriteFolders.begin(),m_favoriteFolders.end(),[](const FavoriteFolder& f){return f.id==QStringLiteral("default");});
+    if(found==m_favoriteFolders.end())m_favoriteFolders.prepend(FavoriteFolder{QStringLiteral("default"),{},{}});
+    else if(found!=m_favoriteFolders.begin()){auto folder=*found;m_favoriteFolders.erase(found);m_favoriteFolders.prepend(folder);}
+    m_favoriteFolders.front().name.clear();
+    for(const auto& p:m_favorites)if(std::none_of(m_favoriteFolders.begin(),m_favoriteFolders.end(),[&](const FavoriteFolder& f){return f.items.contains(p);}))m_favoriteFolders.front().items.append(p);
+}
+QStringList ViewerController::favoritePaths(const QVariantMap& m){
+    QStringList paths;
+    auto source=m.value("paths").toStringList();if(source.isEmpty())source.append(m.value("path").toString());
+    for(const auto& raw:source){const auto p=ArchiveCache::displayPath(raw);if(!p.isEmpty()&&!paths.contains(p))paths.append(p);}
+    return paths;
+}
+ViewerController::FavoriteFolder* ViewerController::favoriteFolder(const QString& id){
+    for(auto& f:m_favoriteFolders)if(f.id==id)return &f;
+    return nullptr;
+}
+void ViewerController::syncFavorites(){
+    QStringList all;for(const auto& f:m_favoriteFolders)for(const auto& p:f.items)if(!all.contains(p))all.append(p);
+    std::sort(all.begin(),all.end());m_favorites=all;
+    if(!favoriteFolder(m_favoriteFolder))m_favoriteFolder=QStringLiteral("default");
+    checkFavoriteFiles();++m_favoriteRevision;savePreferences();
+}
+bool ViewerController::checkFavoriteFiles(){
+    QSet<QString> missing;QHash<QString,bool> roots;
+    for(const auto& p:m_favorites){
+        const QString root=p.startsWith(QLatin1String("//"))?p.section(QLatin1Char('/'),0,3):p.section(QLatin1Char('/'),0,0)+QLatin1Char('/');
+        auto found=roots.find(root);if(found==roots.end())found=roots.insert(root,QFileInfo::exists(root));
+        if(!found.value()||!ArchiveCache::exists(p))missing.insert(p);
+    }
+    if(missing==m_missingFavorites)return false;
+    m_missingFavorites=missing;++m_favoriteRevision;return true;
+}
+QVariantList ViewerController::favoriteFolderRows()const{
+    QVariantList rows;
+    for(const auto& f:m_favoriteFolders){
+        int count=0;for(const auto& p:f.items)if(AssetLibrary::isLive2DFileName(p)==live2dMode())++count;
+        rows.append(QVariantMap{{"id",f.id},{"name",f.name},{"isDefault",f.id==QStringLiteral("default")},{"count",count},{"selected",f.id==m_favoriteFolder}});
+    }
+    return rows;
+}
+void ViewerController::savePreferences(){
+    QJsonArray folders;
+    for(const auto& f:m_favoriteFolders)folders.append(QJsonObject{{"id",f.id},{"name",f.name},{"items",QJsonArray::fromStringList(f.items)}});
+    m_settings.setValue("folderFavorites",QString::fromUtf8(QJsonDocument(folders).toJson(QJsonDocument::Compact)));
+    m_settings.setValue("favorites",m_favorites);m_settings.setValue("language",m_state.value("language"));m_settings.sync();}
 bool ViewerController::inputBlocked()const{return modalOpen()||m_exportActive||m_plugins->isOpen()||m_state.value("replaceConfirmation").toMap().value("open").toBool();}
 void ViewerController::openUrls(const QList<QUrl>& urls){if(inputBlocked())return;if(urls.isEmpty())return;QString error;const auto path=AssetLibrary::localPath(urls.front(),&error);if(path.isEmpty()){fail(error);return;}openPaths({path});}
 void ViewerController::setMode(bool live){
     if(live==live2dMode())return;
     if(live2dMode()){m_live2dFiles=m_files;m_live2d->command("live2d.suspend");}
     else m_spineFiles=m_files;
-    m_state["mode"]=live?"live2d":"spine";m_files=live?m_live2dFiles:m_spineFiles;
+    m_state["mode"]=live?"live2d":"spine";m_files=live?m_live2dFiles:m_spineFiles;for(auto& b:m_backgrounds)b.level=0;
     const int selected=int(runtime()->ActiveSkeletonIndex());
     m_currentPath=live?m_live2dPath:(selected>=0&&selected<m_layers.size()?m_layers[selected]:QString{});
     m_filePreviewPending=false;m_pointerMode=0;m_dragged=true;m_wheelRemainder=0;m_wheelTarget=0;
@@ -209,8 +286,8 @@ void ViewerController::openPaths(const QStringList& paths,bool confirmed){
         const auto entry=AssetLibrary::inspect(paths.first());if(!entry.isValid()){fail(entry.error);return;}
         setMode(true);m_live2dPath=entry.path;m_currentPath=entry.path;
         if(paths.size()>1){m_live2dFiles.clear();for(const auto& path:paths)if(AssetLibrary::isLive2DFileName(path))m_live2dFiles.append(QFileInfo(path).absoluteFilePath());std::sort(m_live2dFiles.begin(),m_live2dFiles.end());}
-        else if(!m_live2dFiles.contains(entry.path))m_live2dFiles.append(entry.path);
-        m_files=m_live2dFiles;m_live2d->command("live2d.open",entry.path);m_lastLiveError.clear();
+        else if(const QString shown=ArchiveCache::displayPath(entry.path);!m_live2dFiles.contains(shown)&&!m_live2dFiles.contains(entry.path))m_live2dFiles.append(shown);
+        m_files=m_live2dFiles;for(auto& b:m_backgrounds)b.level=0;m_live2dHidden=false;m_live2d->command("live2d.open",entry.path);m_lastLiveError.clear();
         m_clock.restart();refresh();record();return;
     }
     if(!confirmed&&m_layers.size()>1){m_pendingPaths=paths;m_state["replaceConfirmation"]=QVariantMap{{"open",true},{"title",tr("Warning")},{"message",tr("Replace the currently loaded Spine layers?")}};publishState();return;}
@@ -236,9 +313,9 @@ void ViewerController::openPaths(const QStringList& paths,bool confirmed){
         const auto error=from(r->LastRuntimeIssue());
         if(lane!=previousLane)m_hub.ActivateLane(previousLane);
         else {
-            m_layerControls.clear();m_layers.clear();
+            m_layerControls.clear();m_layers.clear();for(auto& b:m_backgrounds)b.level=0;
             for(int i=0;i<qMin(int(r->LoadedSkeletonCount()),int(bundle.items.size()));++i)m_layers.append(bundle.items[i].path);
-            r->ChooseSkeleton(0);m_currentPath=m_layers.isEmpty()?QString{}:m_layers.front();m_showLayers=false;
+            r->ChooseSkeleton(0);m_currentPath=m_layers.isEmpty()?QString{}:m_layers.front();
             m_queue.clear();m_queuePlaying=false;m_queueIndex=0;m_selectedSkins.clear();m_tracks.clear();m_hiddenSlots.clear();
             m_pinnedSlot.clear();m_hoveredSlot.clear();m_listHoveredSlot.clear();updateSlotFilter();
         }
@@ -250,9 +327,9 @@ void ViewerController::openPaths(const QStringList& paths,bool confirmed){
     r->SetPremultipliedAlpha(m_pma);r->SetBlendWindowSeconds(m_mix);
     if(std::find(r->MotionNames().begin(),r->MotionNames().end(),m_lastAnimationName)!=r->MotionNames().end())r->PlayMotionByName(m_lastAnimationName.c_str());
     r->TickPlayback(0);if(m_resetOnLoad)r->SetViewOffset(0,0);else r->CenterOpeningPoseInView();
-    m_layerControls.clear();m_layers.clear();for(const auto& i:bundle.items)m_layers.append(i.path);
+    m_layerControls.clear();m_layers.clear();for(auto& b:m_backgrounds)b.level=0;for(const auto& i:bundle.items)m_layers.append(i.path);
     m_currentPath=m_layers.front();m_version=bundle.items.front().spineVersion;m_queue.clear();m_queuePlaying=false;m_queueIndex=0;
-    m_selectedSkins.clear();m_tracks.clear();m_hiddenSlots.clear();m_hoveredSlot.clear();m_listHoveredSlot.clear();m_pinnedSlot.clear();
+    m_selectedSkins.clear();m_tracks.clear();m_hiddenSlots.clear();m_hoveredSlot.clear();m_listHoveredSlot.clear();m_pinnedSlot.clear();m_outlineCache.clear();
     const auto names=r->LookNames();std::vector<std::string> cached;
     if(m_cachedWasMix){for(const auto& name:m_cachedMixSkins)cached.push_back(utf8(name));}
     else if(!m_cachedSkin.isEmpty())cached.push_back(utf8(m_cachedSkin));
@@ -260,7 +337,7 @@ void ViewerController::openPaths(const QStringList& paths,bool confirmed){
     m_lastMixedSkin=-1;
     for(const auto& name:restored){const auto found=std::find(names.begin(),names.end(),name);if(found!=names.end()){const int index=int(found-names.begin());m_selectedSkins.insert(index);if(m_skinMix)m_lastMixedSkin=index;}}
     if(restored.size()>1)r->ComposeLooks(restored);else if(restored.size()==1&&restored.front()!=r->ActiveLookName())r->ApplyLookByName(restored.front().c_str());
-    m_showLayers=false;m_selectedBackground=-1;
+    m_selectedBackground=-1;
     m_previewIndex=qMax(0,int(m_files.indexOf(ArchiveCache::displayPath(m_currentPath))));m_state["mode"]="spine";m_state["lastError"]="";
     updateSlotFilter();fit();m_clock.restart();
     const double restoreMs=stamp();refresh();const double stateMs=stamp();record();
@@ -269,6 +346,10 @@ void ViewerController::openPaths(const QStringList& paths,bool confirmed){
 }
 void ViewerController::openArchive(const QString& path){
     QString error;const auto files=ArchiveCache::listSpine(path,&error);
+    if(files.isEmpty()){
+        QString extractError;const auto folder=ArchiveCache::extract(path,&extractError);
+        if(!folder.isEmpty()&&!AssetLibrary::scanLive2D(folder).isEmpty()){scanFolder(folder,false,true);return;}
+    }
     if(files.isEmpty()){fail(error.isEmpty()?tr("No playable Spine model was found in %1. Export JSON or binary skeleton data from Spine first.").arg(QFileInfo(path).fileName()):error);return;}
     if(live2dMode())setMode(false);
     m_folder=QFileInfo(path).absolutePath();m_files=files;m_spineFiles=files;m_favoritesOnly=false;
@@ -297,9 +378,10 @@ void ViewerController::fit(){
     const auto b=r->BaseSize();const float scale=r->CanvasScale();
     if(b.x<=0||b.y<=0||!std::isfinite(scale)||scale<=0)return;
     const int panelPixels=qMax(0,qRound(m_window->width()*m_dpr)-m_viewport.width());
+    const int chromePixels=qMax(0,qRound(m_window->height()*m_dpr)-m_viewport.height());
     const auto available=m_window->screen()->availableGeometry().size();
     const int width=std::clamp(panelPixels+int(std::ceil(b.x*scale)),320,qMax(320,qRound(available.width()*m_dpr)));
-    const int height=std::clamp(int(std::ceil(b.y*scale)),240,qMax(240,qRound(available.height()*m_dpr)));
+    const int height=std::clamp(chromePixels+int(std::ceil(b.y*scale)),240,qMax(240,qRound(available.height()*m_dpr)));
     m_window->resize(qRound(width/m_dpr),qRound(height/m_dpr));
 }
 void ViewerController::addLayer(const QString& source){
@@ -312,8 +394,8 @@ void ViewerController::addLayer(const QString& source){
     }
     else{QString error;path=ArchiveCache::resolve(path,&error);if(path.isEmpty()){fail(error);return;}}
     auto entry=AssetLibrary::inspect(path);if(!entry.isValid()||!entry.isSpine()){fail(entry.error);return;}
-    const int already=int(m_layers.indexOf(entry.path));if(already>=0){selectLayer(already);m_showLayers=true;refresh();record();return;}
-    if(m_layers.isEmpty()){openPaths({entry.path});m_showLayers=!m_layers.isEmpty();refresh();return;}
+    const int already=int(m_layers.indexOf(entry.path));if(already>=0){selectLayer(already);refresh();record();return;}
+    if(m_layers.isEmpty()){openPaths({entry.path});refresh();return;}
     if(m_hub.LaneForVersionText(entry.spineVersion.toUtf8().constData())!=m_hub.CurrentLane()){fail(tr("Additional layers must use the same Spine runtime version."));return;}
     const auto bundle=AssetLibrary::readSpineBundle({entry.path});if(!bundle.isValid()){fail(bundle.error);return;}
     SlMemoryBundleRequest req;req.binarySkeleton=bundle.binarySkeleton;
@@ -354,9 +436,9 @@ bool ViewerController::selectLayer(int index){
     saveLayerControls();if(!runtime()->ChooseSkeleton(size_t(index)))return false;
     m_currentPath=m_layers[index];restoreLayerControls();return true;
 }
-QStringList ViewerController::visibleFiles()const{if(!m_favoritesOnly)return m_files;QStringList visible;for(const auto& p:m_favorites)if(ArchiveCache::exists(p)&&AssetLibrary::isLive2DFileName(p)==live2dMode())visible.append(p);return visible;}
+QStringList ViewerController::visibleFiles()const{if(!m_favoritesOnly)return m_files;QStringList source;for(const auto& f:m_favoriteFolders)if(f.id==m_favoriteFolder)source=f.items;std::sort(source.begin(),source.end());QStringList visible;for(const auto& p:source)if(AssetLibrary::isLive2DFileName(p)==live2dMode())visible.append(p);return visible;}
 bool ViewerController::previewFile(int delta,bool commit){
-    const auto list=m_files.isEmpty()?visibleFiles():m_files;if(list.isEmpty())return false;
+    auto list=m_files.isEmpty()?visibleFiles():m_files;list.removeIf([this](const QString& p){return m_missingFavorites.contains(p);});if(list.isEmpty())return false;
     int base=int(list.indexOf(ArchiveCache::displayPath(m_currentPath)));if(base<0)base=m_previewIndex;
     m_previewIndex=(base+delta+list.size())%list.size();m_currentPath=list[m_previewIndex];
     if(commit)openPaths({m_currentPath});else refresh();
@@ -387,8 +469,8 @@ void ViewerController::tick(){
         const quint64 revision=m_live2d->revision();
         if(revision!=m_live2dSeenRevision){m_live2dSeenRevision=revision;refresh();}
     }
-    else if(m_hoverEnabled&&!m_petMode)hover(m_hoverPosition);
     record();
+    if(!live2dMode()&&m_hoverEnabled&&!m_petMode)hover(m_hoverPosition);
 }
 void ViewerController::recordSlotOverlay(){
     if(!m_hoverEnabled||m_exportActive||m_petMode)return;
@@ -403,19 +485,39 @@ void ViewerController::recordSlotOverlay(){
             const auto b=runtime()->MeasureSlotBounds(utf8(name));if(b.z==0)continue;
             mesh.worldVertices={b.x,b.y,b.x+b.z,b.y,b.x+b.z,b.y+b.w,b.x,b.y+b.w};mesh.hullLength=4;mesh.isRegion=true;
         }
-        const auto outline=buildSlotOutline(mesh,m_recorder.texture(mesh.textureHandle),transform,color,3.2f,m_viewport);
+        const auto outline=m_outlineCache.build(utf8(name),mesh,m_recorder.texture(mesh.textureHandle),transform,color,3.2f,m_viewport);
         m_recorder.Submit(outline.draws,{{1,1}});
     }
 }
 void ViewerController::record(){
     if(m_petMode&&m_pointerMode==5&&m_snapshot)return;
-    const bool stageBehind=(m_state.value("stageDecor",true).toBool()||m_state.value("stageChecker",false).toBool())&&!hasBackground()&&!m_petMode&&!m_plugins->isActive();
+    const bool stageBehind=(m_state.value("stageDecor",true).toBool()||m_state.value("stageChecker",false).toBool())&&!m_petMode&&!m_plugins->isActive();
     const bool decorBackground=stageBehind&&m_state.value("stageDecor",true).toBool();
     const bool decor=stageBehind&&!m_exportActive;
-    m_recorder.begin(m_viewport,(m_captureAlpha||m_petMode||decor)?QColor(Qt::transparent):hasBackground()?QColor(Qt::black):m_clearColor);
+    m_recorder.begin(m_viewport,(m_captureAlpha||m_petMode||decor)?QColor(Qt::transparent):m_clearColor);
     if(decorBackground&&m_exportActive&&!m_captureAlpha&&m_decorTexture)m_recorder.sprite(m_decorTexture,{0,0,float(m_viewport.width()),float(m_viewport.height())});
-    if(!m_captureAlpha&&!m_petMode)for(int i=int(m_backgrounds.size())-1;i>=0;--i){const auto& b=m_backgrounds[i];if(!b.visible)continue;const auto img=m_recorder.texture(b.texture);m_recorder.sprite(b.texture,{float(b.offset.x()),float(b.offset.y()),img.width()*b.scale,img.height()*b.scale});}
-    if(!m_plugins->isActive()&&!live2dMode()){m_hub.RenderCurrentRuntime(m_recorder);recordSlotOverlay();}
+    const int layerCount=live2dMode()?(m_state.value("loaded").toBool()?1:0):int(m_layers.size());int drawnLevel=-1;
+    const auto drawLevels=[&](int upTo){
+        if(m_captureAlpha||m_petMode)return;
+        for(int level=drawnLevel+1;level<=upTo;++level)for(int i=int(m_backgrounds.size())-1;i>=0;--i){
+            const auto& b=m_backgrounds[i];if(!b.visible||std::min(b.level,layerCount)!=level)continue;
+            const auto img=m_recorder.texture(b.texture);m_recorder.sprite(b.texture,{float(b.offset.x()),float(b.offset.y()),img.width()*b.scale,img.height()*b.scale});
+        }
+        drawnLevel=std::max(drawnLevel,upTo);
+    };
+    if(!m_plugins->isActive()&&!live2dMode()){
+        std::vector<int> order;for(int i=layerCount-1;i>=0;--i)if(runtime()->SkeletonLayerVisible(size_t(i)))order.push_back(i);
+        LayeredRenderer layered(m_recorder,std::move(order),[&](int index){drawLevels(layerCount-1-index);});
+        m_hub.RenderCurrentRuntime(layered);drawLevels(layerCount);recordSlotOverlay();
+    }
+    else if(live2dMode()&&!m_plugins->isActive()&&layerCount>0){
+        drawLevels(0);
+        const auto markerId=m_live2dHidden?live2dHiddenMarker:live2dLayerMarker;
+        SlDrawList marker;marker.commands.resize(1);marker.commands.front().textureId=markerId;
+        m_recorder.Submit(marker,{{markerId,SlTextureId(markerId)}});
+        drawLevels(layerCount);
+    }
+    else drawLevels(layerCount);
     auto snapshot=std::const_pointer_cast<SceneSnapshot>(m_recorder.finish());
     snapshot->capture=m_captureRequest;
     snapshot->animationTime=m_animationTime;
@@ -440,6 +542,7 @@ void ViewerController::refresh(bool notify){
     m_state["animations"]=motions;m_state["currentAnimation"]=active;
     QStringList skins;for(const auto& s:r->LookNames())skins.append(from(s));m_state["skins"]=skins;m_state["skinMix"]=m_skinMix;m_state["selectedSkins"]=indexes(m_selectedSkins);m_state["selectedTracks"]=indexes(m_tracks);
     m_state["files"]=fileRows(live);m_state["favoritesOnly"]=m_favoritesOnly;
+    m_state["favoriteFolders"]=favoriteFolderRows();m_state["favoriteFolder"]=m_favoriteFolder;
     QVariantList layers;for(int i=0;i<m_layers.size();++i)layers.append(QVariantMap{{"name",QFileInfo(m_layers[i]).completeBaseName()},{"visible",r->SkeletonLayerVisible(size_t(i))},{"selected",m_selectedBackground<0&&r->ActiveSkeletonIndex()==size_t(i)}});
     m_state["loadedSpines"]=layers;m_state["showLoadedSpines"]=m_showLayers;
     QVariantList slotRows;for(int i=0;i<int(r->SlotCatalog().size());++i)slotRows.append(QVariantMap{{"name",from(r->SlotCatalog()[i])},{"visible",!m_hiddenSlots.contains(i)}});
@@ -448,19 +551,39 @@ void ViewerController::refresh(bool notify){
     m_state["slotBounds"]=m_pinnedSlot.isEmpty()||pinnedBounds.z==0?QVariantMap{}:QVariantMap{{"x",pinnedBounds.x},{"y",pinnedBounds.y},{"width",pinnedBounds.z},{"height",pinnedBounds.w}};
     QVariantList queue;for(const auto& s:m_queue)queue.append(QVariantMap{{"name",s},{"duration",r->MotionDuration(utf8(s).c_str())}});
     m_state["queue"]=queue;m_state["queuePlaying"]=m_queuePlaying;m_state["queueIndex"]=m_queueIndex;
-    m_state["renderBackground"]=(m_petMode?QColor(Qt::transparent):m_clearColor).name(QColor::HexArgb);m_state["hasBackgroundImage"]=hasBackground();{QVariantList rows;for(int i=0;i<m_backgrounds.size();++i)rows.append(QVariantMap{{"name",m_backgrounds[i].name},{"visible",m_backgrounds[i].visible},{"selected",m_selectedBackground==i},{"scale",m_backgrounds[i].scale}});m_state["backgrounds"]=rows;}m_state["fullscreen"]=m_window&&m_window->visibility()==QWindow::FullScreen;
+    {
+        const int characters=live2dMode()?(live.value("loaded").toBool()?1:0):int(m_layers.size());
+        if(characters>0&&m_lastCharacterCount==0)m_selectedBackground=-1;
+        if(characters==0&&m_selectedBackground<0&&!m_backgrounds.isEmpty())m_selectedBackground=0;
+        m_lastCharacterCount=characters;
+    }
+    m_state["renderBackground"]=(m_petMode?QColor(Qt::transparent):m_clearColor).name(QColor::HexArgb);m_state["hasBackgroundImage"]=hasBackground();{QVariantList rows;for(int i=0;i<m_backgrounds.size();++i)rows.append(QVariantMap{{"name",m_backgrounds[i].name},{"visible",m_backgrounds[i].visible},{"selected",m_selectedBackground==i},{"scale",m_backgrounds[i].scale}});m_state["backgrounds"]=rows;}
+    {
+        const bool live2dLayer=live2dMode();
+        const int count=live2dLayer?(live.value("loaded").toBool()?1:0):int(m_layers.size());QVariantList stack;
+        for(int level=count;level>=0;--level){
+            for(int i=0;i<m_backgrounds.size();++i)if(std::min(m_backgrounds[i].level,count)==level)
+                stack.append(QVariantMap{{"kind","background"},{"index",i},{"name",m_backgrounds[i].name},{"visible",m_backgrounds[i].visible},{"selected",m_selectedBackground==i}});
+            if(level>0&&live2dLayer)stack.append(QVariantMap{{"kind","live2d"},{"index",0},{"name",modelName(m_currentPath)},{"visible",!m_live2dHidden},{"selected",m_selectedBackground<0}});
+            else if(level>0){const int s=count-level;stack.append(QVariantMap{{"kind","spine"},{"index",s},{"name",QFileInfo(m_layers[s]).completeBaseName()},{"visible",r->SkeletonLayerVisible(size_t(s))},{"selected",m_selectedBackground<0&&r->ActiveSkeletonIndex()==size_t(s)}});}
+        }
+        m_state["layerStack"]=stack;
+        if(stack.size()>1)m_showLayers=true;
+        if(stack.isEmpty())m_showLayers=false;
+        m_state["showLoadedSpines"]=m_showLayers;
+    }m_state["fullscreen"]=m_window&&m_window->visibility()==QWindow::FullScreen;
     m_state["petMode"]=m_petMode;m_state["petRandom"]=m_petRandom;m_state["resizeEnabled"]=m_resizeEnabled;m_state["wheelInverted"]=m_invertWheel;m_state["clickThrough"]=m_clickThrough;m_state["resizeBorderPhysical"]=8;
     m_state["petDragging"]=m_petMode&&m_pointerMode==5;
     m_state["windowWidth"]=m_window?qRound(m_window->width()*m_window->devicePixelRatio()):m_viewport.width();
     m_state["windowHeight"]=m_window?qRound(m_window->height()*m_window->devicePixelRatio()):m_viewport.height();
     if(r->ContainsDrawableContent()){m_cachedWasMix=m_skinMix;if(m_skinMix){m_cachedMixSkins.clear();for(int i=0;i<int(r->LookNames().size());++i)if(m_selectedSkins.contains(i))m_cachedMixSkins.append(from(r->LookNames()[i]));}else m_cachedSkin=from(r->ActiveLookName());}
     QVariantMap capabilities;
-    const QStringList global={"file.open","file.folder","file.play","file.favorite","file.reveal","file.addSpine","file.favoritesView","background.open","background.clear","background.select","background.visible","background.remove","background.move","background.reset","background.color","settings.language","settings.resolution","theme.hue","theme.saturation","theme.brightness","theme.fontSize","theme.dark","theme.reset","stage.decor","stage.checker","stage.decorStyle","view.hideInfoCard","view.hideExportButton","window.move","window.minimize","window.maximize","window.close","window.fullscreen","spine.pma","spine.resetOnLoad"};
+    const QStringList global={"file.open","file.folder","file.play","file.favorite","file.reveal","file.addSpine","file.favoritesView","favorites.folderSelect","favorites.folderCreate","favorites.folderRename","favorites.folderDelete","favorites.move","favorites.copy","favorites.remove","favorites.unfavorite","background.open","background.clear","background.select","background.visible","background.remove","background.move","background.reset","background.color","settings.language","settings.resolution","theme.hue","theme.saturation","theme.brightness","theme.fontSize","theme.dark","theme.reset","stage.decor","stage.checker","stage.decorStyle","view.hideInfoCard","view.hideExportButton","window.move","window.minimize","window.maximize","window.close","window.fullscreen","spine.pma","spine.resetOnLoad"};
     for(const auto& c:global)capabilities[c]=true;
     capabilities["settings.resolution.custom"]=!m_petMode;
     capabilities["settings.renderSize"]=!m_petMode;
     capabilities["settings.renderSize.reset"]=!m_petMode;
-    const QStringList loaded={"view.scale","view.reset","playback.speed","playback.mix","animation.play","skin.mixMode","skin.select","skin.toggle","spine.mirror","spine.rotate","track.toggle","track.apply","track.clear","slot.toggle","slot.clear","slot.excludeQuery","slot.hoverEnabled","slot.hoverRow","slot.pickColor","slot.bounds","queue.add","queue.remove","queue.move","queue.play","queue.stop","queue.clear","layer.select","layer.up","layer.down","layer.move","layer.visible"};
+    const QStringList loaded={"view.scale","view.reset","playback.speed","playback.mix","animation.play","skin.mixMode","skin.select","skin.toggle","spine.mirror","spine.rotate","track.toggle","track.apply","track.clear","slot.toggle","slot.setVisible","slot.only","slot.clear","slot.excludeQuery","slot.hoverEnabled","slot.hoverRow","slot.pickColor","slot.bounds","queue.add","queue.remove","queue.move","queue.play","queue.stop","queue.clear","layer.select","layer.up","layer.down","layer.move","layer.visible","layer.stackMove","layer.remove"};
     for(const auto& c:loaded)capabilities[c]=r->ContainsDrawableContent();
     for(const auto& c:QStringList{"view.scale","view.reset","playback.speed","playback.mix"})capabilities[c]=true;
     capabilities["mode.toggle"]=true;
@@ -475,9 +598,11 @@ void ViewerController::refresh(bool notify){
         const auto liveCaps=live.value("capabilities").toMap();for(auto it=liveCaps.cbegin();it!=liveCaps.cend();++it)capabilities[it.key()]=it.value();
         capabilities["file.addSpine"]=false;
         const auto error=live.value("error").toString();
-        if(!error.isEmpty()&&error!=m_lastLiveError){m_lastLiveError=error;QTimer::singleShot(0,this,[this,error]{fail(error);});}
+        if(!error.isEmpty()&&error!=m_lastLiveError){m_lastLiveError=error;const QByteArray raw=error.toUtf8();const QString shown=QCoreApplication::translate("Live2D",raw.constData());QTimer::singleShot(0,this,[this,shown]{fail(shown);});}
     }
     const bool drawable=m_state.value("loaded").toBool();
+    for(const auto& c:QStringList{"layer.select","layer.stackMove","layer.remove"})capabilities[c]=true;
+    if(live2dMode())capabilities["layer.visible"]=drawable;
     capabilities["pet.enter"]=drawable&&!m_petMode;capabilities["pet.exit"]=m_petMode;capabilities["pet.next"]=m_petMode;capabilities["pet.random"]=m_petMode;
     for(const auto& command:QStringList{"export.alpha","export.queue","export.imageFps","export.videoFps","export.gifFps","export.png","export.jpg"})capabilities[command]=drawable&&!m_exportActive;
     for(const auto& command:QStringList{"export.pngFrames","export.jpgFrames","export.mp4","export.webm","export.gif"})capabilities[command]=drawable&&!m_exportActive;
@@ -512,11 +637,11 @@ QVariantList ViewerController::fileRows(const QVariantMap& live){
     const bool liveLoaded=live.value("loaded").toBool();
     auto& c=m_fileRows;
     if(c.valid&&c.live==liveMode&&c.favoritesOnly==m_favoritesOnly&&c.current==m_currentPath&&c.files==m_files
-        &&c.favorites==m_favorites&&c.layers==m_layers&&(!liveMode||(c.livePath==livePath&&c.liveLoaded==liveLoaded)))return c.rows;
+        &&c.favorites==m_favorites&&c.favoriteRevision==m_favoriteRevision&&c.favoriteFolder==m_favoriteFolder&&c.layers==m_layers&&(!liveMode||(c.livePath==livePath&&c.liveLoaded==liveLoaded)))return c.rows;
     QVariantList rows;
     const auto current=ArchiveCache::displayPath(m_currentPath);QSet<QString> layers;for(const auto& l:m_layers)layers.insert(ArchiveCache::displayPath(l));
-    for(const auto& p:visibleFiles()){const auto shown=ArchiveCache::displayPath(p);rows.append(QVariantMap{{"path",p},{"name",modelName(p)},{"parent",QFileInfo(shown).absolutePath()},{"favorite",m_favorites.contains(shown)},{"current",shown==current},{"loaded",liveMode?(liveLoaded&&p==livePath):layers.contains(shown)}});}
-    c.files=m_files;c.favorites=m_favorites;c.layers=m_layers;c.current=m_currentPath;c.livePath=livePath;
+    for(const auto& p:visibleFiles()){const auto shown=ArchiveCache::displayPath(p);rows.append(QVariantMap{{"path",p},{"name",modelName(p)},{"parent",QFileInfo(shown).absolutePath()},{"favorite",m_favorites.contains(shown)},{"folders",[&]{QStringList ids;for(const auto& f:m_favoriteFolders)if(f.items.contains(shown))ids.append(f.id);return ids;}()},{"current",shown==current},{"missing",m_favoritesOnly&&m_missingFavorites.contains(shown)},{"loaded",liveMode?(liveLoaded&&p==livePath):layers.contains(shown)}});}
+    c.files=m_files;c.favorites=m_favorites;c.favoriteRevision=m_favoriteRevision;c.favoriteFolder=m_favoriteFolder;c.layers=m_layers;c.current=m_currentPath;c.livePath=livePath;
     c.live=liveMode;c.liveLoaded=liveLoaded;c.favoritesOnly=m_favoritesOnly;c.rows=rows;c.valid=true;
     return rows;
 }
@@ -549,16 +674,72 @@ void ViewerController::dispatch(const QString& c,const QVariant& v){
         return;
     }
     if(c=="file.open"){
-        m_modal=true;auto files=QFileDialog::getOpenFileNames(nullptr,live2dMode()?tr("Import Model"):tr("Open Spine"),m_folder,live2dMode()?tr("Live2D models (*.model3.json)"):tr("Spine files (*.json *.skel *.skel.bytes *.zip);;All files (*)"));m_modal=false;m_clock.restart();std::sort(files.begin(),files.end());if(!files.isEmpty())openPaths(files);return;
+        m_modal=true;auto files=QFileDialog::getOpenFileNames(nullptr,live2dMode()?tr("Import Model"):tr("Open Spine"),m_folder,live2dMode()?tr("Live2D models (*.model3.json *.zip)"):tr("Spine files (*.json *.skel *.skel.bytes *.json.txt *.skel.txt *.zip);;All files (*)"));m_modal=false;m_clock.restart();std::sort(files.begin(),files.end());if(!files.isEmpty())openPaths(files);return;
     }
-    if(c=="file.folder"){m_modal=true;auto p=QFileDialog::getExistingDirectory(nullptr,tr("Select Folder"),m_folder);m_modal=false;m_clock.restart();if(!p.isEmpty())scanFolder(p);return;}
-    if(c=="file.play"){openPaths({v.toString()});return;}
+    if(c=="file.folder"){m_modal=true;auto p=QFileDialog::getExistingDirectory(nullptr,tr("Select Folder"),m_folder);m_modal=false;m_clock.restart();if(!p.isEmpty())scanFolder(p,false,true);return;}
+    if(c=="file.play"){
+        const auto p=v.toString();
+        if(m_missingFavorites.contains(ArchiveCache::displayPath(p))&&checkFavoriteFiles())refresh();
+        if(!ArchiveCache::exists(p)){fail(tr("This file cannot be found. The drive it is on may not be connected.")+"\n\n"+QDir::toNativeSeparators(ArchiveCache::displayPath(p)));return;}
+        openPaths({p});return;
+    }
     if(c=="file.addSpine"){
-        if(v.toString().isEmpty()){m_modal=true;auto files=QFileDialog::getOpenFileNames(nullptr,tr("Add Spine"),m_folder,tr("Spine files (*.json *.skel *.skel.bytes *.zip);;All files (*)"));m_modal=false;m_clock.restart();for(const auto& f:files)addLayer(f);return;}
+        if(v.toString().isEmpty()){m_modal=true;auto files=QFileDialog::getOpenFileNames(nullptr,tr("Add Spine"),m_folder,tr("Spine files (*.json *.skel *.skel.bytes *.json.txt *.skel.txt *.zip);;All files (*)"));m_modal=false;m_clock.restart();for(const auto& f:files)addLayer(f);return;}
         addLayer(v.toString());return;}
-    if(c=="file.favorite"){auto p=ArchiveCache::displayPath(v.toString());if(m_favorites.contains(p))m_favorites.removeAll(p);else m_favorites.append(p);std::sort(m_favorites.begin(),m_favorites.end());savePreferences();}
+    if(c=="file.favorite"){
+        const auto p=ArchiveCache::displayPath(v.toString());auto* shown=m_favoritesOnly?favoriteFolder(m_favoriteFolder):nullptr;
+        if(shown&&shown->items.contains(p))shown->items.removeAll(p);
+        else if(m_favorites.contains(p))for(auto& f:m_favoriteFolders)f.items.removeAll(p);
+        else if(!p.isEmpty())m_favoriteFolders.front().items.append(p);
+        syncFavorites();
+    }
+    else if(c=="favorites.folderSelect"){if(favoriteFolder(v.toString())){m_favoriteFolder=v.toString();m_favoritesOnly=true;}}
+    else if(c=="favorites.folderCreate"){
+        const auto m=v.typeId()==QMetaType::QVariantMap?v.toMap():QVariantMap{{"name",v}};
+        const auto name=m.value("name").toString().trimmed().left(40);if(name.isEmpty())return;
+        FavoriteFolder folder{QUuid::createUuid().toString(QUuid::WithoutBraces),name,{}};
+        const auto paths=favoritePaths(m);
+        if(!paths.isEmpty()){
+            folder.items=paths;
+            if(m.value("action").toString()==QStringLiteral("move"))if(auto* from=favoriteFolder(m.value("from").toString()))for(const auto& p:paths)from->items.removeAll(p);
+        }
+        else{m_favoriteFolder=folder.id;m_favoritesOnly=true;}
+        m_favoriteFolders.append(folder);syncFavorites();
+    }
+    else if(c=="favorites.folderRename"){
+        const auto m=v.toMap();const auto name=m.value("name").toString().trimmed().left(40);auto* folder=favoriteFolder(m.value("id").toString());
+        if(folder&&folder->id!=QStringLiteral("default")&&!name.isEmpty()){folder->name=name;syncFavorites();}
+    }
+    else if(c=="favorites.folderDelete"){
+        const auto id=v.toString();
+        const auto found=std::find_if(m_favoriteFolders.begin(),m_favoriteFolders.end(),[&](const FavoriteFolder& f){return f.id==id;});
+        if(found!=m_favoriteFolders.end()&&id!=QStringLiteral("default")){
+            const auto items=found->items;m_favoriteFolders.erase(found);
+            for(const auto& p:items)if(std::none_of(m_favoriteFolders.begin(),m_favoriteFolders.end(),[&](const FavoriteFolder& f){return f.items.contains(p);}))m_favoriteFolders.front().items.append(p);
+            syncFavorites();
+        }
+    }
+    else if(c=="favorites.move"||c=="favorites.copy"){
+        const auto m=v.toMap();const auto paths=favoritePaths(m);auto* to=favoriteFolder(m.value("to").toString());
+        if(to&&!paths.isEmpty()){
+            auto* from=c=="favorites.move"?favoriteFolder(m.value("from").toString()):nullptr;
+            for(const auto& p:paths){
+                if(from&&from!=to)from->items.removeAll(p);
+                if(!to->items.contains(p))to->items.append(p);
+            }
+            syncFavorites();
+        }
+    }
+    else if(c=="favorites.remove"){
+        const auto m=v.toMap();const auto paths=favoritePaths(m);
+        if(auto* folder=favoriteFolder(m.value("folder").toString());folder&&!paths.isEmpty()){for(const auto& p:paths)folder->items.removeAll(p);syncFavorites();}
+    }
+    else if(c=="favorites.unfavorite"){
+        const auto paths=favoritePaths(v.toMap());
+        if(!paths.isEmpty()){for(auto& f:m_favoriteFolders)for(const auto& p:paths)f.items.removeAll(p);syncFavorites();}
+    }
     else if(c=="file.reveal"){const auto archive=ArchiveCache::archiveOf(v.toString());QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(archive.isEmpty()?v.toString():archive).absolutePath()));}
-    else if(c=="file.favoritesView")m_favoritesOnly=v.toBool();
+    else if(c=="file.favoritesView"){m_favoritesOnly=v.toBool();if(m_favoritesOnly)checkFavoriteFiles();}
     else if(c=="replace.confirm"){auto pending=std::exchange(m_pendingPaths,{});m_state["replaceConfirmation"]=QVariantMap{{"open",false}};openPaths(pending,true);return;}
     else if(c=="replace.cancel"){m_pendingPaths.clear();m_state["replaceConfirmation"]=QVariantMap{{"open",false}};}
     else if(c=="view.scale")r->SetSkeletonScale(std::clamp(f,.1f,5.f));
@@ -587,6 +768,8 @@ void ViewerController::dispatch(const QString& c,const QVariant& v){
     else if(c=="track.apply"){SlNameList names;for(int i=0;i<int(r->MotionNames().size());++i)if(m_tracks.contains(i))names.push_back(r->MotionNames()[i]);r->SetLayeredMotions(names,true);}
     else if(c=="track.clear"){m_tracks.clear();r->SetLayeredMotions({});}
     else if(c=="slot.toggle"){if(m_hiddenSlots.contains(index))m_hiddenSlots.remove(index);else m_hiddenSlots.insert(index);m_slotQuery.clear();updateSlotFilter();}
+    else if(c=="slot.setVisible"){const auto m=v.toMap();const bool visible=m.value("visible").toBool();for(const auto& i:m.value("indices").toList()){const int n=i.toInt();if(visible)m_hiddenSlots.remove(n);else m_hiddenSlots.insert(n);}m_slotQuery.clear();updateSlotFilter();}
+    else if(c=="slot.only"){QSet<int> keep;for(const auto& i:v.toList())keep.insert(i.toInt());m_hiddenSlots.clear();const int total=int(runtime()->SlotCatalog().size());for(int i=0;i<total;++i)if(!keep.contains(i))m_hiddenSlots.insert(i);m_slotQuery.clear();updateSlotFilter();}
     else if(c=="slot.clear"){m_hiddenSlots.clear();m_slotQuery.clear();updateSlotFilter();}
     else if(c=="slot.excludeQuery"){m_slotQuery=v.toString();m_hiddenSlots.clear();updateSlotFilter();}
     else if(c=="slot.hoverEnabled"){m_hoverEnabled=v.toBool();if(!m_hoverEnabled)m_hoveredSlot.clear();}
@@ -600,7 +783,8 @@ void ViewerController::dispatch(const QString& c,const QVariant& v){
     else if(c=="queue.clear"){m_queuePlaying=false;m_queue.clear();m_queueIndex=0;}
     else if(c=="queue.play"){if(!m_queue.isEmpty()){m_queuePlaying=true;m_queueIndex=0;playQueueItem();}}
     else if(c=="queue.stop"){m_queuePlaying=false;m_queueIndex=0;}
-    else if(c=="layer.select")selectLayer(index);
+    else if(c=="layer.select"){if(live2dMode())m_selectedBackground=-1;else selectLayer(index);}
+    else if(c=="layer.visible"&&live2dMode())m_live2dHidden=!m_live2dHidden;
     else if(c=="layer.visible")r->SetSkeletonLayerVisible(size_t(index),!r->SkeletonLayerVisible(size_t(index)));
     else if(c=="layer.up"||c=="layer.down"){
         const int target=index+(c=="layer.up"?-1:1);if(index>=0&&target>=0&&index<m_layers.size()&&target<m_layers.size()){
@@ -613,6 +797,57 @@ void ViewerController::dispatch(const QString& c,const QVariant& v){
             while(from<to&&r->DemoteSkeleton(size_t(from))){m_layers.swapItemsAt(from,from+1);++from;}
         }
     }
+    else if(c=="layer.remove"&&live2dMode()){
+        if(index==0&&m_state.value("loaded").toBool()){
+            m_live2d->command("live2d.clear");m_live2dPath.clear();m_currentPath.clear();
+            for(auto& b:m_backgrounds)if(b.level>0)--b.level;
+        }
+    }
+    else if(c=="layer.remove"){
+        const int count=int(m_layers.size());
+        if(index>=0&&index<count){
+            const bool activeRemoved=int(r->ActiveSkeletonIndex())==index;
+            if(!activeRemoved)saveLayerControls();
+            const QString removed=m_layers[index];const int position=count-1-index;
+            if(m_hub.RemoveCurrentRuntimeSkeleton(size_t(index))){
+                m_layerControls.remove(removed);m_layers.removeAt(index);
+                for(auto& b:m_backgrounds)if(b.level>position)--b.level;
+                if(activeRemoved){m_queue.clear();m_queuePlaying=false;m_queueIndex=0;}
+                if(m_layers.isEmpty()){
+                    m_currentPath.clear();m_selectedSkins.clear();m_tracks.clear();m_hiddenSlots.clear();
+                    m_pinnedSlot.clear();m_hoveredSlot.clear();m_listHoveredSlot.clear();
+                }
+                else{m_currentPath=m_layers[int(r->ActiveSkeletonIndex())];restoreLayerControls();}
+                updateSlotFilter();
+            }
+        }
+    }
+    else if(c=="layer.stackMove"){
+        const auto m=v.toMap();const int from=m.value("from").toInt(),to=m.value("to").toInt();
+        const int count=live2dMode()?(m_state.value("loaded").toBool()?1:0):int(m_layers.size());
+        struct Entry{bool background;int index;};QList<Entry> stack;
+        for(int level=count;level>=0;--level){
+            for(int i=0;i<m_backgrounds.size();++i)if(std::min(m_backgrounds[i].level,count)==level)stack.append({true,i});
+            if(level>0)stack.append({false,count-level});
+        }
+        if(from>=0&&to>=0&&from<stack.size()&&to<stack.size()&&from!=to){
+            stack.move(from,to);
+            QList<int> current;for(int i=0;i<count;++i)current.append(i);
+            int target=0;
+            for(const auto& e:stack){
+                if(live2dMode())break;
+                if(e.background)continue;
+                int at=int(current.indexOf(e.index));
+                while(at>target&&r->PromoteSkeleton(size_t(at))){m_layers.swapItemsAt(at,at-1);current.swapItemsAt(at,at-1);--at;}
+                ++target;
+            }
+            const SlTextureId selected=m_selectedBackground>=0&&m_selectedBackground<m_backgrounds.size()?m_backgrounds[m_selectedBackground].texture:0;
+            QList<BackgroundLayer> ordered;int below=count;
+            for(const auto& e:stack){if(e.background){auto b=m_backgrounds[e.index];b.level=below;ordered.append(b);}else --below;}
+            m_backgrounds=ordered;m_selectedBackground=-1;
+            for(int i=0;selected&&i<m_backgrounds.size();++i)if(m_backgrounds[i].texture==selected)m_selectedBackground=i;
+        }
+    }
     else if(c=="background.open"){
         QStringList paths;if(!v.toString().isEmpty())paths.append(v.toString());
         else{m_modal=true;paths=QFileDialog::getOpenFileNames(nullptr,tr("Background"),{},tr("Images (*.png *.jpg *.jpeg *.webp *.bmp)"));m_modal=false;m_clock.restart();}
@@ -620,7 +855,7 @@ void ViewerController::dispatch(const QString& c,const QVariant& v){
             const auto next=m_recorder.LoadTextureUtf8(p.toUtf8().constData(),false);
             if(!next){fail(tr("Could not load background image: %1").arg(p));return;}
             BackgroundLayer layer;layer.texture=next;layer.name=QFileInfo(p).completeBaseName();
-            m_backgrounds.prepend(layer);m_selectedBackground=0;
+            m_backgrounds.prepend(layer);if(m_lastCharacterCount==0)m_selectedBackground=0;else if(m_selectedBackground>=0)++m_selectedBackground;m_showLayers=true;
         }
     }
     else if(c=="background.clear")clearBackgrounds();
@@ -658,7 +893,7 @@ void ViewerController::dispatch(const QString& c,const QVariant& v){
     else if(c=="view.hideInfoCard"){m_state["infoCardHidden"]=v.toBool();m_settings.setValue("infoCardHidden",v.toBool());}
     else if(c=="view.hideExportButton"){m_state["exportButtonHidden"]=v.toBool();m_settings.setValue("exportButtonHidden",v.toBool());}
     else if(c=="theme.fontSize")m_state["baseFontPixels"]=std::clamp(f,10.f,50.f);
-    else if(c=="theme.reset"){m_state["themeHue"]=.74;m_state["themeSaturation"]=.83;m_state["themeBrightness"]=1.;m_state["darkTheme"]=false;}
+    else if(c=="theme.reset"){m_state["themeHue"]=.74;m_state["themeSaturation"]=.83;m_state["themeBrightness"]=1.;m_state["darkTheme"]=false;m_state["baseFontPixels"]=16.0*m_state.value("uiScale",1.0).toDouble();}
     else if(c.startsWith("window.")&&m_window){
         if(c=="window.close")m_window->close();else if(c=="window.minimize")m_window->showMinimized();
         else if(c=="window.move")m_window->startSystemMove();
@@ -669,9 +904,6 @@ void ViewerController::dispatch(const QString& c,const QVariant& v){
         if(c=="export.alpha")m_state["exportAlpha"]=v.toBool();else if(c=="export.queue")m_state["exportQueue"]=v.toBool();
         else if(c=="export.imageFps")m_state["exportImageFps"]=std::clamp(index,1,120);else if(c=="export.videoFps")m_state["exportVideoFps"]=std::clamp(index,1,120);
         else if(c=="export.gifFps"){if(ExportService::gifFpsChoices().contains(index))m_state["exportGifFps"]=index;}
-        else if(c=="export.probe")m_state["ffmpegAvailable"]=!ExportService::findFfmpeg().isEmpty();
-        else if(c=="export.ffmpegDownload")QDesktopServices::openUrl(QUrl("https://github.com/BtbN/FFmpeg-Builds/releases"));
-        else if(c=="export.ffmpegFolder")QDesktopServices::openUrl(QUrl::fromLocalFile(QCoreApplication::applicationDirPath()));
         else {beginExport(c,v);return;}
     }
     if(c.startsWith("theme."))m_state["themeCustomized"]=true;
@@ -700,7 +932,7 @@ void ViewerController::pointerPress(QPointF p,Qt::MouseButton button,Qt::Keyboar
         m_pointerMode=5;m_petDragCursor=QCursor::pos();m_petDragWindow=m_window->position();
         m_state["petDragging"]=true;publishState();return;
     }
-    if(live2dMode()&&button==Qt::LeftButton&&m_state.value("loaded").toBool())m_pointerMode=4;
+    if(live2dMode()&&button==Qt::LeftButton&&m_state.value("loaded").toBool()&&!activeBackground()&&!m_live2dHidden)m_pointerMode=4;
 }
 void ViewerController::pointerMove(QPointF p,Qt::MouseButtons buttons,Qt::KeyboardModifiers mods){
     if(m_petMode){
@@ -721,7 +953,7 @@ void ViewerController::pointerMove(QPointF p,Qt::MouseButtons buttons,Qt::Keyboa
         return;
     }
     if(inputBlocked()||!(buttons&Qt::LeftButton))return;p=renderPosition(p);const auto delta=p-m_pointerLast;
-    BackgroundLayer* bg=activeBackground();if(!bg&&(mods&Qt::ControlModifier)&&!m_backgrounds.isEmpty())bg=&m_backgrounds.front();
+    BackgroundLayer* bg=activeBackground();if(!bg&&(mods&Qt::ControlModifier)&&m_backgrounds.size()==1)bg=&m_backgrounds.front();
     const int mode=(buttons&Qt::RightButton)?3:(bg?2:(live2dMode()?4:1));
     if(m_pointerMode!=mode){m_pointerMode=mode;m_pointerLast=p;return;}
     if(delta.manhattanLength()>0)m_dragged=true;
@@ -755,7 +987,7 @@ void ViewerController::pointerRelease(QPointF p,Qt::MouseButton button,Qt::Keybo
 void ViewerController::wheel(QPointF p,int delta,Qt::MouseButtons buttons,Qt::KeyboardModifiers mods){
     if(m_petMode&&!petHitTest(p.x(),p.y()))return;
     if(inputBlocked()||(!m_petMode&&(buttons&Qt::LeftButton)))return;p=renderPosition(p);
-    BackgroundLayer* bg=activeBackground();if(!bg&&(mods&Qt::ControlModifier)&&!m_backgrounds.isEmpty())bg=&m_backgrounds.front();
+    BackgroundLayer* bg=activeBackground();if(!bg&&(mods&Qt::ControlModifier)&&m_backgrounds.size()==1)bg=&m_backgrounds.front();
     const int target=m_petMode?4:(bg?1:(live2dMode()?3:2));
     if(m_wheelTarget!=target){m_wheelRemainder=0;m_wheelTarget=target;}
     m_wheelRemainder+=delta;const int steps=m_wheelRemainder/120;m_wheelRemainder%=120;if(!steps)return;

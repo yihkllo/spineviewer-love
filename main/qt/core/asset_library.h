@@ -42,6 +42,8 @@ public:
 
     static QString localPath(const QUrl& url, QString* error = nullptr);
     static bool isSpineFileName(const QString& path);
+    static bool isJsonSkeletonName(const QString& path);
+    static bool isUnityComponentFile(const QString& path, qint64 size);
     static bool isLive2DFileName(const QString& path);
     static QString skeletonStem(const QString& path);
     static QString chooseAtlas(const QString& stem, const QStringList& names);

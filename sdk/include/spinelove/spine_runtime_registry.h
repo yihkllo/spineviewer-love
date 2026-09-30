@@ -34,6 +34,7 @@ public:
 		Runtime40,
 		Runtime41,
 		Runtime42,
+		Runtime43,
 		End
 	};
 
@@ -47,12 +48,13 @@ public:
 	bool RenderCurrentRuntimeD3D11(sl_d3d11::D3D11Renderer& renderer);
 	bool RenderCurrentRuntime(SlSceneRenderer& renderer);
 	bool QueryLastRenderedBounds(SlRect& outBounds) const noexcept;
+	bool RemoveCurrentRuntimeSkeleton(size_t index);
 
 private:
-	static constexpr size_t RuntimeLaneCount = 10;
-	static_assert(RuntimeLaneCount == static_cast<uint8_t>(RuntimeLane::End), "Runtime lane table size is out of sync.");
-
-	std::array<std::unique_ptr<SlPlaybackRuntime>, RuntimeLaneCount> m_runtimeSlots;
+	struct RuntimeExtensions;
+	static constexpr size_t BaseRuntimeLaneCount = 9;
+	std::array<std::unique_ptr<SlPlaybackRuntime>, BaseRuntimeLaneCount> m_runtimeSlots;
+	std::unique_ptr<RuntimeExtensions> m_runtimeExtensions;
 	RuntimeLane m_currentLane = RuntimeLane::Runtime38;
 	bool m_runtimePoolReady = true;
 };

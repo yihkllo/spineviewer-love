@@ -52,7 +52,7 @@ bool wantedEntry(const QString& name)
         return false;
     if (lower.startsWith(QLatin1String("__macosx/")) || lower.contains(QLatin1String("/__macosx/")))
         return false;
-    for (const char* suffix : {".json", ".skel", ".bytes", ".atlas", ".txt", ".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tga"}) {
+    for (const char* suffix : {".json", ".skel", ".bytes", ".atlas", ".txt", ".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tga", ".moc3", ".wav", ".mp3", ".ogg", ".m4a"}) {
         if (file.endsWith(QLatin1String(suffix)))
             return true;
     }
@@ -73,7 +73,7 @@ bool safeEntry(const QString& name)
 
 QString archiveKey(const QFileInfo& info)
 {
-    const QByteArray seed = normalized(info.absoluteFilePath()).toLower().toUtf8() + '\n'
+    const QByteArray seed = QByteArrayLiteral("2\n") + normalized(info.absoluteFilePath()).toLower().toUtf8() + '\n'
         + QByteArray::number(info.size()) + '\n'
         + QByteArray::number(info.lastModified().toMSecsSinceEpoch());
     return QString::fromLatin1(QCryptographicHash::hash(seed, QCryptographicHash::Sha1).toHex().left(16));
@@ -210,6 +210,25 @@ QString ArchiveCache::extract(const QString& archivePath, QString* error)
     return target;
 }
 
+QStringList ArchiveCache::listLive2D(const QString& archivePath)
+{
+    const QFileInfo info(archivePath);
+    const QString archive = normalized(info.absoluteFilePath());
+    QZipReader zip(archive);
+    if (!info.isFile() || !zip.isReadable() || zip.status() != QZipReader::NoError)
+        return {};
+    const auto entries = zip.fileInfoList();
+    if (zip.status() != QZipReader::NoError || entries.size() > MaximumEntries)
+        return {};
+    QStringList models;
+    for (const auto& entry : entries) {
+        const QString name = QString(entry.filePath).replace(QLatin1Char('\\'), QLatin1Char('/'));
+        if (entry.isFile && wantedEntry(name) && safeEntry(name) && name.endsWith(QLatin1String(".model3.json"), Qt::CaseInsensitive))
+            models.append(archive + QLatin1Char('/') + name);
+    }
+    return models;
+}
+
 QStringList ArchiveCache::listSpine(const QString& archivePath, QString* error)
 {
     const QFileInfo info(archivePath);
@@ -231,6 +250,7 @@ QStringList ArchiveCache::listSpine(const QString& archivePath, QString* error)
             listing.error = QStringLiteral("The archive is damaged or cannot be read: %1").arg(info.fileName());
         } else {
             QHash<QString, QStringList> folders;
+            QHash<QString, qint64> sizes;
             for (const auto& entry : entries) {
                 if (!entry.isFile)
                     continue;
@@ -239,6 +259,7 @@ QStringList ArchiveCache::listSpine(const QString& archivePath, QString* error)
                     continue;
                 const int slash = name.lastIndexOf(QLatin1Char('/'));
                 folders[slash < 0 ? QString{} : name.left(slash)].append(name.mid(slash + 1));
+                sizes.insert(name, entry.size);
             }
             for (auto folder = folders.cbegin(); folder != folders.cend(); ++folder) {
                 QSet<QString> binaries;
@@ -246,15 +267,17 @@ QStringList ArchiveCache::listSpine(const QString& archivePath, QString* error)
                 for (const QString& name : folder.value()) {
                     if (!AssetLibrary::isSpineFileName(name))
                         continue;
+                    if (AssetLibrary::isUnityComponentFile(name, sizes.value(folder.key().isEmpty() ? name : folder.key() + QLatin1Char('/') + name, -1)))
+                        continue;
                     const QString stem = AssetLibrary::skeletonStem(name);
                     if (AssetLibrary::chooseAtlas(stem, folder.value()).isEmpty())
                         continue;
                     candidates.append(name);
-                    if (!name.endsWith(QLatin1String(".json"), Qt::CaseInsensitive))
+                    if (!AssetLibrary::isJsonSkeletonName(name))
                         binaries.insert(stem.toLower());
                 }
                 for (const QString& name : candidates) {
-                    if (name.endsWith(QLatin1String(".json"), Qt::CaseInsensitive) && binaries.contains(AssetLibrary::skeletonStem(name).toLower()))
+                    if (AssetLibrary::isJsonSkeletonName(name) && binaries.contains(AssetLibrary::skeletonStem(name).toLower()))
                         continue;
                     listing.models.append(archive + QLatin1Char('/') + (folder.key().isEmpty() ? name : folder.key() + QLatin1Char('/') + name));
                 }

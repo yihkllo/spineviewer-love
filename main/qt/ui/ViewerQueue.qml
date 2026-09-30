@@ -116,6 +116,7 @@ Column {
                 implicitHeight: Math.min(contentItem.implicitHeight + padding * 2,
                                          Overlay.overlay ? Overlay.overlay.height * 0.6 : choice.height * 8)
                 contentItem: ListView {
+                    cacheBuffer: 0
                     clip: true
                     implicitHeight: contentHeight
                     model: choice.delegateModel
@@ -213,7 +214,16 @@ Column {
         objectName: "queueRows"
         property int dragFrom: -1
         property int dragTo: -1
+        property bool settling: false
+        property bool instant: false
         readonly property real pitch: queue.shell.metrics.rowHeight + spacing
+        function commit() {
+            const from = dragFrom, to = dragTo;
+            instant = true;
+            dragFrom = -1; dragTo = -1; settling = false;
+            if (from >= 0 && to >= 0 && from !== to) queue.shell.send("queue.move", {from: from, to: to});
+            Qt.callLater(function() { rows.instant = false; });
+        }
         readonly property bool movable: !queue.locked && queue.shell.can("queue.move")
         width: parent.width
         spacing: queue.shell.metrics.rowGap
@@ -233,18 +243,26 @@ Column {
                 height: queue.shell.metrics.rowHeight
                 z: dragged ? 2 : 0
                 scale: dragged ? 1.03 : 1
-                Behavior on scale { NumberAnimation { duration: 140; easing.type: Easing.OutBack } }
+                Behavior on scale { enabled: !rows.instant; NumberAnimation { duration: 140; easing.type: Easing.OutBack } }
                 transform: Translate {
                     y: queueRow.dragged ? queueRow.dragOffset : queueRow.makeRoom
-                    Behavior on y { enabled: !queueRow.dragged; NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
+                    Behavior on y { enabled: !queueRow.dragged && !rows.instant; NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
+                }
+                NumberAnimation {
+                    id: settle
+                    target: queueRow
+                    property: "dragOffset"
+                    duration: 110
+                    easing.type: Easing.OutCubic
+                    onFinished: { queueRow.dragOffset = 0; rows.commit(); }
                 }
                 SlPoly {
                     x: queue.shell.metrics.s(5); y: queue.shell.metrics.s(7)
                     width: rowBody.width - queue.shell.metrics.s(10); height: rowBody.height
                     br: height * .3
                     fill: queue.shell.theme.alpha(queue.shell.theme.ink, .22)
-                    opacity: queueRow.dragged ? 1 : 0
-                    Behavior on opacity { NumberAnimation { duration: 140 } }
+                    opacity: queueRow.dragged && !rows.settling ? 1 : 0
+                    Behavior on opacity { enabled: !rows.instant; NumberAnimation { duration: 110 } }
                 }
                 SlRow {
                     id: rowBody
@@ -260,8 +278,9 @@ Column {
                 }
                 MouseArea {
                     anchors.fill: rowBody
-                    enabled: rows.movable && queue.items.length > 1
+                    enabled: rows.movable && queue.items.length > 1 && !rows.settling
                     hoverEnabled: true
+                    preventStealing: true
                     cursorShape: queueRow.dragged ? Qt.ClosedHandCursor : enabled ? Qt.OpenHandCursor : Qt.ArrowCursor
                     property real startY: 0
                     pressAndHoldInterval: 280
@@ -277,9 +296,10 @@ Column {
                         rows.dragTo = Math.max(0, Math.min(queue.items.length - 1, queueRow.index + Math.round(queueRow.dragOffset / rows.pitch)));
                     }
                     onReleased: {
-                        const from = rows.dragFrom, to = rows.dragTo;
-                        rows.dragFrom = -1; rows.dragTo = -1; queueRow.dragOffset = 0;
-                        if (from >= 0 && to >= 0 && from !== to) queue.shell.send("queue.move", {from: from, to: to});
+                        if (rows.dragFrom !== queueRow.index) return;
+                        rows.settling = true;
+                        settle.to = (rows.dragTo - rows.dragFrom) * rows.pitch;
+                        settle.start();
                     }
                     onCanceled: { rows.dragFrom = -1; rows.dragTo = -1; queueRow.dragOffset = 0; }
                 }
