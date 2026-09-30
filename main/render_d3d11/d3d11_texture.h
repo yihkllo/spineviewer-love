@@ -2,6 +2,7 @@
 #define SPINELOVE_RENDER_D3D11_TEXTURE_H_
 
 #include <d3d11.h>
+#include <functional>
 #include <string>
 #include <wrl/client.h>
 
@@ -15,7 +16,9 @@ struct D3D11Texture
 	int height = 0;
 };
 
-bool LoadTextureFromFile(ID3D11Device* device, const wchar_t* path, D3D11Texture& outTexture, bool premultiplyAlpha = false, std::string* outError = nullptr, bool generateMips = false);
+using TexturePixelInspector = std::function<void(const unsigned char* pixels, int width, int height)>;
+
+bool LoadTextureFromFile(ID3D11Device* device, const wchar_t* path, D3D11Texture& outTexture, bool premultiplyAlpha = false, std::string* outError = nullptr, bool generateMips = false, const TexturePixelInspector& inspect = {});
 bool PrefetchTexturePixels(const wchar_t* path);
 bool CreateSolidTexture(ID3D11Device* device, unsigned char r, unsigned char g, unsigned char b, unsigned char a, D3D11Texture& outTexture);
 

@@ -23,7 +23,7 @@ public:
 	void DrawSprite(SlTextureId texture, const SlRect& dst, const SlRect& uv, const SlColor& tint);
 	void DrawTriangles(SlTextureId texture, const SlVertex2D* vertices, int vertexCount, const unsigned short* indices, int indexCount, SlBlendMode blendMode, bool premultipliedAlpha = false);
 	void Submit(const SlDrawList& drawList, const std::unordered_map<std::uint64_t, SlTextureId>& textureMap);
-	SlTextureId LoadTexture(const wchar_t* path, bool premultiplyAlpha = false, bool generateMips = false);
+	SlTextureId LoadTexture(const wchar_t* path, bool premultiplyAlpha = false, bool generateMips = false, const TexturePixelInspector& inspect = {});
 	void ReleaseTexture(SlTextureId texture) noexcept;
 	void* GetTextureSrv(SlTextureId texture) const noexcept;
 	bool GetTextureSize(SlTextureId texture, int& outWidth, int& outHeight) const noexcept;

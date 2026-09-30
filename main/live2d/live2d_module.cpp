@@ -308,7 +308,6 @@ namespace
 			}
 			LoadOptionalComponents(bytes);
 			_model->Update();
-			SetupLayout();
 			LoadMotions(bytes);
 			LoadExpressions(bytes);
 			std::set<std::vector<Csm::csmInt32>> maskSets;
@@ -341,6 +340,7 @@ namespace
 			}
 			if (!LoadTextures(error))
 				return false;
+			SetupLayout();
 
 			_model->SaveParameters();
 			BuildParameterCatalog();
@@ -988,10 +988,12 @@ namespace
 			float minimumY = 0.0f;
 			float maximumX = 0.0f;
 			float maximumY = 0.0f;
+			for (int pass = 0; pass < 2 && !hasBounds; ++pass)
 			for (int drawableIndex = 0; drawableIndex < _model->GetDrawableCount(); ++drawableIndex)
 			{
 				if (!_model->GetDrawableDynamicFlagIsVisible(drawableIndex) ||
-					_model->GetDrawableOpacity(drawableIndex) <= 0.001f)
+					_model->GetDrawableOpacity(drawableIndex) <= 0.001f ||
+					(pass == 0 && IsTransparentDrawable(drawableIndex)))
 				{
 					continue;
 				}
@@ -1085,14 +1087,30 @@ namespace
 			if (m_setting->GetLayoutMap(layout))
 				_modelMatrix->SetupFromLayout(layout);
 
+			CsmCore::csmVector2 canvasSize{}, canvasOrigin{};
+			float pixelsPerUnit = 0.0f;
+			CsmCore::csmReadCanvasInfo(_model->GetModel(), &canvasSize, &canvasOrigin, &pixelsPerUnit);
+			if (pixelsPerUnit > 0.0f && canvasSize.X > 0.0f && canvasSize.Y > 0.0f &&
+				std::isfinite(pixelsPerUnit) && std::isfinite(canvasSize.X) && std::isfinite(canvasSize.Y) &&
+				std::isfinite(canvasOrigin.X) && std::isfinite(canvasOrigin.Y))
+			{
+				const float centerX = (canvasSize.X * 0.5f - canvasOrigin.X) / pixelsPerUnit;
+				const float centerY = (canvasOrigin.Y - canvasSize.Y * 0.5f) / pixelsPerUnit;
+				_modelMatrix->TranslateX(-centerX * _modelMatrix->GetScaleX());
+				_modelMatrix->TranslateY(-centerY * _modelMatrix->GetScaleY());
+				return;
+			}
+
 			bool hasBounds = false;
 			float minimumX = 0.0f;
 			float minimumY = 0.0f;
 			float maximumX = 0.0f;
 			float maximumY = 0.0f;
+			for (int pass = 0; pass < 2 && !hasBounds; ++pass)
 			for (int drawableIndex = 0; drawableIndex < _model->GetDrawableCount(); ++drawableIndex)
 			{
-				if (_model->GetDrawableOpacity(drawableIndex) <= 0.001f)
+				if (_model->GetDrawableOpacity(drawableIndex) <= 0.001f ||
+					(pass == 0 && IsTransparentDrawable(drawableIndex)))
 					continue;
 				const int vertexCount = _model->GetDrawableVertexCount(drawableIndex);
 				const float* vertices = _model->GetDrawableVertices(drawableIndex);
@@ -1294,6 +1312,7 @@ namespace
 					error = "The Live2D texture loader is unavailable.";
 					return false;
 				}
+				m_transparentDrawables.assign(static_cast<size_t>((std::max)(0, _model->GetDrawableCount())), false);
 				for (int i = 0; i < m_setting->GetTextureCount(); ++i)
 				{
 					QImage image = (*m_loader)(WideOf(AssetPath(m_directory, m_setting->GetTextureFileName(i))));
@@ -1302,6 +1321,9 @@ namespace
 						error = "A texture referenced by the model could not be loaded.";
 						return false;
 					}
+					if (image.format() != QImage::Format_RGBA8888)
+						image = image.convertToFormat(QImage::Format_RGBA8888);
+					MarkTransparentDrawables(i, image.constBits(), image.width(), image.height(), static_cast<int>(image.bytesPerLine()));
 					renderer->SetTexture(i, std::move(image));
 				}
 				renderer->IsPremultipliedAlpha(false);
@@ -1309,10 +1331,12 @@ namespace
 			}
 #if defined(SL_LIVE2D_D3D11)
 			auto* renderer = GetRenderer<Csm::Rendering::CubismRenderer_D3D11>();
+			m_transparentDrawables.assign(static_cast<size_t>((std::max)(0, _model->GetDrawableCount())), false);
 			for (int i = 0; i < m_setting->GetTextureCount(); ++i)
 			{
 				const fs::path texturePath = AssetPath(m_directory, m_setting->GetTextureFileName(i));
-				const SlTextureId texture = m_textureRenderer->LoadTexture(texturePath.c_str(), false, true);
+				const SlTextureId texture = m_textureRenderer->LoadTexture(texturePath.c_str(), false, true,
+					[this, i](const unsigned char* pixels, int width, int height) { MarkTransparentDrawables(i, pixels, width, height, width * 4); });
 				if (texture == 0)
 				{
 					error = "A texture referenced by the model could not be loaded.";
@@ -1328,6 +1352,70 @@ namespace
 			error = "The D3D11 texture renderer is unavailable.";
 			return false;
 #endif
+		}
+
+		bool IsTransparentDrawable(int index) const
+		{
+			return index >= 0 && static_cast<size_t>(index) < m_transparentDrawables.size() && m_transparentDrawables[static_cast<size_t>(index)];
+		}
+
+		void MarkTransparentDrawables(int texture, const unsigned char* pixels, int width, int height, int stride)
+		{
+			if (pixels == nullptr || width <= 0 || height <= 0 || stride < width * 4)
+				return;
+			const int count = (std::min)(_model->GetDrawableCount(), static_cast<int>(m_transparentDrawables.size()));
+			for (int drawable = 0; drawable < count; ++drawable)
+			{
+				if (_model->GetDrawableTextureIndex(drawable) != texture)
+					continue;
+				const auto* uvs = _model->GetDrawableVertexUvs(drawable);
+				const auto* indices = _model->GetDrawableVertexIndices(drawable);
+				const int indexCount = _model->GetDrawableVertexIndexCount(drawable);
+				const int vertexCount = _model->GetDrawableVertexCount(drawable);
+				if (uvs == nullptr || indices == nullptr || indexCount < 3 || vertexCount <= 0)
+					continue;
+				bool opaque = false;
+				bool sampled = false;
+				for (int i = 0; i + 2 < indexCount && !opaque; i += 3)
+				{
+					float minimumX = 0.0f, maximumX = 0.0f, minimumY = 0.0f, maximumY = 0.0f;
+					for (int corner = 0; corner < 3; ++corner)
+					{
+						const int vertex = indices[i + corner];
+						const float x = vertex < vertexCount ? uvs[vertex].X * static_cast<float>(width) : NAN;
+						const float y = vertex < vertexCount ? (1.0f - uvs[vertex].Y) * static_cast<float>(height) : NAN;
+						if (!std::isfinite(x) || !std::isfinite(y))
+						{
+							opaque = true;
+							break;
+						}
+						minimumX = corner == 0 ? x : (std::min)(minimumX, x);
+						maximumX = corner == 0 ? x : (std::max)(maximumX, x);
+						minimumY = corner == 0 ? y : (std::min)(minimumY, y);
+						maximumY = corner == 0 ? y : (std::max)(maximumY, y);
+					}
+					if (opaque)
+						break;
+					const int left = std::clamp(static_cast<int>(std::floor(std::clamp(minimumX, -1.0f, static_cast<float>(width)))) - 1, 0, width - 1);
+					const int right = std::clamp(static_cast<int>(std::ceil(std::clamp(maximumX, -1.0f, static_cast<float>(width)))) + 1, 0, width - 1);
+					const int top = std::clamp(static_cast<int>(std::floor(std::clamp(minimumY, -1.0f, static_cast<float>(height)))) - 1, 0, height - 1);
+					const int bottom = std::clamp(static_cast<int>(std::ceil(std::clamp(maximumY, -1.0f, static_cast<float>(height)))) + 1, 0, height - 1);
+					sampled = true;
+					for (int y = top; y <= bottom && !opaque; ++y)
+					{
+						const unsigned char* row = pixels + static_cast<size_t>(y) * static_cast<size_t>(stride);
+						for (int x = left; x <= right; ++x)
+						{
+							if (row[x * 4 + 3] != 0)
+							{
+								opaque = true;
+								break;
+							}
+						}
+					}
+				}
+				m_transparentDrawables[static_cast<size_t>(drawable)] = sampled && !opaque;
+			}
 		}
 
 		fs::path m_directory;
@@ -1363,6 +1451,7 @@ namespace
 		float m_orient[4] = {1.0f, 0.0f, 0.0f, 1.0f};
 		bool m_lastViewValid = false;
         std::vector<bool> m_nativeVisibilityUpdated;
+		std::vector<bool> m_transparentDrawables;
 		bool m_oneShotActive = false;
 		bool m_forceLoop = false;
 		bool m_hasIdleGroup = false;

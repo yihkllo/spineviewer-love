@@ -351,10 +351,10 @@ void D3D11Renderer::Submit(const SlDrawList& drawList, const std::unordered_map<
 	}
 }
 
-SlTextureId D3D11Renderer::LoadTexture(const wchar_t* path, bool premultiplyAlpha, bool generateMips)
+SlTextureId D3D11Renderer::LoadTexture(const wchar_t* path, bool premultiplyAlpha, bool generateMips, const TexturePixelInspector& inspect)
 {
 	TextureSlot slot;
-	if (!LoadTextureFromFile(m_device, path, slot.texture, premultiplyAlpha, nullptr, generateMips))
+	if (!LoadTextureFromFile(m_device, path, slot.texture, premultiplyAlpha, nullptr, generateMips, inspect))
 		return 0;
 	const SlTextureId id = ++m_nextTextureId;
 	m_textures[id] = slot;

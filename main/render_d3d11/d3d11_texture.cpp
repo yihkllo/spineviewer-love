@@ -333,7 +333,7 @@ bool PrefetchTexturePixels(const wchar_t* path)
 	return true;
 }
 
-bool LoadTextureFromFile(ID3D11Device* device, const wchar_t* path, D3D11Texture& outTexture, bool premultiplyAlpha, std::string* outError, bool generateMips)
+bool LoadTextureFromFile(ID3D11Device* device, const wchar_t* path, D3D11Texture& outTexture, bool premultiplyAlpha, std::string* outError, bool generateMips, const TexturePixelInspector& inspect)
 {
 	DecodedPixels decoded;
 	if (!TakePrefetchedPixels(path, decoded) && !DecodeTexturePixels(path, decoded, outError))
@@ -341,6 +341,8 @@ bool LoadTextureFromFile(ID3D11Device* device, const wchar_t* path, D3D11Texture
 	unsigned char* pixels = decoded.pixels.get();
 	const int width = decoded.width;
 	const int height = decoded.height;
+	if (inspect)
+		inspect(pixels, width, height);
 
 	if (premultiplyAlpha)
 	{
