@@ -18,6 +18,12 @@ if (Test-Path -LiteralPath (Join-Path $packageDirectory 'spinelove_qt.exe')) { t
 if (Test-Path -LiteralPath (Join-Path $packageDirectory '_internal')) { throw 'Use the main directory layout or a new destination.' }
 $Destination = Join-Path $packageDirectory 'main'
 $QtRoot = (Resolve-Path -LiteralPath $QtRoot).Path
+$shaderCompiler = Join-Path $QtRoot 'bin/D3Dcompiler_47.dll'
+$shaderCompilerSha256 = 'E994847E01A6F1E4CBDC5A864616AC262F67EE4F14DB194984661A8D927AB7F4'
+if (!(Test-Path -LiteralPath $shaderCompiler -PathType Leaf)) { throw 'The Qt kit must include the validated x64 D3Dcompiler_47.dll.' }
+if ((Get-FileHash -LiteralPath $shaderCompiler -Algorithm SHA256).Hash -ne $shaderCompilerSha256) {
+    throw 'The D3D shader compiler does not match the validated Windows-compatible x64 binary. Use the supported Qt kit.'
+}
 if (!$MultimediaRoot) {
     $MultimediaRoot = if (Test-Path -LiteralPath (Join-Path $QtRoot 'bin/Qt6Multimedia.dll')) { $QtRoot } else { Join-Path $projectRoot 'out/deps/qtmultimedia' }
 }
@@ -85,8 +91,9 @@ $binForward = $deploymentBin.Replace('\','/')
 @("[Paths]", "Prefix=$baseForward", "Binaries=$binForward", "Libraries=$baseForward/lib", "Plugins=$baseForward/plugins", "QmlImports=$baseForward/qml") |
     Set-Content -LiteralPath (Join-Path $deploymentBin 'qt.conf') -Encoding utf8
 $env:PATH = (Join-Path $MultimediaRoot 'bin') + ';' + (Join-Path $QtRoot 'bin') + ';' + $env:PATH
-& $deployer --qtpaths $qtpaths --release --no-compiler-runtime --no-ffmpeg --qmldir (Join-Path $projectRoot 'main/qt') --qmlimport (Join-Path $MultimediaRoot 'qml') --dir $Destination (Join-Path $Destination 'spinelove_qt.exe')
+& $deployer --qtpaths $qtpaths --release --no-compiler-runtime --no-system-d3d-compiler --no-ffmpeg --qmldir (Join-Path $projectRoot 'main/qt') --qmlimport (Join-Path $MultimediaRoot 'qml') --dir $Destination (Join-Path $Destination 'spinelove_qt.exe')
 if ($LASTEXITCODE -ne 0) { throw 'Qt deployment failed.' }
+Copy-Item -LiteralPath $shaderCompiler -Destination (Join-Path $Destination 'D3Dcompiler_47.dll') -Force
 foreach ($runtime in (Get-ChildItem -LiteralPath $crtDirectory -Filter '*.dll' -File)) {
     Copy-Item -LiteralPath $runtime.FullName -Destination $Destination -Force
 }
