@@ -37,7 +37,8 @@ Item {
     readonly property bool decorActive: read("stageDecor", true) && !petMode && !pluginActive
     readonly property bool imageBackground: read("hasBackgroundImage", false)
     readonly property bool checkerActive: read("stageChecker", false) && !petMode && !pluginActive
-    readonly property bool chromeVisible: !panelsHidden && !petMode && !pluginActive
+    readonly property bool overlayVisible: !petMode && !pluginActive
+    readonly property bool chromeVisible: !panelsHidden && overlayVisible
     readonly property real topInset: read("fullscreen", false) || petMode ? 0 : metrics.titleHeight
     readonly property real leftPanelEndX: panelsHidden || petMode || pluginActive ? 0 : metrics.panelBoundary
     readonly property real canvasLeft: leftPanelEndX
@@ -577,7 +578,7 @@ Item {
     InfoCard {
         id: infoCard
         objectName: "infoCard"
-        visible: desktop.chromeVisible && desktop.loaded && !desktop.read("infoCardHidden", false)
+        visible: desktop.overlayVisible && desktop.loaded && !desktop.read("infoCardHidden", false)
         width: Math.min(desktop.metrics.s(370), Math.max(0, desktop.width - desktop.canvasLeft - desktop.metrics.inset * 2))
         height: implicitHeight
         x: desktop.width - width - desktop.metrics.inset
@@ -587,7 +588,7 @@ Item {
     Column {
         id: dock
         objectName: "actionDock"
-        visible: desktop.chromeVisible && desktop.loaded && !desktop.read("exportButtonHidden", false)
+        visible: desktop.overlayVisible && desktop.loaded && !desktop.read("exportButtonHidden", false)
         anchors.right: parent.right
         anchors.rightMargin: desktop.metrics.inset
         y: desktop.height - height - desktop.metrics.inset

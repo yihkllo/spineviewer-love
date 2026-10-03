@@ -53,13 +53,18 @@ Column {
                 }
             }
             Rectangle {
-                width: picker.metrics.s(10); height: width; radius: width/2
+                width: picker.metrics.s(16); height: width; radius: width/2
                 x: Math.max(0,Math.min(square.width-width,picker.saturation*square.width-width/2))
                 y: Math.max(0,Math.min(square.height-height,(1-picker.brightness)*square.height-height/2))
-                color: "transparent"; border.color: "white"; border.width: 2*picker.metrics.pixel
+                color: "transparent"; border.color: "black"; border.width: picker.metrics.pixel
+                Rectangle {
+                    anchors.fill: parent; anchors.margins: picker.metrics.pixel; radius: width/2
+                    color: "transparent"; border.color: "white"; border.width: 2*picker.metrics.pixel
+                }
             }
             MouseArea {
                 anchors.fill: parent
+                preventStealing: true
                 function applyPoint(x,y) { picker.saturation=Math.max(0,Math.min(1,x/width)); picker.brightness=1-Math.max(0,Math.min(1,y/height)); picker.edited(picker.currentColor); }
                 onPressed: function(mouse) { applyPoint(mouse.x,mouse.y); }
                 onPositionChanged: function(mouse) { if(pressed) applyPoint(mouse.x,mouse.y); }
@@ -81,6 +86,7 @@ Column {
             Rectangle { width: parent.width+4*picker.metrics.pixel; height: 3*picker.metrics.pixel; x:-2*picker.metrics.pixel; y:Math.max(0,Math.min(hueBar.height-height,picker.hue*hueBar.height)); color: "white"; border.color: "black"; border.width: picker.metrics.pixel }
             MouseArea {
                 anchors.fill: parent
+                preventStealing: true
                 function applyPoint(y) { picker.hue=Math.max(0,Math.min(.999999,y/height));picker.edited(picker.currentColor); }
                 onPressed: function(mouse) { applyPoint(mouse.y); }
                 onPositionChanged: function(mouse) { if(pressed)applyPoint(mouse.y); }

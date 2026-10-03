@@ -175,6 +175,9 @@ Item {
             ui.panelsHidden = true;
             compare(ui.canvasLeft,0);
             verify(!findChild(ui,"leftPanel").visible);
+            backend.state = {devicePixelRatio:1, loaded:true};
+            verify(findChild(ui,"infoCard").visible);
+            verify(findChild(ui,"actionDock").visible);
             ui.panelsHidden = false;
             verify(Math.abs(ui.canvasLeft - 528) < .001);
         }

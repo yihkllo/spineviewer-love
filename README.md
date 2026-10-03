@@ -9,7 +9,7 @@
 
 ![Platform](https://img.shields.io/badge/平台-Windows%2010%2B-0078D6?logo=windows&logoColor=white)
 ![Renderer](https://img.shields.io/badge/渲染-Direct3D%2011-7B4FFF?logo=microsoft)
-![Spine](https://img.shields.io/badge/Spine-2.1%20→%204.2-FF6E1F)
+![Spine](https://img.shields.io/badge/Spine-2.1%20→%204.3-FF6E1F)
 ![C++](https://img.shields.io/badge/C%2B%2B-17-00599C?logo=cplusplus&logoColor=white)
 [![License](https://img.shields.io/badge/许可-参见%20LICENSE-2EA44F)](LICENSE)
 [![English](https://img.shields.io/badge/docs-English-EE6677)](README_en.md)
@@ -27,7 +27,7 @@ https://github.com/user-attachments/assets/64a22970-a8b3-4bf8-8602-2b73ca88a30f
 ## ✨ 功能
 
 - **Live2D 支持（新增）** —— 左上角可切换至 Live2D 工作区
-- **Spine 运行时支持版本** —— 2.1、3.1、3.4、3.5、3.6、3.7、3.8、4.0、4.1、4.2
+- **Spine 运行时支持版本** —— 2.1、3.1、3.4、3.5、3.6、3.7、3.8、4.0、4.1、4.2、4.3
 - **文件区浏览** —— 文件区支持收藏、锁定文件位置，快速切换，多模型导入（右键其中一个文件即可）
 - **多 Spine 图层组合** —— 同一画布叠加多个骨骼，可重排、隐藏、统一移动
 - **动画队列** —— 串联多个动画，顺序播放或一次性导出
@@ -56,7 +56,7 @@ https://github.com/user-attachments/assets/64a22970-a8b3-4bf8-8602-2b73ca88a30f
 | --- | --- |
 | 骨骼文件 | `.skel`、`.skel.bytes`、`.json`；支持读取 `.zip` 中的导出资源 |
 | Atlas 文件 | `.atlas`、`.atlas.txt`（同名，放在骨骼文件旁） |
-| Spine 版本 | **2.1** · **3.1** · **3.4** · **3.5** · **3.6** · **3.7** · **3.8** · **4.0** · **4.1** · **4.2** |
+| Spine 版本 | **2.1** · **3.1** · **3.4** · **3.5** · **3.6** · **3.7** · **3.8** · **4.0** · **4.1** · **4.2** · **4.3** |
 | Live2D 模型 | Cubism 3 及以上的 `.model3.json`（连同 `.moc3`、贴图、动作、表情、语音一起加载）；Cubism 2 的 `.model.json` 不支持 |
 | 背景图 | PNG / JPG，可参与截图、帧序列与视频导出 |
 | 图层 | 单个 Spine，或多个 Spine 在同一画布上组合 |

@@ -162,7 +162,7 @@ struct Live2DBridge::Impl {
         QString manifest;
         std::string motion, expression;
         float scale = 1, speed = 1, offsetX = 0, offsetY = 0, volume = 0.8f;
-        bool loopAll = false, queuePlaying = false;
+        bool loopAll = true, queuePlaying = false;
         std::size_t queueIndex = 0;
         live2d::EffectSettings effects;
         live2d::DragSettings gaze;

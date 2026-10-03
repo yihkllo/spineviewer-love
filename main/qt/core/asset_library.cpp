@@ -8,7 +8,10 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QLocale>
+#include <QRegularExpression>
 
 #include <algorithm>
 
@@ -71,9 +74,26 @@ QStringList scan(const QString& folder, bool live2d)
     const int maximumDepth = live2d ? AssetLibrary::Live2DMaximumDepth : AssetLibrary::SpineMaximumDepth;
     while (!pending.isEmpty()) {
         const auto current = pending.takeLast();
-        const auto entries = QDir(current.path).entryInfoList(
+        const QDir directory(current.path);
+        const auto entries = directory.entryInfoList(
             QDir::Files | QDir::Dirs | QDir::Hidden | QDir::System | QDir::NoDotAndDotDot,
             QDir::NoSort);
+        QStringList atlasNames;
+        bool atlasNamesLoaded = false;
+        const auto hasAtlas = [&](const QString& path) {
+            const QString stem = AssetLibrary::skeletonStem(path);
+            if (QFileInfo(directory.filePath(stem + QStringLiteral(".atlas"))).isFile())
+                return true;
+            if (!atlasNamesLoaded) {
+                atlasNames = directory.entryList(QDir::Files | QDir::Hidden | QDir::System, QDir::Name);
+                atlasNames.removeIf([](const QString& name) {
+                    return !name.endsWith(QLatin1String(".atlas"), Qt::CaseInsensitive)
+                        && !name.endsWith(QLatin1String(".atlas.txt"), Qt::CaseInsensitive);
+                });
+                atlasNamesLoaded = true;
+            }
+            return !AssetLibrary::chooseAtlas(stem, atlasNames).isEmpty();
+        };
         for (const auto& entry : entries) {
             if (entry.isDir()) {
                 if (current.depth < maximumDepth && !entry.isSymLink())
@@ -87,10 +107,19 @@ QStringList scan(const QString& folder, bool live2d)
                 result.append(live2d ? ArchiveCache::listLive2D(path) : ArchiveCache::listSpine(path));
                 continue;
             }
-            if (live2d ? AssetLibrary::isLive2DFileName(path)
-                       : AssetLibrary::isSpineFileName(path) && !AssetLibrary::isUnityComponentFile(path, entry.size())
-                                     && !AssetLibrary::matchingAtlas(path).isEmpty())
-                result.append(path);
+            if (live2d) {
+                if (AssetLibrary::isLive2DFileName(path))
+                    result.append(path);
+                continue;
+            }
+            if (!AssetLibrary::isSpineFileName(path) || AssetLibrary::isUnityComponentFile(path, entry.size()) || !hasAtlas(path))
+                continue;
+            if (AssetLibrary::isNumberedUnityComponentFile(path, entry.size())) {
+                QFile file(path);
+                if (file.open(QIODevice::ReadOnly) && AssetLibrary::isUnityComponentData(file.read(65536)))
+                    continue;
+            }
+            result.append(path);
         }
     }
     AssetLibrary::naturalSort(result);
@@ -134,6 +163,32 @@ bool AssetLibrary::isUnityComponentFile(const QString& path, qint64 size)
     const QString stem = QFileInfo(path).completeBaseName();
     return stem.endsWith(QLatin1String("_Atlas"), Qt::CaseInsensitive)
         || stem.endsWith(QLatin1String("_SkeletonData"), Qt::CaseInsensitive);
+}
+
+bool AssetLibrary::isNumberedUnityComponentFile(const QString& path, qint64 size)
+{
+    if (size < 0 || size > 65536 || !path.endsWith(QLatin1String(".json"), Qt::CaseInsensitive))
+        return false;
+    static const QRegularExpression suffix(
+        QStringLiteral(R"(_(?:Atlas|SkeletonData)(?:\s*#\d+|\s*\(\d+\)|\s+\d+)+$)"),
+        QRegularExpression::CaseInsensitiveOption);
+    return suffix.match(QFileInfo(path).completeBaseName()).hasMatch();
+}
+
+bool AssetLibrary::isUnityComponentData(const QByteArray& bytes)
+{
+    const auto probe = sl_skeleton_probe::Inspect(
+        reinterpret_cast<const unsigned char*>(bytes.constData()), size_t(bytes.size()));
+    if (probe.IsSpineSkeleton())
+        return false;
+    const auto document = QJsonDocument::fromJson(bytes);
+    if (!document.isObject())
+        return false;
+    const auto object = document.object();
+    return object.contains(QStringLiteral("m_GameObject"))
+        || (object.contains(QStringLiteral("m_Script"))
+            && (object.contains(QStringLiteral("atlasFile")) || object.contains(QStringLiteral("atlasAssets"))
+                || object.contains(QStringLiteral("skeletonJSON"))));
 }
 
 QString AssetLibrary::skeletonStem(const QString& path)

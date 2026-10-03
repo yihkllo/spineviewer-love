@@ -1453,7 +1453,7 @@ namespace
         std::vector<bool> m_nativeVisibilityUpdated;
 		std::vector<bool> m_transparentDrawables;
 		bool m_oneShotActive = false;
-		bool m_forceLoop = false;
+		bool m_forceLoop = true;
 		bool m_hasIdleGroup = false;
 		int m_lastIdleMotion = -1;
 		int m_returnMotion = -1;
@@ -1493,7 +1493,7 @@ struct live2d::Live2DModule::Impl
 	live2d::EffectSettings effects;
 	float exportRestoreTimeScale = 1.0f;
 	bool initialized = false;
-	bool loopAll = false;
+	bool loopAll = true;
 	float voiceVolume = 0.8f;
 	unsigned int modelGeneration = 0;
 };

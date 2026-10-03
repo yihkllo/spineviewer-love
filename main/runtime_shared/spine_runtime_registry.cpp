@@ -613,6 +613,7 @@ namespace
 			if (auto* runtime = SelectedRuntime())
 			{
 				InvalidateProbeFrame();
+				InvalidateContentSize();
                 runtime->ApplyLook(szSkinName);
                 m_currentSkinName = szSkinName ? szSkinName : "";
                 if (SpineLayer* layer = ActiveLayer()) layer->skinName = m_currentSkinName;
@@ -695,6 +696,7 @@ namespace
 			auto* runtime = SelectedRuntime();
 			if (!runtime) return false;
 			InvalidateProbeFrame();
+			InvalidateContentSize();
 			sl_runtime_v2::SlotAttachmentMode mode = sl_runtime_v2::SlotAttachmentMode::Preserve;
 			if (attachmentMode == SlSlotAttachmentMode::SetupIfEmpty)
 				mode = sl_runtime_v2::SlotAttachmentMode::SetupIfEmpty;
@@ -709,19 +711,24 @@ namespace
 			if (auto* runtime = SelectedRuntime())
 			{
 				InvalidateProbeFrame();
+				InvalidateContentSize();
 				runtime->ClearSlotOverrides();
 			}
 		}
 		void SetHiddenSlots(const std::vector<std::string>& slotNames) override
 		{
 			if (SpineLayer* layer = ActiveLayer())
+			{
 				layer->excludedSlots = slotNames;
+				layer->contentSizeValid = false;
+			}
 		}
 		void ComposeLooks(const SlNameList& looks) override
 		{
 			if (auto* runtime = SelectedRuntime())
 			{
 				InvalidateProbeFrame();
+				InvalidateContentSize();
                 runtime->ComposeLooks(looks);
                 m_currentSkinName = looks.empty() ? std::string{} : looks.back();
                 if (SpineLayer* layer = ActiveLayer()) layer->skinName = m_currentSkinName;
@@ -732,6 +739,7 @@ namespace
 			if (auto* runtime = SelectedRuntime())
 			{
 				InvalidateProbeFrame();
+				InvalidateContentSize();
 				return runtime->SetNativeSkinMix(names);
 			}
 			return false;
@@ -783,6 +791,9 @@ namespace
 			const auto* runtime = SelectedRuntime();
 			if (runtime == nullptr)
 				return SlVec2{ 0.f, 0.f };
+			const SpineLayer* layer = ActiveLayer();
+			if (layer != nullptr && layer->contentSizeValid)
+				return layer->contentSize;
 
 			if (m_probeFrameGeneration != m_stateGeneration)
 			{
@@ -794,7 +805,13 @@ namespace
 			if (!FindPoseBounds(m_probeFrame, bounds))
 				return SlVec2{ 0.f, 0.f };
 
-			return SlVec2{ bounds.maxX - bounds.minX, bounds.maxY - bounds.minY };
+			const SlVec2 size{ bounds.maxX - bounds.minX, bounds.maxY - bounds.minY };
+			if (layer != nullptr)
+			{
+				layer->contentSize = size;
+				layer->contentSizeValid = true;
+			}
+			return size;
 		}
 		SlVec2 ViewOffset() const noexcept override { return LayerOffset(m_selectedSpine); }
 		void SetViewOffset(float fX, float fY) noexcept override { ActiveLayerOffset() = SlVec2{ fX, fY }; }
@@ -1040,6 +1057,7 @@ namespace
 		}
 
 		void InvalidateProbeFrame() noexcept { ++m_stateGeneration; }
+		void InvalidateContentSize() noexcept { if (SpineLayer* layer = ActiveLayer()) layer->contentSizeValid = false; }
 
 		SpineLayer* LayerAt(size_t index) noexcept
 		{
@@ -1540,6 +1558,8 @@ namespace
             std::string skinName;
 			float animationTime = 0.0f;
 			float motionDuration = 0.0f;
+			mutable SlVec2 contentSize{ 0.f, 0.f };
+			mutable bool contentSizeValid = false;
 		};
 
 		SlRuntimeHub::RuntimeLane m_slot;

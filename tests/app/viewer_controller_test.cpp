@@ -142,6 +142,11 @@ private slots:
         preferences.remove("language");preferences.sync();
         ViewerController c;QCOMPARE(c.state().value("language").toString(),QString("zh_CN"));
     }
+    void renderBackgroundColorSurvivesRestart(){
+        {ViewerController c;c.dispatch("background.setColor","#ffffffff");}
+        {ViewerController c;QCOMPARE(c.state().value("renderBackground").toString(),QString("#ffffffff"));c.dispatch("background.resetColor");}
+        ViewerController c;QCOMPARE(c.state().value("renderBackground").toString(),QString("#ff000000"));
+    }
     void onlyChineseAndEnglishAreOffered(){
         ViewerController c;
         c.dispatch("settings.language","ja_JP");QCOMPARE(c.state().value("language").toString(),QString("zh_CN"));

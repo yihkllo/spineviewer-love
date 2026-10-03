@@ -251,6 +251,7 @@ QStringList ArchiveCache::listSpine(const QString& archivePath, QString* error)
         } else {
             QHash<QString, QStringList> folders;
             QHash<QString, qint64> sizes;
+            QHash<QString, QString> entryNames;
             for (const auto& entry : entries) {
                 if (!entry.isFile)
                     continue;
@@ -260,6 +261,7 @@ QStringList ArchiveCache::listSpine(const QString& archivePath, QString* error)
                 const int slash = name.lastIndexOf(QLatin1Char('/'));
                 folders[slash < 0 ? QString{} : name.left(slash)].append(name.mid(slash + 1));
                 sizes.insert(name, entry.size);
+                entryNames.insert(name, entry.filePath);
             }
             for (auto folder = folders.cbegin(); folder != folders.cend(); ++folder) {
                 QSet<QString> binaries;
@@ -267,10 +269,14 @@ QStringList ArchiveCache::listSpine(const QString& archivePath, QString* error)
                 for (const QString& name : folder.value()) {
                     if (!AssetLibrary::isSpineFileName(name))
                         continue;
-                    if (AssetLibrary::isUnityComponentFile(name, sizes.value(folder.key().isEmpty() ? name : folder.key() + QLatin1Char('/') + name, -1)))
+                    const QString entryName = folder.key().isEmpty() ? name : folder.key() + QLatin1Char('/') + name;
+                    if (AssetLibrary::isUnityComponentFile(name, sizes.value(entryName, -1)))
                         continue;
                     const QString stem = AssetLibrary::skeletonStem(name);
                     if (AssetLibrary::chooseAtlas(stem, folder.value()).isEmpty())
+                        continue;
+                    if (AssetLibrary::isNumberedUnityComponentFile(name, sizes.value(entryName, -1))
+                        && AssetLibrary::isUnityComponentData(zip.fileData(entryNames.value(entryName))))
                         continue;
                     candidates.append(name);
                     if (!AssetLibrary::isJsonSkeletonName(name))

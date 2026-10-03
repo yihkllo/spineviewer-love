@@ -102,6 +102,7 @@ ViewerController::ViewerController(QObject* parent):QObject(parent),m_settings(Q
     QVariantList languages;for(const auto& language:uiLanguages)
         languages.append(QVariantMap{{"id",QString::fromLatin1(language.id)},{"name",QString::fromUtf8(language.name)}});
     m_state["languages"]=languages;
+    {const QColor saved(m_settings.value("renderBackground").toString());if(saved.isValid())m_clearColor=saved;}
     m_settings.remove("renderSizeCustom");
     m_settings.remove("renderWindowWidth");
     m_settings.remove("renderWindowHeight");
@@ -876,9 +877,9 @@ void ViewerController::dispatch(const QString& c,const QVariant& v){
             else if(m_selectedBackground>=0){if(from<m_selectedBackground&&to>=m_selectedBackground)--m_selectedBackground;else if(from>m_selectedBackground&&to<=m_selectedBackground)++m_selectedBackground;}
         }
     }
-    else if(c=="background.color"){m_modal=true;auto color=QColorDialog::getColor(m_clearColor);m_modal=false;if(color.isValid())m_clearColor=color;}
-    else if(c=="background.setColor"){const QColor color(v.toString());if(color.isValid())m_clearColor=color;}
-    else if(c=="background.resetColor")m_clearColor=Qt::black;
+    else if(c=="background.color"){m_modal=true;auto color=QColorDialog::getColor(m_clearColor);m_modal=false;if(color.isValid()){m_clearColor=color;m_settings.setValue("renderBackground",color.name(QColor::HexArgb));}}
+    else if(c=="background.setColor"){const QColor color(v.toString());if(color.isValid()){m_clearColor=color;m_settings.setValue("renderBackground",color.name(QColor::HexArgb));}}
+    else if(c=="background.resetColor"){m_clearColor=Qt::black;m_settings.remove("renderBackground");}
     else if(c=="stage.decor"){m_state["stageDecor"]=v.toBool();m_settings.setValue("stageDecor",v.toBool());m_state["stageChecker"]=false;m_settings.setValue("stageChecker",false);}
     else if(c=="stage.decorStyle"){m_state["stageDecorStyle"]=std::clamp(index,0,1);m_settings.setValue("stageDecorStyle",std::clamp(index,0,1));}
     else if(c=="stage.checker"){m_state["stageChecker"]=v.toBool();m_settings.setValue("stageChecker",v.toBool());if(v.toBool()){m_state["stageDecor"]=false;m_settings.setValue("stageDecor",false);}}

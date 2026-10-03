@@ -173,10 +173,28 @@ int main(int argc, char** argv)
         check(found.contains(real) && found.contains(sibling), "real skeletons beside Unity component files stay listed");
         check(!found.contains(atlasInfo) && !found.contains(dataInfo), "small Unity _Atlas and _SkeletonData component files are not listed");
         check(found.contains(bigData), "a skeleton larger than 16 KB is kept even with a component-like name");
+        const QByteArray component = "{\"m_GameObject\":{},\"m_Script\":{},\"atlasAssets\":[]}";
+        const QStringList duplicateNames{"hero_Atlas #40224.json", "hero_SkeletonData #41138.json",
+                                         "hero_atlas (2).JSON", "hero_SkeletonData 3.json", "hero_Atlas #12 (2).json"};
+        for (const auto& name : duplicateNames)
+            check(writeFile(QDir(unity).filePath(name), component), "numbered component fixture exists");
+        const QString genuine = QDir(unity).filePath("hero_Atlas #99.json");
+        check(writeFile(genuine, skeletonJson()), "genuine skeleton with a numbered component-like name exists");
+        const auto numbered = slqt::AssetLibrary::scanSpine(unity);
+        for (const auto& name : duplicateNames)
+            check(!numbered.contains(QDir(unity).filePath(name)), "numbered Unity components stay out of the model list");
+        check(numbered.contains(genuine), "content keeps genuine skeletons with numbered component-like names");
         const QString zipPath = QDir(root).filePath("unity.zip");
         check(writeZip(zipPath, {{"m/hero.json", skeletonJson()}, {"m/hero.atlas", "page.png\nsize: 1,1\n"}, {"m/hero_Atlas.json", "{\"m_GameObject\":{}}"}, {"m/hero_SkeletonData.json", "{\"m_GameObject\":{}}"}}), "Unity zip fixture exists");
         const auto zipped = slqt::ArchiveCache::listSpine(zipPath);
         check(zipped.size() == 1 && zipped.front().endsWith("m/hero.json"), "archives skip Unity component files too");
+        const QString duplicateZip = QDir(root).filePath("unity-numbered.zip");
+        check(writeZip(duplicateZip, {{"m/hero.json", skeletonJson()}, {"m/hero.atlas", "page.png\nsize: 1,1\n"},
+                                     {"m/hero_Atlas #40224.json", component}, {"m/hero_SkeletonData (2).json", component},
+                                     {"m/hero_Atlas #99.json", skeletonJson()}}), "numbered archive fixture exists");
+        const auto numberedArchive = slqt::ArchiveCache::listSpine(duplicateZip);
+        check(numberedArchive.size() == 2 && numberedArchive.contains(duplicateZip + "/m/hero.json")
+              && numberedArchive.contains(duplicateZip + "/m/hero_Atlas #99.json"), "archive filtering removes numbered metadata and preserves genuine skeletons");
     }
     {
         const QString texts = QDir(root).filePath("texts");
@@ -303,6 +321,37 @@ int main(int argc, char** argv)
     check(QFileInfo(opened).isFile() && slqt::AssetLibrary::inspect(opened).isValid(), "listed archive model extracts and inspects on demand");
     check(slqt::ArchiveCache::displayPath(opened) == bundle + "/export/b-pro.json", "extracted model maps back to its listed path");
     slqt::ArchiveCache::setRoot({});
+
+    {
+        const QString folder = temporary.filePath("atlas-index");
+        const QString other = temporary.filePath("atlas-index-other");
+        check(QDir().mkpath(folder) && QDir().mkpath(other), "independent atlas directories exist");
+        const QStringList names{"shared_idle.json", "shared-run.skel", "sharedExtra.json", "text.json.txt", "upper.skel.bytes", "pending.json"};
+        for (const auto& name : names)
+            check(writeFile(QDir(folder).filePath(name), skeletonJson()), "atlas lookup candidate exists");
+        check(writeFile(folder + "/shared-pma.atlas", "page.png\nsize: 1,1\n")
+              && writeFile(folder + "/text.atlas.txt", "page.png\nsize: 1,1\n")
+              && writeFile(folder + "/UPPER.ATLAS", "page.png\nsize: 1,1\n"), "shared, text and uppercase atlases exist");
+        const auto expected = [&] {
+            QStringList result;
+            for (const auto& name : names) {
+                const auto path = QDir(folder).filePath(name);
+                if (!slqt::AssetLibrary::matchingAtlas(path).isEmpty())
+                    result.append(path);
+            }
+            slqt::AssetLibrary::naturalSort(result);
+            return result;
+        };
+        check(slqt::AssetLibrary::scanSpine(folder) == expected(), "directory lookup preserves direct atlas matching and natural order");
+        check(writeFile(other + "/shared_idle.json", skeletonJson()), "unpaired candidate in another directory exists");
+        check(slqt::AssetLibrary::scanSpine(other).isEmpty(), "atlas lookup stays within its own directory");
+        check(writeFile(folder + "/pending.atlas", "page.png\nsize: 1,1\n"), "new atlas appears between scans");
+        check(slqt::AssetLibrary::scanSpine(folder) == expected()
+              && slqt::AssetLibrary::scanSpine(folder).contains(folder + "/pending.json"), "a later scan observes added atlases");
+        check(QFile::remove(folder + "/shared-pma.atlas"), "shared atlas is removed between scans");
+        check(slqt::AssetLibrary::scanSpine(folder) == expected()
+              && !slqt::AssetLibrary::scanSpine(folder).contains(folder + "/shared_idle.json"), "a later scan observes removed atlases");
+    }
 
     qInfo() << (failures == 0 ? "Asset-library compatibility checks passed." : "Asset-library compatibility checks failed.")
             << failures;

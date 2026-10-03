@@ -10,7 +10,7 @@
 
 ![Platform](https://img.shields.io/badge/Platform-Windows%2010%2B-0078D6?logo=windows&logoColor=white)  
 ![Renderer](https://img.shields.io/badge/Renderer-Direct3D%2011-7B4FFF?logo=microsoft)  
-![Spine](https://img.shields.io/badge/Spine-2.1%20→%204.2-FF6E1F)  
+![Spine](https://img.shields.io/badge/Spine-2.1%20→%204.3-FF6E1F)  
 ![C++](https://img.shields.io/badge/C%2B%2B-17-00599C?logo=cplusplus&logoColor=white)  
 ![License](https://img.shields.io/badge/License-see%20LICENSE-2EA44F)  
 ![简体中文](https://img.shields.io/badge/docs-简体中文-EE6677)
@@ -22,7 +22,7 @@
 ## ✨ Features
 
 - **Live2D support (new)** — switch to the Live2D workspace from the top-left corner
-- **Supported Spine runtimes** — 2.1, 3.1, 3.4, 3.5, 3.6, 3.7, 3.8, 4.0, 4.1, 4.2
+- **Supported Spine runtimes** — 2.1, 3.1, 3.4, 3.5, 3.6, 3.7, 3.8, 4.0, 4.1, 4.2, 4.3
 - **Recursive folder browsing** — favorites and arrow-key navigation
 - **Multi-Spine layer compositing** — stack several skeletons on one canvas; reorder, hide, or move them together
 - **Animation queue** — chain multiple animations to play in order or export in one go
@@ -54,7 +54,7 @@ Switch under **Setting → Language** in the top-left corner; the choice is reme
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | Skeleton files   | `.skel`, `.skel.bytes`, `.json`; exported assets inside `.zip` archives |
 | Atlas files      | `.atlas`, `.atlas.txt` (same name, next to the skeleton file)                                                                 |
-| Spine versions   | **2.1** · **3.1** · **3.4** · **3.5** · **3.6** · **3.7** · **3.8** · **4.0** · **4.1** · **4.2**                             |
+| Spine versions   | **2.1** · **3.1** · **3.4** · **3.5** · **3.6** · **3.7** · **3.8** · **4.0** · **4.1** · **4.2** · **4.3**                             |
 | Live2D models    | Cubism 3+ `.model3.json` (loaded together with `.moc3`, textures, motions, expressions and voice); Cubism 2 `.model.json` is not supported |
 | Background image | PNG / JPG; included in screenshots, frame sequences and video export                                                          |
 | Layers           | A single Spine, or several Spines composed on one canvas                                                                      |

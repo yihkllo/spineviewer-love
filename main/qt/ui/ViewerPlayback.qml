@@ -13,7 +13,7 @@ Column {
         metrics: playback.shell.metrics; theme: playback.shell.theme
         lineHeight: playback.switchText
         font.variableAxes: ({ "wght": 600 })
-        text: qsTr("Loop All"); checked: playback.shell.read("loopAll", false)
+        text: qsTr("Loop All"); checked: playback.shell.read("loopAll", true)
         tip: qsTr("Loop every motion instead of returning to Idle")
         enabled: playback.shell.can("live2d.loopAll")
         onClicked: playback.shell.send("live2d.loopAll", checked)
